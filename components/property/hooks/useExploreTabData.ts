@@ -31,6 +31,7 @@ import { getPropertyGroundTruth } from '../../../services/firebase/orientation_h
 import { getSchoolCacheKey } from '../../../prompts/property/schoolsAnalysis';
 import { fetchCensusDemographics, fetchMicroclimateDelta, CensusDemographics, MicroclimateDelta } from '../../../services/api/environmental';
 import { extractDeepResearchInsights, analyzeLifestyleInsights, analyzeLifestyleFit, analyzeSchool } from '../../../services/geminiService';
+import { prefetchExploreCache } from '../../../services/exploreCachePrefetch';
 
 type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
 
@@ -293,20 +294,22 @@ export function useExploreTabData({
             }
 
             try {
-                const cityStateKey = generateCityStateKey(propertyData.city, propertyData.state);
-                console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read start for zpid=${zpid}`);
+                console.log(`[⏱ ExploreTab] +${_elapsed()} — awaiting prefetched cache bundle for zpid=${zpid}`);
 
-                const [visualCache, investmentCache, deepResearchCache, communityPulseCache, interiorCache, orientationGTCache, envCache, femaNriCache] = await Promise.all([
-                    getVisualAnalysisFromCloud(zpid),
-                    getPropertyInvestmentFromCloud(zpid),
-                    cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
-                    cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
-                    getInteriorSummaryFromCloud(zpid),
-                    getPropertyGroundTruth(zpid),
-                    getEnvironmentalDataFromCloud(zpid),
-                    getFemaNriFromCloud(zpid),
-                ]);
-                console.log(`[⏱ ExploreTab] +${_elapsed()} — cache read done. Env: ${!!envCache ? 'Found' : 'Missing'}, FEMA: ${!!femaNriCache ? 'Found' : 'Missing'}`);
+                // Reuses the in-flight promise kicked off by fetchPropertyDataFull
+                // the moment the zpid was known — typically already resolved by the
+                // time we get here, so this is effectively a no-op await.
+                const {
+                    visualCache,
+                    investmentCache,
+                    deepResearchCache,
+                    communityPulseCache,
+                    interiorCache,
+                    orientationGTCache,
+                    envCache,
+                    femaNriCache,
+                } = await prefetchExploreCache(zpid, propertyData.city, propertyData.state);
+                console.log(`[⏱ ExploreTab] +${_elapsed()} — cache bundle ready. Env: ${!!envCache ? 'Found' : 'Missing'}, FEMA: ${!!femaNriCache ? 'Found' : 'Missing'}`);
 
                 if (cancelled) return;
 

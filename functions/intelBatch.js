@@ -16,7 +16,7 @@ const UsageLogger = require('./shared/usageLogger');
 const INTEL_CONCURRENCY = 5;
 const DELAY_MS = 500;
 const MAX_GALLERY_IMAGES = 15;
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-2.5-flash-lite';
 const TIMEOUT_SAFETY_MARGIN_MS = 90000; // 90 seconds safety margin
 const MAX_EXECUTION_TIME_MS = 540000; // 9 minutes
 

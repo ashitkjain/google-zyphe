@@ -16,7 +16,7 @@
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { calculateZypheNoiseScore } = require('./shared/osmNoise');
-const { _enrichNearbyPlaces, _enrichBroadband, _enrichDrought, _enrichEVChargers, _enrichHistoricalDisasters, ENV_SCHEMA_VERSION } = require('./shared/propertyUtils');
+const { _enrichNearbyPlaces, _enrichBroadband, _enrichDrought, _enrichEVChargers, _enrichFaults, _enrichHistoricalDisasters, ENV_SCHEMA_VERSION } = require('./shared/propertyUtils');
 
 try { admin.initializeApp({ projectId: 'zyphe-af0bf' }); } catch (e) {}
 const db = admin.firestore();
@@ -63,6 +63,7 @@ async function diagAndHeal(zpid) {
         { name: 'broadband',              present: !!env.broadband },
         { name: 'drought',                present: !!env.drought },
         { name: 'evChargers',             present: !!env.evChargers },
+        { name: 'faults',                 present: !!env.faults },
         { name: 'google_places',          present: !!env.google_places },
         { name: 'historical_disasters',   present: !!env.historical_disasters?.seismicZone },
     ];
@@ -221,6 +222,15 @@ async function diagAndHeal(zpid) {
         process.stdout.write('    → EV Chargers... ');
         try {
             await _enrichEVChargers(zpid, db, lat, lng);
+            console.log('✅');
+        } catch (e) { console.log(`❌ ${e.message}`); }
+    }
+
+    // Faults
+    if (!env.faults) {
+        process.stdout.write('    → Faults... ');
+        try {
+            await _enrichFaults(zpid, db, lat, lng);
             console.log('✅');
         } catch (e) { console.log(`❌ ${e.message}`); }
     }

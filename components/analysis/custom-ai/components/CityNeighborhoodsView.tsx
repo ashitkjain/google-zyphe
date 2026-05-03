@@ -90,8 +90,9 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
         if (nhFilter !== 'all' && n.price_context?.tier !== nhFilter) return false;
         if (nhSearch) {
             const q = nhSearch.toLowerCase();
-            return n.neighborhood_name?.toLowerCase().includes(q) ||
-                n.alternative_names?.some((a: string) => a.toLowerCase().includes(q)) ||
+            const name = typeof n.neighborhood_name === 'string' ? n.neighborhood_name : (n.neighborhood_name?.social || n.neighborhood_name?.legal_subdivision || '');
+            return name.toLowerCase().includes(q) ||
+                n.alternative_names?.some((a: string) => typeof a === 'string' && a.toLowerCase().includes(q)) ||
                 n.character?.description?.toLowerCase().includes(q);
         }
         return true;
@@ -236,7 +237,11 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                                                 <i className={`fa-solid ${icon} text-lg`}></i>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-black text-gray-900 text-lg tracking-tight truncate">{n.neighborhood_name}</h4>
+                                                <h4 className="font-black text-gray-900 text-lg tracking-tight truncate">
+                                                    {typeof n.neighborhood_name === 'string' 
+                                                        ? n.neighborhood_name 
+                                                        : (n.neighborhood_name?.social || n.neighborhood_name?.legal_subdivision || 'Unnamed Neighborhood')}
+                                                </h4>
                                             </div>
                                             <span className={`text-[10px] font-black px-3 py-1.5 rounded-full shrink-0 ${getTierColor(n.price_context?.tier)}`}>
                                                 {n.price_context?.tier || 'N/A'}

@@ -333,12 +333,12 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                     </thead>
                                     <tbody className="text-[12px] font-medium text-slate-600">
                                         {[
-                                            { name: 'Commute Destinations', trigger: 'Narrative Search Bar', model: 'gemini-2.0-flash-lite', tokens: '30k - 50k' },
-                                            { name: 'Zyphe Valuation (ARV)', trigger: 'Valuation Engine Tab', model: 'gemini-2.0-flash-lite', tokens: '15k - 25k' },
-                                            { name: 'Land Utility / Slope', trigger: 'Investment Research Tab', model: 'gemini-2.0-flash-lite', tokens: '10k - 15k' },
-                                            { name: 'Comp Normalization', trigger: 'Comparables Table', model: 'gemini-2.0-flash-lite', tokens: '8k - 12k' },
-                                            { name: 'Lead Reactivation', trigger: 'CRM Communication Hub', model: 'gemini-2.0-flash-lite', tokens: '5k - 10k' },
-                                            { name: 'Interior/Room Summary', trigger: 'Property Overview Tab', model: 'gemini-2.0-flash-lite', tokens: '5k - 10k' }
+                                            { name: 'Commute Destinations', trigger: 'Narrative Search Bar', model: 'gemini-2.5-flash-lite', tokens: '30k - 50k' },
+                                            { name: 'Zyphe Valuation (ARV)', trigger: 'Valuation Engine Tab', model: 'gemini-2.5-flash-lite', tokens: '15k - 25k' },
+                                            { name: 'Land Utility / Slope', trigger: 'Investment Research Tab', model: 'gemini-2.5-flash-lite', tokens: '10k - 15k' },
+                                            { name: 'Comp Normalization', trigger: 'Comparables Table', model: 'gemini-2.5-flash-lite', tokens: '8k - 12k' },
+                                            { name: 'Lead Reactivation', trigger: 'CRM Communication Hub', model: 'gemini-2.5-flash-lite', tokens: '5k - 10k' },
+                                            { name: 'Interior/Room Summary', trigger: 'Property Overview Tab', model: 'gemini-2.5-flash-lite', tokens: '5k - 10k' }
                                         ].map((row, i) => (
                                             <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-6 py-4 border-b border-slate-100 font-bold text-slate-900">{row.name}</td>

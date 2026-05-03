@@ -476,12 +476,10 @@ function extractMetadata(response: any) {
 const MODEL_PRICING: Record<string, { input: number, output: number, cached?: number }> = {
   'gemini-2.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.5-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
-  'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
-  'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
   'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000, cached: 0.3125 / 1000000 },
   'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
   'gemini-3-flash-preview': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  'gemini-3-pro-preview': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
+  'gemini-2.5-flash-lite': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
 };
 
 function calculateUsage(response: any, modelName: string): AIUsage {
@@ -881,7 +879,7 @@ export const extractContextGraphFactors = async (
   try {
     const dnaPrompt = getBuyerDnaCompressionPrompt(compactFactors);
     const dnaResult = await executeGeminiRequest<any>({
-      model: FLASH_MODEL,
+      model: FLASH_LITE_MODEL,
       contents: dnaPrompt,
       config: { temperature: 0.2, maxOutputTokens: 2048 },
       userId,
@@ -1016,7 +1014,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
 
   const prompt = getComprehensiveAnalysisPrompt(optimizedProp, optimizedVisual);
   return executeGeminiRequest<ComprehensiveAnalysisResult>({
-    model: FLASH_MODEL,
+    model: FLASH_LITE_MODEL,
     contents: prompt,
     config: { temperature: 0.7 },
     userId,
@@ -1319,7 +1317,7 @@ export const mineCityNeighborhoods = async (
   const discoveryPrompt = getCityNeighborhoodDiscoveryPrompt(city, state, knownFromProperties);
 
   const discoveryResult = await executeGeminiRequest<{ city: string; state: string; neighborhoods: { name: string; tier: string; has_hoa?: boolean; source?: string; latitude: number; longitude: number }[] }>({
-    model: 'gemini-3-pro-preview',
+    model: FLASH_LITE_MODEL,
     contents: discoveryPrompt,
     config: { tools: [groundingTool], temperature: 0.2, maxOutputTokens: 8192 },
     userId,
@@ -1355,7 +1353,7 @@ export const mineCityNeighborhoods = async (
     onLog?.(`[City Neighborhoods] Pass 1 returned nothing — falling back to single-pass mining.`);
     const prompt = getCityNeighborhoodMinerPrompt(city, state);
     const result = await executeGeminiRequest<CityNeighborhoodsResult>({
-      model: 'gemini-3-pro-preview',
+      model: FLASH_LITE_MODEL,
       contents: prompt,
       config: { tools: [groundingTool], temperature: 0.3, maxOutputTokens: 32768 },
       userId, zpid: cityStateKey, address: `${city}, ${state}`,
@@ -1392,7 +1390,7 @@ export const mineCityNeighborhoods = async (
 
     try {
       const enrichResult = await executeGeminiRequest<CityNeighborhoodsResult>({
-        model: 'gemini-3-pro-preview',
+        model: FLASH_LITE_MODEL,
         contents: enrichPrompt,
         config: { tools: [groundingTool], temperature: 0.3, maxOutputTokens: 16384 },
         userId, zpid: cityStateKey, address: `${city}, ${state}`,
@@ -1529,7 +1527,7 @@ export const analyzeNeighborhoodIdentity = async (property: PropertyData, userId
   console.log(`[Neighborhood Identity] Using full Gemini 3 Flash + Google Grounding for ${address}...`);
 
   return executeGeminiRequest<NeighborhoodIdentityResult>({
-    model: 'gemini-3-flash-preview',
+    model: FLASH_LITE_MODEL,
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.3 },
     userId,
@@ -1811,7 +1809,7 @@ export const fetchMitLivingWage = async (
   console.log(`[MIT Living Wage] Cache miss — fetching for ${locationTag}...`);
 
   const result = await executeGeminiRequest<MitLivingWageResult>({
-    model: 'gemini-3-flash-preview',  // supports both schema + grounding simultaneously
+    model: FLASH_LITE_MODEL,
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.1 },
     userId,

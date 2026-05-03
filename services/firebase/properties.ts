@@ -2113,28 +2113,41 @@ export const buildAddressIndex = async (city: string): Promise<number> => {
 /**
  * Load address index entries for one or more cities.
  * Returns a flat array of {address, zpid} pairs for instant client-side search.
+ *
+ * Promises are deduplicated per session by city-set key so that App.tsx's auth
+ * effect and useSearchTrie don't both hit Firestore for the same data.
  */
+const _addressIndexCache = new Map<string, Promise<AddressIndexEntry[]>>();
 export const loadAddressIndex = async (cities: string[]): Promise<AddressIndexEntry[]> => {
     if (!db || cities.length === 0) return [];
-    try {
-        const all: AddressIndexEntry[] = [];
-        for (const city of cities) {
-            const cityKey = city.toLowerCase().trim();
-            logFirestoreQuery('getDoc', 'address_index', { cityKey });
-            const snap = await getDoc(doc(db, "address_index", cityKey));
-            if (snap.exists()) {
-                const data = snap.data();
-                if (Array.isArray(data.entries)) {
-                    all.push(...data.entries);
+    const cacheKey = cities.map(c => c.toLowerCase().trim()).sort().join('|');
+    const inflight = _addressIndexCache.get(cacheKey);
+    if (inflight) return inflight;
+
+    const promise = (async () => {
+        try {
+            const all: AddressIndexEntry[] = [];
+            for (const city of cities) {
+                const cityKey = city.toLowerCase().trim();
+                logFirestoreQuery('getDoc', 'address_index', { cityKey });
+                const snap = await getDoc(doc(db, "address_index", cityKey));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (Array.isArray(data.entries)) {
+                        all.push(...data.entries);
+                    }
                 }
             }
+            console.log(`[AddressIndex] Loaded ${all.length} entries from ${cities.length} cities`);
+            return all;
+        } catch (error) {
+            handleFirestoreError(error, "loadAddressIndex");
+            _addressIndexCache.delete(cacheKey); // Allow retry on failure
+            return [];
         }
-        console.log(`[AddressIndex] Loaded ${all.length} entries from ${cities.length} cities`);
-        return all;
-    } catch (error) {
-        handleFirestoreError(error, "loadAddressIndex");
-        return [];
-    }
+    })();
+    _addressIndexCache.set(cacheKey, promise);
+    return promise;
 };
 
 /**

@@ -842,7 +842,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
         // 1. Research destinations via Gemini
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash-lite",
+            model: "gemini-2.5-flash-lite",
             tools: [{ googleSearch: {} }]
         });
 
@@ -859,7 +859,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
                 city,
                 state,
                 prompt_filename: 'commuteDestinationsAI',
-                llm_name: 'gemini-2.0-flash-lite',
+                llm_name: 'gemini-2.5-flash-lite',
                 usage_metadata: {
                     promptTokenCount: usage?.promptTokenCount || 0,
                     candidatesTokenCount: usage?.candidatesTokenCount || 0,

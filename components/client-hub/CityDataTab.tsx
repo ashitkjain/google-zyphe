@@ -137,6 +137,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         errorSummary?: { message: string; count: number; type: 'error' | 'warning' }[];
     } | null>(null);
     const [viewMode, setViewMode] = useState<'table' | 'ingestion' | 'audit' | 'monitoring'>('table');
+    const [monitoringFilter, setMonitoringFilter] = useState<string | null>(null);
     const [auditEntries, setAuditEntries] = useState<PipelineAuditEntry[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const [activeReportTab, setActiveReportTab] = useState<'ai' | 'api'>('ai');
@@ -285,6 +286,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             return () => clearInterval(interval);
         }
     }, [viewMode, fetchAllRecentJobs]);
+
 
     // ─── Universal Batch Job Listener ─────────────────────────────────────────
     useEffect(() => {
@@ -2261,6 +2263,12 @@ ${JSON.stringify(propertySummaries)}
         }
     }, []);
 
+    useEffect(() => {
+        if (viewMode === 'audit') {
+            loadAuditTrail();
+        }
+    }, [viewMode, loadAuditTrail]);
+
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
         const itemId = String(item.zpid);
@@ -3955,7 +3963,7 @@ ${JSON.stringify(propertySummaries)}
                                                 Audit Trail
                                             </button>
                                             <button
-                                                onClick={() => setViewMode('monitoring')}
+                                                onClick={() => { setViewMode('monitoring'); setMonitoringFilter(null); }}
                                                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'monitoring' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'}`}
                                             >
                                                 Pipeline Monitor
@@ -3973,9 +3981,12 @@ ${JSON.stringify(propertySummaries)}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     {/* Property Data Card */}
                                     {propBatchProgress && (
-                                        <div className={`p-6 rounded-2xl border-2 transition-all ${propBatchRunning ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
+                                        <div 
+                                            onClick={() => { setMonitoringFilter('Property Data'); setViewMode('monitoring'); }}
+                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer group/card ${propBatchRunning ? 'border-emerald-200 bg-emerald-50/30 hover:border-emerald-400 hover:shadow-lg' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                                        >
                                             <div className="flex items-center gap-3 mb-4">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${propBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover/card:scale-110 ${propBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
                                                     <i className="fa-solid fa-database text-xs"></i>
                                                 </div>
                                                 <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Property Data</span>
@@ -3995,10 +4006,13 @@ ${JSON.stringify(propertySummaries)}
 
                                     {/* Intelligence Card */}
                                     {intelBatchProgress && (
-                                        <div className={`p-6 rounded-2xl border-2 transition-all ${intelBatchRunning ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-100 bg-white'}`}>
+                                        <div 
+                                            onClick={() => { setMonitoringFilter('Full Intel'); setViewMode('monitoring'); }}
+                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer group/card ${intelBatchRunning ? 'border-indigo-200 bg-indigo-50/30 hover:border-indigo-400 hover:shadow-lg' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                                        >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${intelBatchRunning ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover/card:scale-110 ${intelBatchRunning ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
                                                         <i className="fa-solid fa-brain text-xs"></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Full Intel</span>
@@ -4008,7 +4022,7 @@ ${JSON.stringify(propertySummaries)}
                                                 </div>
                                                 {intelBatchRunning && (
                                                     <button 
-                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        onClick={(e) => { e.stopPropagation(); requestStop(activeBatchId!); }}
                                                         className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
                                                     >
                                                         Stop Run
@@ -4035,10 +4049,13 @@ ${JSON.stringify(propertySummaries)}
 
                                     {/* Orientation Card */}
                                     {orientBatchProgress && (
-                                        <div className={`p-6 rounded-2xl border-2 transition-all ${orientBatchRunning ? 'border-amber-200 bg-amber-50/30' : 'border-slate-100 bg-white'}`}>
+                                        <div 
+                                            onClick={() => { setMonitoringFilter('Orientation'); setViewMode('monitoring'); }}
+                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer group/card ${orientBatchRunning ? 'border-amber-200 bg-amber-50/30 hover:border-amber-400 hover:shadow-lg' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                                        >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${orientBatchRunning ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover/card:scale-110 ${orientBatchRunning ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
                                                         <i className="fa-solid fa-compass text-xs"></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Orientation</span>
@@ -4048,7 +4065,7 @@ ${JSON.stringify(propertySummaries)}
                                                 </div>
                                                 {orientBatchRunning && (
                                                     <button 
-                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        onClick={(e) => { e.stopPropagation(); requestStop(activeBatchId!); }}
                                                         className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
                                                     >
                                                         Stop Run
@@ -4075,10 +4092,13 @@ ${JSON.stringify(propertySummaries)}
 
                                     {/* Narrative Card */}
                                     {narrativeBatchProgress && (
-                                        <div className={`p-6 rounded-2xl border-2 transition-all ${narrativeBatchRunning ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
+                                        <div 
+                                            onClick={() => { setMonitoringFilter('Narrative'); setViewMode('monitoring'); }}
+                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer group/card ${narrativeBatchRunning ? 'border-emerald-200 bg-emerald-50/30 hover:border-emerald-400 hover:shadow-lg' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                                        >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${narrativeBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover/card:scale-110 ${narrativeBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
                                                         <i className="fa-solid fa-file-signature text-xs"></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Narrative</span>
@@ -4088,7 +4108,7 @@ ${JSON.stringify(propertySummaries)}
                                                 </div>
                                                 {narrativeBatchRunning && (
                                                     <button 
-                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        onClick={(e) => { e.stopPropagation(); requestStop(activeBatchId!); }}
                                                         className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
                                                     >
                                                         Stop Run
@@ -4115,10 +4135,13 @@ ${JSON.stringify(propertySummaries)}
 
                                     {/* Asset Secure Card */}
                                     {assetBatchProgress && (
-                                        <div className={`p-6 rounded-2xl border-2 transition-all ${assetBatchRunning ? 'border-rose-200 bg-rose-50/30' : assetBatchTimedOut ? 'border-amber-200 bg-amber-50/30' : 'border-slate-100 bg-white'}`}>
+                                        <div 
+                                            onClick={() => { setMonitoringFilter('Asset Secure'); setViewMode('monitoring'); }}
+                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer group/card ${assetBatchRunning ? 'border-rose-200 bg-rose-50/30 hover:border-rose-400 hover:shadow-lg' : assetBatchTimedOut ? 'border-amber-200 bg-amber-50/30 hover:border-amber-400 hover:shadow-lg' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                                        >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : assetBatchTimedOut ? 'bg-amber-400 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover/card:scale-110 ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : assetBatchTimedOut ? 'bg-amber-400 text-white' : 'bg-slate-100 text-slate-400'}`}>
                                                         <i className={`fa-solid ${assetBatchTimedOut ? 'fa-clock' : 'fa-shield-halved'} text-xs`}></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Security</span>
@@ -4131,7 +4154,7 @@ ${JSON.stringify(propertySummaries)}
                                                 </div>
                                                 {assetBatchRunning && (
                                                     <button
-                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        onClick={(e) => { e.stopPropagation(); requestStop(activeBatchId!); }}
                                                         className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
                                                     >
                                                         Stop Run
@@ -4139,7 +4162,8 @@ ${JSON.stringify(propertySummaries)}
                                                 )}
                                                 {assetBatchTimedOut && (
                                                     <button
-                                                        onClick={() => {
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                             handleBulkSecureImages(assetBatchTimedOut.remainingZpids);
                                                             setAssetBatchTimedOut(null);
                                                         }}
@@ -4714,14 +4738,27 @@ ${JSON.stringify(propertySummaries)}
                     <div className="flex items-center justify-between px-2">
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={() => setViewMode('table')}
+                                onClick={() => { setViewMode('table'); setMonitoringFilter(null); }}
                                 className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2"
                             >
                                 <i className="fa-solid fa-arrow-left"></i>
                                 Back to City Data
                             </button>
                             <div>
-                                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">System Pipeline Monitor</h2>
+                                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
+                                    System Pipeline Monitor
+                                    {monitoringFilter && (
+                                        <span className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                            {monitoringFilter}
+                                            <button 
+                                                onClick={() => setMonitoringFilter(null)}
+                                                className="hover:text-indigo-800"
+                                            >
+                                                <i className="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </span>
+                                    )}
+                                </h2>
                                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time status of all batch processing jobs</p>
                             </div>
                         </div>
@@ -4735,7 +4772,7 @@ ${JSON.stringify(propertySummaries)}
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
-                        {allJobs.map((job) => {
+                        {allJobs.filter(j => !monitoringFilter || j.typeLabel === monitoringFilter).map((job) => {
                             const isRunning = job.status === 'running' || job.status === 'queued';
                             const progress = Math.round(((job.done || 0) / (job.total || 1)) * 100);
                             const stats = computeJobStats(job);
@@ -5099,8 +5136,9 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
         if (nhFilter !== 'all' && n.price_context?.tier !== nhFilter) return false;
         if (nhSearch) {
             const q = nhSearch.toLowerCase();
-            return n.neighborhood_name?.toLowerCase().includes(q) ||
-                n.alternative_names?.some((a: string) => a.toLowerCase().includes(q)) ||
+            const name = typeof n.neighborhood_name === 'string' ? n.neighborhood_name : (n.neighborhood_name?.social || n.neighborhood_name?.legal_subdivision || '');
+            return name.toLowerCase().includes(q) ||
+                n.alternative_names?.some((a: string) => typeof a === 'string' && a.toLowerCase().includes(q)) ||
                 n.character?.description?.toLowerCase().includes(q);
         }
         return true;
@@ -5252,7 +5290,11 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                             {/* Card Header */}
                                             <div className="p-4 pb-3">
                                                 <div className="flex items-start justify-between gap-2 mb-2">
-                                                    <h4 className="text-sm font-black text-slate-900 leading-snug">{n.neighborhood_name}</h4>
+                                                    <h4 className="text-sm font-black text-slate-900 leading-snug">
+                                                        {typeof n.neighborhood_name === 'string' 
+                                                            ? n.neighborhood_name 
+                                                            : (n.neighborhood_name?.social || n.neighborhood_name?.legal_subdivision || 'Unnamed Neighborhood')}
+                                                    </h4>
                                                     <span className={`shrink-0 px-2.5 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${getTierColor(n.price_context?.tier)}`}>
                                                         {n.price_context?.tier || 'N/A'}
                                                     </span>

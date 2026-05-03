@@ -7,7 +7,6 @@ import { LLMCallEvent } from '../../types/ai';
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
     'gemini-2.5-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
     'gemini-2.5-flash-lite':  { input: 0.075 / 1e6, output: 0.30 / 1e6 },
-    'gemini-2.0-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
     'gemini-2.0-pro-exp':     { input: 1.25 / 1e6, output: 5.00 / 1e6 },
     'gemini-1.5-pro':         { input: 1.25 / 1e6, output: 5.00 / 1e6 },
     'gemini-3-flash-preview': { input: 0.10 / 1e6, output: 0.40 / 1e6 }

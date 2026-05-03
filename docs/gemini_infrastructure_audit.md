@@ -23,12 +23,12 @@ Triggered by user interaction within the platform.
 
 | Tool / Component | Trigger Logic | Intelligence Tier | Est. Tokens | Implementation |
 | :--- | :--- | :--- | :--- | :--- |
-| **Commute Analysis** | Grounded search for specific destinations and route sentiment. | gemini-2.0-flash-lite | 30k - 50k | `index.js`, `CommuteTab.tsx` |
-| **Zyphe Valuation (ARV)** | Normalizes comparables and calculates adjusted market value. | gemini-2.0-flash-lite | 15k - 25k | `PropertyCompsTab.tsx`, `geminiService.ts` |
-| **Land Utility / Slope** | Calculates buildable area and topographical constraints. | gemini-2.0-flash-lite | 10k - 15k | `PropertyInvestmentTab.tsx` |
-| **Comp Normalization** | Feature-by-feature comparison of subject vs. comp properties. | gemini-2.0-flash-lite | 8k - 12k | `ComparablesTable.tsx` |
-| **Lead Transformation** | Transcribes and extracts intent from SMS and voice transcripts. | gemini-2.0-flash-lite | 5k - 10k | `CommunicationHub.tsx` |
-| **Interior Room Summary** | Aggregates room-level data into a narrative property overview. | gemini-2.0-flash-lite | 5k - 10k | `PropertyOverviewTab.tsx` |
+| **Commute Analysis** | Grounded search for specific destinations and route sentiment. | gemini-2.5-flash-lite | 30k - 50k | `index.js`, `CommuteTab.tsx` |
+| **Zyphe Valuation (ARV)** | Normalizes comparables and calculates adjusted market value. | gemini-2.5-flash-lite | 15k - 25k | `PropertyCompsTab.tsx`, `geminiService.ts` |
+| **Land Utility / Slope** | Calculates buildable area and topographical constraints. | gemini-2.5-flash-lite | 10k - 15k | `PropertyInvestmentTab.tsx` |
+| **Comp Normalization** | Feature-by-feature comparison of subject vs. comp properties. | gemini-2.5-flash-lite | 8k - 12k | `ComparablesTable.tsx` |
+| **Lead Transformation** | Transcribes and extracts intent from SMS and voice transcripts. | gemini-2.5-flash-lite | 5k - 10k | `CommunicationHub.tsx` |
+| **Interior Room Summary** | Aggregates room-level data into a narrative property overview. | gemini-2.5-flash-lite | 5k - 10k | `PropertyOverviewTab.tsx` |
 | **Guide Generation** | Creates custom technical manuals based on user search context. | gemini-2.5-flash | 30k - 60k | `GuidesTab.tsx`, `guideGeneration.ts` |
 
 ## 3. External Infrastructure & API Mapping
@@ -56,7 +56,7 @@ The foundational data sources that feed the intelligence layers.
 | Tier | Model | Strategy | Target Latency |
 | :--- | :--- | :--- | :--- |
 | **Batch High-Perf** | `gemini-2.5-flash` | High-concurrency throughput | < 10s per item |
-| **Real-Time Lite** | `gemini-2.0-flash-lite` | Low-cost, fast interaction | < 2s response |
+| **Real-Time Lite** | `gemini-2.5-flash-lite` | Low-cost, fast interaction | < 2s response |
 | **Embedding** | `text-embedding-004` | Semantic search & RAG | < 500ms |
 
 ## 5. Token Usage & Cost Management

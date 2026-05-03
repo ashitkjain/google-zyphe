@@ -1,14 +1,14 @@
 import { PropertyData } from '../../types';
-import { savePropertyToCloud, getPropertyFromCloud, getPropertyByAddress } from '../firebaseService';
+import { savePropertyToCloud, getPropertyFromCloud, getPropertyByAddress, getPropertyAssetsFromCloud } from '../firebaseService';
 import { APP_CONFIG } from '../../config';
 import { auth } from '../firebase/config';
 import { getThirdPartyDataFromCloud, saveThirdPartyDataToCloud } from '../firebaseService';
 import { analyzeStreetView, analyzePollen } from '../geminiService';
 import { NeighborhoodPlaces } from './places';
 import { normalizeAddress } from './geocoding';
-import { fetchScores, fetchPropertyImages, fetchPropertySpecs } from './property';
+import { fetchScores, fetchPropertySpecs } from './property';
 import { fetchNearbyPlaces } from './places';
-import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore, fetchNearbyEVChargers } from './environmental';
+import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNearbyEVChargers } from './environmental';
 import { fetchHistoricalDisasters } from './disasters';
 import { fetchBroadbandData } from './broadband';
 import { fetchDroughtData } from './drought';
@@ -16,6 +16,7 @@ import { fetchNearbyFaults } from './faults';
 import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { getPropertyGroundTruth } from '../firebase/orientation_history';
 import { calculateZypheNoiseScore } from './osmNoise';
+import { prefetchExploreCache } from '../exploreCachePrefetch';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
@@ -116,8 +117,14 @@ export const fetchPropertyDataFull = async (
         if (mappedData.zpid) {
             onStep?.('Loading property data...');
 
+            // Kick off ExploreTab cache reads in parallel with the rest of the
+            // pipeline. The hook will await the same promise and skip its own
+            // Firestore round-trips. Fire-and-forget — failures are handled by
+            // the consumer.
+            void prefetchExploreCache(String(mappedData.zpid), mappedData.city, mappedData.state);
+
             const needsScores = !mappedData.walkScore && !mappedData.transitScore;
-            const needsImages = !skipImages && (!mappedData.images || mappedData.images.length === 0);
+            const needsImagesFromAssets = !skipImages && (!mappedData.images || mappedData.images.length === 0);
             const storageKeyForEnv = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
             const coordsForPlaces = mappedData.coordinates;
 
@@ -131,9 +138,14 @@ export const fetchPropertyDataFull = async (
 
             console.log(`[⏱ DataPipeline] +${_elapsed()} — scores/images/places parallel fetch start`);
             _mark('Scores/images/places start');
-            const [scores, images, nearbyPlaces] = await Promise.all([
+            const [scores, assetImages, nearbyPlaces] = await Promise.all([
                 needsScores ? fetchScores(mappedData.zpid) : Promise.resolve(null),
-                needsImages ? fetchPropertyImages(mappedData.zpid) : Promise.resolve(mappedData.images ?? []),
+                // Read pre-secured Firebase Storage URLs from the assets doc.
+                // We never call the RapidAPI /images endpoint at page-load time —
+                // image ingestion happens via the batch / heal pipeline (assetService).
+                needsImagesFromAssets
+                    ? getPropertyAssetsFromCloud(mappedData.zpid).then(a => a?.images ?? []).catch(() => [])
+                    : Promise.resolve(mappedData.images ?? []),
                 needsPlacesFetch
                     ? fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address, cachedPlaces, forceEnvironment).catch(() => null)
                     : Promise.resolve(cachedPlaces ?? null),
@@ -152,7 +164,8 @@ export const fetchPropertyDataFull = async (
                 mappedData.bikeScoreDesc = scores.bikeScoreDesc;
             }
 
-            if (needsImages && images.length > 0) mappedData.images = images;
+            const imagesUpdated = needsImagesFromAssets && assetImages.length > 0;
+            if (imagesUpdated) mappedData.images = assetImages;
             const placesForUI = nearbyPlaces ?? cachedPlaces ?? null;
             if (placesForUI) mappedData.google_places = placesForUI;
 
@@ -161,14 +174,17 @@ export const fetchPropertyDataFull = async (
                 saveThirdPartyDataToCloud(String(mappedData.zpid), { google_places: nearbyPlaces } as any)
                     .catch(e => console.warn('[fetchPropertyDataFull] Places save to env doc failed:', e));
             }
-            savePropertyToCloud(mappedData.zpid, mappedData).catch(e => console.warn('[fetchPropertyDataFull] Non-blocking save failed:', e));
+            // Skip the property-doc rewrite when nothing on the main doc changed.
+            // (Environmental fields live in `thirdparty_data`, not on the property doc.)
+            const mainDocDirty = !!scores || imagesUpdated;
+            if (mainDocDirty) {
+                savePropertyToCloud(mappedData.zpid, mappedData).catch(e => console.warn('[fetchPropertyDataFull] Non-blocking save failed:', e));
+            }
 
             (mappedData as any).__cachedEnvEarly = cachedEnvEarly;
         }
 
         // Even if we don't have a ZPID, if we have coordinates, we can fetch Solar/Air/Pollen/AI.
-        let parcelDirty = false;
-        let satelliteDirty = false;
         if (mappedData.coordinates && !skipEnvironment) {
             const storageKey = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
 
@@ -176,11 +192,11 @@ export const fetchPropertyDataFull = async (
             const TTL_SOLAR = TTL_ENV;
             const TTL_AIR_QUALITY = TTL_ENV;
             const TTL_POLLEN = TTL_ENV;
-            const TTL_NOISE = TTL_ENV;
             const TTL_DISASTERS = TTL_ENV;
             const TTL_BROADBAND = TTL_ENV;
             const TTL_DROUGHT = TTL_ENV;
             const TTL_EV = TTL_ENV;
+            const TTL_ZYPHE_NOISE = TTL_ENV;
 
             const isCacheExpired = (lastUpdated: any, ttl: number) => {
                 if (!lastUpdated) return true;
@@ -207,32 +223,33 @@ export const fetchPropertyDataFull = async (
 
             // google_environmental_data is the single source of truth for all env fields.
             // Do NOT check mappedData (properties doc) — it's not the canonical location.
+            // Each "needs*" flag uses its own per-field timestamp so a single field
+            // refresh doesn't cascade into refetching everything via the doc-wide
+            // `lastUpdated`. HowLoud is intentionally not fetched at load time —
+            // Zyphe's proprietary noise simulation is the canonical noise source.
             const needsSolar = !cachedEnvData?.solarData || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR);
             const needsAirQual = !cachedEnvData?.airQuality || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY);
             const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
-            // noiseScore == null ≠ never fetched. Use noiseFetchedAt to distinguish.
-            const needsNoise = !cachedEnvData?.noiseFetchedAt || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
             const needsDisasters = !cachedEnvData?.historical_disasters || forceEnvironment || isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS);
             const needsBroadband = !cachedEnvData?.broadband || forceEnvironment || isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND);
             const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
             const needsFaults = !cachedEnvData?.faults || forceEnvironment || isCacheExpired(cachedEnvData?.faults?.fetchedAt, TTL_ENV);
             const needsEV = !cachedEnvData?.evChargers || forceEnvironment || isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV);
-            const needsZypheNoise = !cachedEnvData?.noiseSimulationFetchedAt || forceEnvironment || isCacheExpired(cachedEnvData?.lastUpdated, TTL_NOISE);
+            const needsZypheNoise = !cachedEnvData?.noiseSimulationFetchedAt || forceEnvironment || isCacheExpired(cachedEnvData?.noiseSimulationFetchedAt, TTL_ZYPHE_NOISE);
 
-            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsFaults || needsEV || needsZypheNoise;
+            const envDirty = needsSolar || needsAirQual || needsPollen || needsDisasters || needsBroadband || needsDrought || needsFaults || needsEV || needsZypheNoise;
             let streetViewDirty = false;
 
             if (envDirty) {
                 onStep?.('Fetching environmental data...');
             }
 
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} faults=${needsFaults} ev=${needsEV})`);
-            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsZypheNoise && 'zypheNoise'].filter(Boolean).join(', ') || 'all cached'})`);
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshZypheNoise] = await Promise.all([
+            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} faults=${needsFaults} ev=${needsEV} zypheNoise=${needsZypheNoise})`);
+            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsZypheNoise && 'zypheNoise'].filter(Boolean).join(', ') || 'all cached'})`);
+            const [freshSolar, freshAirQual, freshPollenRaw, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshZypheNoise] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsNoise ? fetchNoiseScore(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsDisasters ? fetchHistoricalDisasters(lat, lng, mappedData.state, mappedData.city, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsBroadband ? fetchBroadbandData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
@@ -265,19 +282,17 @@ export const fetchPropertyDataFull = async (
                 mappedData.pollen = cachedEnvData.pollen;
             }
 
-            // 4. Noise
-            if (needsNoise && freshNoise) {
-                mappedData.noiseScore = freshNoise.score;
-                mappedData.noiseScoreDesc = freshNoise.description ?? undefined;
-                mappedData.noiseTrafficScore = freshNoise.trafficScore;
-                mappedData.noiseTrafficDesc = freshNoise.trafficDesc ?? undefined;
-                mappedData.noiseLocalScore = freshNoise.localScore;
-                mappedData.noiseLocalDesc = freshNoise.localDesc ?? undefined;
-                mappedData.noiseAirportScore = freshNoise.airportScore;
-                mappedData.noiseAirportDesc = freshNoise.airportDesc ?? undefined;
-            } else if (!needsNoise) {
-                mappedData.noiseAirportScore = cachedEnvData.noiseAirportScore;
-                mappedData.noiseAirportDesc = cachedEnvData.noiseAirportDesc;
+            // 4. HowLoud noise — read cached values only. Load-time fetching has been
+            // removed; Zyphe's proprietary noise simulation (below) is canonical.
+            if (cachedEnvData) {
+                mappedData.noiseScore = cachedEnvData.noiseScore ?? undefined;
+                mappedData.noiseScoreDesc = cachedEnvData.noiseScoreDesc ?? undefined;
+                mappedData.noiseTrafficScore = cachedEnvData.noiseTrafficScore ?? undefined;
+                mappedData.noiseTrafficDesc = cachedEnvData.noiseTrafficDesc ?? undefined;
+                mappedData.noiseLocalScore = cachedEnvData.noiseLocalScore ?? undefined;
+                mappedData.noiseLocalDesc = cachedEnvData.noiseLocalDesc ?? undefined;
+                mappedData.noiseAirportScore = cachedEnvData.noiseAirportScore ?? undefined;
+                mappedData.noiseAirportDesc = cachedEnvData.noiseAirportDesc ?? undefined;
             }
 
             // 4b. Zyphe Proprietary Noise Simulation
@@ -332,7 +347,11 @@ export const fetchPropertyDataFull = async (
             }
 
             // 6. AI Street View Analysis
-            if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
+            // Gate on imageUrl only — re-running Gemini at page-load time just to
+            // backfill an optional sub-field (e.g. privacyRating) blows ~10s+ on
+            // every visit. Heal pipelines are responsible for filling missing
+            // sub-fields, not the read path.
+            if (cachedEnvData?.streetViewAnalysis?.imageUrl && !forceEnvironment) {
                 console.log('[fetchPropertyDataFull] Using cached Street View analysis.');
                 mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
                 _mark('Street View (cached)');
@@ -448,11 +467,13 @@ export const fetchPropertyDataFull = async (
                     noiseLocalDesc: mappedData.noiseLocalDesc ?? null,
                     noiseAirportScore: mappedData.noiseAirportScore ?? null,
                     noiseAirportDesc: mappedData.noiseAirportDesc ?? null,
-                    // Timestamp lets us skip HowLoud on future runs even when score is null
-                    noiseFetchedAt: needsNoise ? new Date().toISOString() : (cachedEnvData?.noiseFetchedAt ?? null),
+                    // HowLoud is no longer fetched at load time; preserve any
+                    // historic noiseFetchedAt so cache forensics still work.
+                    noiseFetchedAt: cachedEnvData?.noiseFetchedAt ?? null,
                     zpid: mappedData.zpid || storageKey,
                     evChargers: (mappedData as any).evChargers ?? null,
                     drought: mappedData.drought ?? null,
+                    faults: (mappedData as any).faults ?? null,
                     broadband: (mappedData as any).broadband ?? null,
                     commuteDestinations: (mappedData as any).commuteDestinations ?? null,
                     zypheNoiseScore: mappedData.zypheNoiseScore ?? null,
@@ -471,9 +492,9 @@ export const fetchPropertyDataFull = async (
                     pollen:                 { wasFetched: needsPollen,    value: freshPollenRaw },
                     streetViewAnalysis:     { wasFetched: streetViewDirty, value: mappedData.streetViewAnalysis },
                     historical_disasters:   { wasFetched: needsDisasters, value: freshDisasters },
-                    noiseScore:             { wasFetched: needsNoise,     value: freshNoise },
                     evChargers:             { wasFetched: needsEV,        value: freshEV },
                     drought:                { wasFetched: needsDrought,   value: freshDrought },
+                    faults:                 { wasFetched: needsFaults,    value: freshFaults },
                     broadband:              { wasFetched: needsBroadband, value: freshBroadband },
                     commuteDestinations:    { wasFetched: false,          value: null },
                 };
@@ -497,75 +518,11 @@ export const fetchPropertyDataFull = async (
             }
         }
 
-        // ── PARCEL DATA (previously lazy-loaded by ParcelValidationCard) ────────
-        // Fetch ArcGIS parcel polygon, APN, and area if not already cached.
-        // Skip if parcelNotFound is stamped — ArcGIS confirmed it has no record for this address.
-        if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon && !(mappedData as any).parcelNotFound && !skipParcel) {
-            onStep?.('Fetching parcel data from ArcGIS...');
-            _mark('Parcel fetch start');
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — parcel fetch start`);
-            try {
-                const { fetchParcelFromCounty, polygonToFirestore } = await import('../arcgis/countyParcels');
-                const parcelResult = await fetchParcelFromCounty(
-                    mappedData.coordinates.latitude,
-                    mappedData.coordinates.longitude
-                );
-                // Always stamp fetchedAt so the smoke check can distinguish
-                // "never fetched" from "fetched but ArcGIS has no record"
-                (mappedData as any).parcelFetchedAt = new Date().toISOString();
-                if (parcelResult) {
-                    (mappedData as any).parcelPolygon = polygonToFirestore(parcelResult.polygon);
-                    (mappedData as any).parcelApn = parcelResult.apn;
-                    (mappedData as any).parcelAreaSqft = parcelResult.areaSqft;
-                    (mappedData as any).parcelCounty = parcelResult.county;
-                    (mappedData as any).parcelCachedAt = new Date().toISOString();
-                    if (parcelResult.buildingSqft && parcelResult.buildingSqft > 0) {
-                        (mappedData as any).taxSqft = parcelResult.buildingSqft;
-                        (mappedData as any).taxSqftSource = `ArcGIS ${parcelResult.county}`;
-                    }
-                    console.log(`[Pipeline] Parcel data fetched: APN=${parcelResult.apn}, area=${parcelResult.areaSqft}sf, county=${parcelResult.county}`);
-                    parcelDirty = true;
-                } else {
-                    // ArcGIS returned no record — stamp as not-found to skip future redundant fetches
-                    (mappedData as any).parcelNotFound = true;
-                    console.log(`[Pipeline] Parcel data: ArcGIS has no record for these coordinates.`);
-                    parcelDirty = true;
-                }
-            } catch (e: any) {
-                console.warn('[Pipeline] ArcGIS parcel fetch failed (non-blocking):', e.message);
-            }
-        }
-
-        // ── SATELLITE IMAGE (previously lazy-loaded by orientation UI) ────────
-        // Fetch Google satellite image and upload to Firebase Storage if not already cached.
-        if (mappedData.coordinates && mappedData.zpid && !mappedData.satelliteImageUrl) {
-            onStep?.('Caching satellite image...');
-            _mark('Satellite image start');
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — satellite image fetch start`);
-            try {
-                const { getOrCacheAerialSatelliteUrl } = await import('../satellitaryService');
-                const satUrl = await getOrCacheAerialSatelliteUrl(
-                    mappedData.zpid,
-                    mappedData.coordinates.latitude,
-                    mappedData.coordinates.longitude
-                );
-                if (satUrl) {
-                    mappedData.satelliteImageUrl = satUrl;
-                    satelliteDirty = true;
-                    console.log('[Pipeline] Satellite image cached:', satUrl.substring(0, 80) + '...');
-                }
-            } catch (e: any) {
-                console.warn('[Pipeline] Satellite image fetch failed (non-blocking):', e.message);
-            }
-        }
-
-        // Final save ONLY if parcel or satellite data was freshly fetched
-        if (mappedData.zpid && (parcelDirty || satelliteDirty)) {
-            console.log(`[Pipeline] Saving property (parcelDirty=${parcelDirty}, satelliteDirty=${satelliteDirty})`);
-            await savePropertyToCloud(mappedData.zpid, mappedData);
-        } else {
-            console.log(`[Pipeline] Skipping final property save — nothing new to write.`);
-        }
+        // Parcel + satellite ingestion live in the heal pipeline
+        // (functions/shared/propertyUtils.js: _enrichParcelData, _enrichSatelliteImage).
+        // The page-load path is read-only; if a property is missing parcel or satellite
+        // data, it surfaces as a smoke-test failure and gets healed out-of-band.
+        void skipParcel;
 
         _mark('COMPLETE');
         // Compute per-step durations

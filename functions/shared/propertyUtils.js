@@ -82,7 +82,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                     const { getPollenAnalysisPrompt, POLLEN_ANALYSIS_SCHEMA } = require('../prompts/property/pollenAnalysis.js');
                     const genAI = new GoogleGenerativeAI(keys.gemini_key);
                     const pollenModel = genAI.getGenerativeModel({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-2.5-flash-lite',
                         generationConfig: { responseMimeType: 'application/json', responseSchema: POLLEN_ANALYSIS_SCHEMA }
                     });
                     const pollenContext = {
@@ -115,7 +115,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
             const hasAnyMissingField =
                 !existing.zypheNoiseScore || !existing.broadband || !existing.google_places ||
                 !existing.drought || !existing.evChargers || !existing.historical_disasters?.seismicZone ||
-                !existing.solarData || !existing.airQuality || !existing.pollen;
+                !existing.solarData || !existing.airQuality || !existing.pollen || !existing.faults;
             if (docVersion < ENV_SCHEMA_VERSION || hasAnyMissingField) {
                 console.log(`[Enrichment] Schema v${docVersion}, missing fields=${hasAnyMissingField} — running supplemental enrichments for ${zpid}`);
                 try {
@@ -137,6 +137,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                         !existing.broadband        ? _enrichBroadband(zpid, db, lat, lng)                  : Promise.resolve(),
                         !existing.drought          ? _enrichDrought(zpid, db, lat, lng)                    : Promise.resolve(),
                         !existing.evChargers       ? _enrichEVChargers(zpid, db, lat, lng)                 : Promise.resolve(),
+                        !existing.faults           ? _enrichFaults(zpid, db, lat, lng)                     : Promise.resolve(),
                         (!existing.historical_disasters?.seismicZone || !femaNriSnap.exists)
                             ? _enrichHistoricalDisasters(zpid, db, lat, lng)                               : Promise.resolve(),
                         // v3: retry solar/AQ/pollen if they were missing at original fetch time
@@ -300,7 +301,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                         const { getPollenAnalysisPrompt, POLLEN_ANALYSIS_SCHEMA } = require('../prompts/property/pollenAnalysis.js');
                         const genAI = new GoogleGenerativeAI(keys.gemini_key);
                         const pollenModel = genAI.getGenerativeModel({
-                            model: 'gemini-2.5-flash',
+                            model: 'gemini-2.5-flash-lite',
                             generationConfig: { responseMimeType: 'application/json', responseSchema: POLLEN_ANALYSIS_SCHEMA }
                         });
                         const pollenResult = await pollenModel.generateContent(getPollenAnalysisPrompt(pollenContext));
@@ -339,11 +340,11 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
             const { getCommuteDestinationsPrompt, commuteDestinationsSchema } = await import('../prompts/property/commuteDestinations.js');
             const genAI = new GoogleGenerativeAI(keys.gemini_key);
             const commuteModel = genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash-lite',
+                model: 'gemini-2.5-flash-lite',
                 generationConfig: { responseMimeType: 'application/json', responseSchema: commuteDestinationsSchema }
             });
             const commuteResult = await commuteModel.generateContent(getCommuteDestinationsPrompt({ city, state }));
-            if (logger) logger.logLLMCall('gemini-2.0-flash-lite', commuteResult.response.usageMetadata?.promptTokenCount, commuteResult.response.usageMetadata?.candidatesTokenCount, zpid, 'commuteDestinations.js');
+            if (logger) logger.logLLMCall('gemini-2.5-flash-lite', commuteResult.response.usageMetadata?.promptTokenCount, commuteResult.response.usageMetadata?.candidatesTokenCount, zpid, 'commuteDestinations.js');
             const commuteData = _extractJson(commuteResult.response.text());
             const destinations = commuteData?.destinations || [];
             if (destinations.length > 0) {
@@ -388,6 +389,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
             !envData.broadband           ? _enrichBroadband(zpid, db, lat, lng) : Promise.resolve(),
             !envData.drought             ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
             !envData.evChargers          ? _enrichEVChargers(zpid, db, lat, lng) : Promise.resolve(),
+            !envData.faults              ? _enrichFaults(zpid, db, lat, lng) : Promise.resolve(),
         ]);
         await envRef.update({ __env_version: ENV_SCHEMA_VERSION });
     } catch (e) {
@@ -979,6 +981,92 @@ async function _enrichEVChargers(zpid, db, lat, lng) {
     }
 }
 
+/**
+ * Quaternary faults within ~35 mi via USGS Qfaults ArcGIS service.
+ * Saves to environmental/thirdparty_data as faults.
+ */
+async function _enrichFaults(zpid, db, lat, lng) {
+    try {
+        const buffer = 0.5; // ~35 mi
+        const geometry = JSON.stringify({
+            xmin: lng - buffer, ymin: lat - buffer, xmax: lng + buffer, ymax: lat + buffer,
+            spatialReference: { wkid: 4326 }
+        });
+        const url = `https://earthquake.usgs.gov/arcgis/rest/services/haz/Qfaults/MapServer/21/query`
+            + `?geometry=${encodeURIComponent(geometry)}`
+            + `&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects`
+            + `&inSR=4326&outSR=4326`
+            + `&outFields=fault_name,age,slip_rate,slip_sense,dip_direction`
+            + `&returnGeometry=true&f=json`;
+
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const features = data.features || [];
+
+        const haversineMi = (lat1, lon1, lat2, lon2) => {
+            const R = 6371;
+            const toRad = d => d * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 0.621371;
+        };
+        const mapAge = (age) => {
+            const a = (age || '').toLowerCase();
+            if (a.includes('holocene') || a.includes('15,000') || a.includes('latest quaternary')) return '< 15,000 yrs ago';
+            if (a.includes('late quaternary') || a.includes('130,000')) return '< 130,000 yrs ago';
+            if (a.includes('middle') || a.includes('750,000')) return '< 750,000 yrs ago';
+            if (a.includes('quaternary')) return '< 2.6M yrs ago';
+            return age || 'Unknown';
+        };
+        const activityStatus = (slipRate, age) => {
+            const s = (slipRate || '').toLowerCase(); const a = (age || '').toLowerCase();
+            if (s.includes('> 5') || s.includes('1-5') || s.includes('high')) return 'High Activity';
+            if (a.includes('holocene') || a.includes('15,000') || a.includes('latest')) return 'Historically Active';
+            return 'Potentially Active';
+        };
+
+        const faults = features.map((f, idx) => {
+            const attrs = f.attributes || {};
+            const path = ((f.geometry && f.geometry.paths && f.geometry.paths[0]) || []).map(p => ({ lng: p[0], lat: p[1] }));
+            let minDistKm = Infinity;
+            for (const p of path) {
+                const d = haversineMi(lat, lng, p.lat, p.lng) / 0.621371;
+                if (d < minDistKm) minDistKm = d;
+            }
+            const age = attrs.age || 'Unknown';
+            const slipRate = attrs.slip_rate || 'Unspecified';
+            return {
+                id: `fault-${idx}-${attrs.fault_name || 'unknown'}`,
+                name: attrs.fault_name || 'Unnamed Fault',
+                age, slipRate,
+                slipSense: attrs.slip_sense || 'Unknown',
+                dipDirection: attrs.dip_direction || 'Unknown',
+                distanceMi: Math.round(minDistKm * 0.621371 * 10) / 10,
+                activityStatus: activityStatus(slipRate, age),
+                lastActive: mapAge(age),
+                geometry: path,
+            };
+        });
+
+        const unique = {};
+        for (const fl of faults) {
+            const k = (fl.name || 'Unnamed Fault').trim().toLowerCase();
+            if (!unique[k] || fl.distanceMi < unique[k].distanceMi) unique[k] = fl;
+        }
+        const finalFaults = Object.values(unique).sort((a, b) => a.distanceMi - b.distanceMi).slice(0, 10);
+
+        const payload = { faults: finalFaults, fetchedAt: new Date().toISOString() };
+        await db.collection('properties').doc(zpid).collection('environmental').doc('thirdparty_data')
+            .set({ faults: payload }, { merge: true });
+        return payload;
+    } catch (e) {
+        console.warn(`[Enrichment] Faults failed for ${zpid}:`, e.message);
+        return null;
+    }
+}
+
 const _NEIGHBORHOOD_IDENTITY_SCHEMA = {
     type: 'object',
     properties: {
@@ -1054,12 +1142,14 @@ INSTRUCTIONS:
 
 CRITICAL: Do NOT include ANY demographic, racial, ethnic, or familial information. Focus exclusively on physical characteristics, market data, and infrastructure.
 
-Return ONLY valid JSON matching the schema.`.trim();
+Return ONLY valid JSON matching this schema:
+${JSON.stringify(_NEIGHBORHOOD_IDENTITY_SCHEMA, null, 2)}
+`.trim();
 
         // Run Gemini + ArcGIS sources in parallel
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash'
+            model: 'gemini-2.5-flash-lite'
         });
 
         const [geminiResult, surveyorResult, cityPlanResult] = await Promise.allSettled([
@@ -1149,41 +1239,6 @@ Return ONLY valid JSON matching the schema.`.trim();
     }
 }
 
-const CITY_ACOUSTIC_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const CITY_ACOUSTIC_SCHEMA_VERSION = 6;
-
-async function _prefetchCityAcousticCache(city, state, lat, lng, db) {
-    if (!city || !lat || !lng) return;
-    const citySlug = city.toLowerCase().replace(/\s+/g, '_');
-    try {
-        const cacheRef = db.collection('city_noise_cache').doc(citySlug);
-        const snap = await cacheRef.get();
-        if (snap.exists) {
-            const d = snap.data();
-            const age = Date.now() - (d.cachedAt?.toMillis?.() ?? 0);
-            if (age < CITY_ACOUSTIC_CACHE_TTL_MS && d.schemaVersion === CITY_ACOUSTIC_SCHEMA_VERSION) {
-                console.log(`[CityAcoustic] Cache fresh for ${citySlug}, skipping prefetch`);
-                return;
-            }
-        }
-        console.log(`[CityAcoustic] Pre-generating acoustic grid for ${city}...`);
-        const boundary = await fetchCityBoundary(city, state || 'CA');
-        const result = await computeCityNoiseGridRaw(lat, lng, 4, 120, boundary);
-        await cacheRef.set({
-            gridDataB64: result.gridDataB64,
-            gridCols: result.gridCols,
-            gridRows: result.gridRows,
-            bounds: result.bounds,
-            boundaryGeoJSON: boundary?.geojson ?? null,
-            roadCount: result.roadCount,
-            cachedAt: admin.firestore.Timestamp.now(),
-            schemaVersion: CITY_ACOUSTIC_SCHEMA_VERSION,
-        });
-        console.log(`[CityAcoustic] Cached ${citySlug}: ${result.gridCols}x${result.gridRows}, ${result.roadCount} roads`);
-    } catch (e) {
-        console.warn(`[CityAcoustic] Prefetch failed for ${city}:`, e.message);
-    }
-}
 
 /**
  * Core: process one property (Enrichment)
@@ -1277,7 +1332,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         try {
             const genAI = new GoogleGenerativeAI(geminiKey);
             const model = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash'
+                model: 'gemini-2.5-flash-lite'
             });
             const prompt = TAX_RECORD_LOOKUP_PROMPT(formattedAddress);
             const result = await model.generateContent({
@@ -1286,7 +1341,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             });
             if (logger) {
                 logger.logTask('tax_lookup');
-                logger.logLLMCall('gemini-2.5-flash', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'taxLookup.js');
+                logger.logLLMCall('gemini-2.5-flash-lite', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'taxLookup.js');
             }
             taxData = _extractJson(result.response.text());
         } catch (e) {
@@ -1450,14 +1505,6 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         }
     }
 
-    // Pre-generate city acoustic grid cache (fire-and-forget — doesn't block batch)
-    _prefetchCityAcousticCache(
-        root.address?.city,
-        root.address?.state,
-        coordinates?.latitude,
-        coordinates?.longitude,
-        db,
-    ).catch(() => {});
 
     return { status: 'success', address: formattedAddress, data: mapped };
 }
@@ -1501,7 +1548,7 @@ async function _enrichStreetInsights(zpid, db, geminiKey, streetViewUrl, logger 
 
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-flash-lite',
             generationConfig: { responseMimeType: 'text/plain' }
         });
         const prompt = `You are a real estate advisor analyzing a Google Street View image for a buyer.
@@ -1513,7 +1560,7 @@ In 2-3 sentences, describe the street environment visible in this image: the con
         const result = await model.generateContent([{ text: prompt }, imgPart]);
         if (logger) {
             logger.logTask('street_insights');
-            logger.logLLMCall('gemini-2.5-flash', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'streetInsights.js');
+            logger.logLLMCall('gemini-2.5-flash-lite', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'streetInsights.js');
         }
         const insights = result.response.text().trim();
         if (!insights || insights.length < 20) return null;
@@ -1604,6 +1651,7 @@ module.exports = {
     _enrichBroadband,
     _enrichDrought,
     _enrichEVChargers,
+    _enrichFaults,
     _enrichHistoricalDisasters,
     _enrichNeighborhoodIdentity,
     _extractJson,

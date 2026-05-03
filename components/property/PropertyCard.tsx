@@ -85,7 +85,11 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
                     </div>
                     {property.neighborhood && (
                         <div className="mb-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{property.neighborhood}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                                {typeof property.neighborhood === 'string' 
+                                    ? property.neighborhood 
+                                    : ((property.neighborhood as any).social || (property.neighborhood as any).legal_subdivision || 'Unnamed Neighborhood')}
+                            </span>
                         </div>
                     )}
                     <div className="flex items-center gap-2.5 text-[10px] text-slate-400 font-bold flex-wrap">
