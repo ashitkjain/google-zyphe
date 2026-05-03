@@ -560,6 +560,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         });
+
+        // Sort each group by recency (timestamp)
+        Object.keys(groups).forEach(key => {
+            groups[key].sort((a, b) => {
+                const tsA = propertyStatuses[String(a.zpid)]?.property?.timestamp;
+                const tsB = propertyStatuses[String(b.zpid)]?.property?.timestamp;
+                
+                const valA = tsA?.toMillis ? tsA.toMillis() : (typeof tsA === 'number' ? tsA : (tsA ? new Date(tsA).getTime() : 0));
+                const valB = tsB?.toMillis ? tsB.toMillis() : (typeof tsB === 'number' ? tsB : (tsB ? new Date(tsB).getTime() : 0));
+                
+                return valB - valA;
+            });
+        });
+
         return groups;
     }, [sourceList, stateFilter, propertyTypeFilter, missingStreetViewOnly, propertyStatuses]);
 
