@@ -1,0 +1,511 @@
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - runId: ${args.runId}
+          - city: ${args.city}
+          - state: ${args.state}
+          - baseUrl: ${args.baseUrl}
+          - zpids: ${args.zpids}
+          - projectId: ${args.projectId}
+
+    - markRunning:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "_top"
+            data:
+              status: "running"
+              startedAt: ${sys.now()}
+        result: _ignored1
+
+    # --- STEP 1: Property Data ---
+    - kickPropertyData:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineCreateBatchJob"}
+          auth:
+            type: OIDC
+          body:
+            collection: "property_data_batch_jobs"
+            zpids: ${zpids}
+            runId: ${runId}
+            stepName: "property_data"
+        result: propDataKick
+
+    - waitPropertyData:
+        call: waitForBatch
+        args:
+          baseUrl: ${baseUrl}
+          collection: "property_data_batch_jobs"
+          jobId: ${propDataKick.body.jobId}
+        result: propDataResult
+
+    - retryPropertyData:
+        switch:
+          - condition: ${propDataResult.failed > 0}
+            steps:
+              - createRetryPropData:
+                  call: http.post
+                  args:
+                    url: ${baseUrl + "/pipelineCreateBatchJob"}
+                    auth:
+                      type: OIDC
+                    body:
+                      collection: "property_data_batch_jobs"
+                      zpids: ${propDataResult.failedZpids}
+                      runId: ${runId}
+                      stepName: "property_data_retry"
+                  result: propDataRetryKick
+              - waitRetryPropData:
+                  call: waitForBatch
+                  args:
+                    baseUrl: ${baseUrl}
+                    collection: "property_data_batch_jobs"
+                    jobId: ${propDataRetryKick.body.jobId}
+                  result: propDataRetryResult
+
+    - updatePropertyDataStep:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "property_data"
+            data:
+              status: "done"
+              total: ${propDataResult.total}
+              succeeded: ${propDataResult.done}
+              failed: ${propDataResult.failed}
+              skipped: ${propDataResult.skipped}
+        result: _ignored2
+
+    # --- STEP 2: Asset Secure ---
+    - kickAssetSecure:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineCreateBatchJob"}
+          auth:
+            type: OIDC
+          body:
+            collection: "asset_secure_batch_jobs"
+            zpids: ${zpids}
+            runId: ${runId}
+            stepName: "asset_secure"
+        result: assetSecureKick
+
+    - waitAssetSecure:
+        call: waitForBatch
+        args:
+          baseUrl: ${baseUrl}
+          collection: "asset_secure_batch_jobs"
+          jobId: ${assetSecureKick.body.jobId}
+        result: assetSecureResult
+
+    - retryAssetSecure:
+        switch:
+          - condition: ${assetSecureResult.failed > 0}
+            steps:
+              - createRetryAssetSecure:
+                  call: http.post
+                  args:
+                    url: ${baseUrl + "/pipelineCreateBatchJob"}
+                    auth:
+                      type: OIDC
+                    body:
+                      collection: "asset_secure_batch_jobs"
+                      zpids: ${assetSecureResult.failedZpids}
+                      runId: ${runId}
+                      stepName: "asset_secure_retry"
+                  result: assetSecureRetryKick
+              - waitRetryAssetSecure:
+                  call: waitForBatch
+                  args:
+                    baseUrl: ${baseUrl}
+                    collection: "asset_secure_batch_jobs"
+                    jobId: ${assetSecureRetryKick.body.jobId}
+                  result: assetSecureRetryResult
+
+    - updateAssetSecureStep:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "asset_secure"
+            data:
+              status: "done"
+              total: ${assetSecureResult.total}
+              succeeded: ${assetSecureResult.done}
+              failed: ${assetSecureResult.failed}
+              skipped: ${assetSecureResult.skipped}
+        result: _ignored3
+
+    # --- STEP 3: Intel ---
+    - kickIntel:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineCreateBatchJob"}
+          auth:
+            type: OIDC
+          body:
+            collection: "full_intel_batch_jobs"
+            zpids: ${zpids}
+            runId: ${runId}
+            stepName: "intel"
+        result: intelKick
+
+    - waitIntel:
+        call: waitForBatch
+        args:
+          baseUrl: ${baseUrl}
+          collection: "full_intel_batch_jobs"
+          jobId: ${intelKick.body.jobId}
+        result: intelResult
+
+    - retryIntel:
+        switch:
+          - condition: ${intelResult.failed > 0}
+            steps:
+              - createRetryIntel:
+                  call: http.post
+                  args:
+                    url: ${baseUrl + "/pipelineCreateBatchJob"}
+                    auth:
+                      type: OIDC
+                    body:
+                      collection: "full_intel_batch_jobs"
+                      zpids: ${intelResult.failedZpids}
+                      runId: ${runId}
+                      stepName: "intel_retry"
+                  result: intelRetryKick
+              - waitRetryIntel:
+                  call: waitForBatch
+                  args:
+                    baseUrl: ${baseUrl}
+                    collection: "full_intel_batch_jobs"
+                    jobId: ${intelRetryKick.body.jobId}
+                  result: intelRetryResult
+
+    - updateIntelStep:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "intel"
+            data:
+              status: "done"
+              total: ${intelResult.total}
+              succeeded: ${intelResult.done}
+              failed: ${intelResult.failed}
+              skipped: ${intelResult.skipped}
+        result: _ignored4
+
+    # --- STEP 4: Orientation ---
+    - kickOrientation:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineCreateBatchJob"}
+          auth:
+            type: OIDC
+          body:
+            collection: "orientation_batch_jobs"
+            zpids: ${zpids}
+            runId: ${runId}
+            stepName: "orientation"
+        result: orientationKick
+
+    - waitOrientation:
+        call: waitForBatch
+        args:
+          baseUrl: ${baseUrl}
+          collection: "orientation_batch_jobs"
+          jobId: ${orientationKick.body.jobId}
+        result: orientationResult
+
+    - retryOrientation:
+        switch:
+          - condition: ${orientationResult.failed > 0}
+            steps:
+              - createRetryOrientation:
+                  call: http.post
+                  args:
+                    url: ${baseUrl + "/pipelineCreateBatchJob"}
+                    auth:
+                      type: OIDC
+                    body:
+                      collection: "orientation_batch_jobs"
+                      zpids: ${orientationResult.failedZpids}
+                      runId: ${runId}
+                      stepName: "orientation_retry"
+                  result: orientationRetryKick
+              - waitRetryOrientation:
+                  call: waitForBatch
+                  args:
+                    baseUrl: ${baseUrl}
+                    collection: "orientation_batch_jobs"
+                    jobId: ${orientationRetryKick.body.jobId}
+                  result: orientationRetryResult
+
+    - updateOrientationStep:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "orientation"
+            data:
+              status: "done"
+              total: ${orientationResult.total}
+              succeeded: ${orientationResult.done}
+              failed: ${orientationResult.failed}
+              skipped: ${orientationResult.skipped}
+        result: _ignored5
+
+    # --- STEP 5: Context Graph ---
+    - kickContextGraph:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineCreateBatchJob"}
+          auth:
+            type: OIDC
+          body:
+            collection: "context_graph_batch_jobs"
+            zpids: ${zpids}
+            runId: ${runId}
+            stepName: "context_graph"
+        result: contextGraphKick
+
+    - waitContextGraph:
+        call: waitForBatch
+        args:
+          baseUrl: ${baseUrl}
+          collection: "context_graph_batch_jobs"
+          jobId: ${contextGraphKick.body.jobId}
+        result: contextGraphResult
+
+    - retryContextGraph:
+        switch:
+          - condition: ${contextGraphResult.failed > 0}
+            steps:
+              - createRetryContextGraph:
+                  call: http.post
+                  args:
+                    url: ${baseUrl + "/pipelineCreateBatchJob"}
+                    auth:
+                      type: OIDC
+                    body:
+                      collection: "context_graph_batch_jobs"
+                      zpids: ${contextGraphResult.failedZpids}
+                      runId: ${runId}
+                      stepName: "context_graph_retry"
+                  result: contextGraphRetryKick
+              - waitRetryContextGraph:
+                  call: waitForBatch
+                  args:
+                    baseUrl: ${baseUrl}
+                    collection: "context_graph_batch_jobs"
+                    jobId: ${contextGraphRetryKick.body.jobId}
+                  result: contextGraphRetryResult
+
+    - updateContextGraphStep:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "context_graph"
+            data:
+              status: "done"
+              total: ${contextGraphResult.total}
+              succeeded: ${contextGraphResult.done}
+              failed: ${contextGraphResult.failed}
+              skipped: ${contextGraphResult.skipped}
+        result: _ignored6
+
+    # --- STEP 6: Buyer DNA ---
+    - kickBuyerDna:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineCreateBatchJob"}
+          auth:
+            type: OIDC
+          body:
+            collection: "buyer_dna_batch_jobs"
+            zpids: ${zpids}
+            runId: ${runId}
+            stepName: "buyer_dna"
+        result: buyerDnaKick
+
+    - waitBuyerDna:
+        call: waitForBatch
+        args:
+          baseUrl: ${baseUrl}
+          collection: "buyer_dna_batch_jobs"
+          jobId: ${buyerDnaKick.body.jobId}
+        result: buyerDnaResult
+
+    - retryBuyerDna:
+        switch:
+          - condition: ${buyerDnaResult.failed > 0}
+            steps:
+              - createRetryBuyerDna:
+                  call: http.post
+                  args:
+                    url: ${baseUrl + "/pipelineCreateBatchJob"}
+                    auth:
+                      type: OIDC
+                    body:
+                      collection: "buyer_dna_batch_jobs"
+                      zpids: ${buyerDnaResult.failedZpids}
+                      runId: ${runId}
+                      stepName: "buyer_dna_retry"
+                  result: buyerDnaRetryKick
+              - waitRetryBuyerDna:
+                  call: waitForBatch
+                  args:
+                    baseUrl: ${baseUrl}
+                    collection: "buyer_dna_batch_jobs"
+                    jobId: ${buyerDnaRetryKick.body.jobId}
+                  result: buyerDnaRetryResult
+
+    - updateBuyerDnaStep:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "buyer_dna"
+            data:
+              status: "done"
+              total: ${buyerDnaResult.total}
+              succeeded: ${buyerDnaResult.done}
+              failed: ${buyerDnaResult.failed}
+              skipped: ${buyerDnaResult.skipped}
+        result: _ignored7
+
+    # --- STEP 7: Smoke Check ---
+    - smokeCheck:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineSmokeCheck"}
+          auth:
+            type: OIDC
+          body:
+            zpids: ${zpids}
+            runId: ${runId}
+        result: smokeResult
+
+    - updateSmoke:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "smoke"
+            data:
+              status: "done"
+              total: ${smokeResult.body.total}
+              passed: ${smokeResult.body.passed}
+              failed: ${smokeResult.body.failed}
+        result: _ignored_smoke
+
+    # --- Finalize ---
+    - finalize:
+        call: http.post
+        args:
+          url: ${baseUrl + "/pipelineUpdateRun"}
+          auth:
+            type: OIDC
+          body:
+            runId: ${runId}
+            step: "_top"
+            data:
+              status: "completed"
+              completedAt: ${sys.now()}
+        result: _finalResult
+
+    - done:
+        return: ${runId}
+
+waitForBatch:
+  params: [args]
+  steps:
+    - initPoll:
+        assign:
+          - collection: ${args.collection}
+          - jobId: ${args.jobId}
+          - baseUrl: ${args.baseUrl}
+          - maxWaitSeconds: 3600
+          - elapsed: 0
+
+    - poll:
+        call: http.post
+        args:
+          url: ${args.baseUrl + "/pipelinePollBatch"}
+          auth:
+            type: OIDC
+          body:
+            collection: ${collection}
+            jobId: ${jobId}
+        result: pollResult
+
+    - checkDone:
+        switch:
+          - condition: ${pollResult.body.status == "completed"}
+            next: extractFailedZpids
+          - condition: ${elapsed >= maxWaitSeconds}
+            next: timeout
+
+    - sleep:
+        call: sys.sleep
+        args:
+          seconds: 30
+
+    - tick:
+        assign:
+          - elapsed: ${elapsed + 30}
+        next: poll
+
+    - timeout:
+        return:
+          status: "timeout"
+          done: 0
+          failed: 0
+          total: 0
+          skipped: 0
+          failedZpids: []
+
+    - extractFailedZpids:
+        assign:
+          - results: ${pollResult.body.results}
+          - failedZpids: []
+
+    - returnResult:
+        return:
+          status: ${pollResult.body.status}
+          done: ${pollResult.body.done}
+          failed: ${pollResult.body.failed}
+          total: ${pollResult.body.total}
+          skipped: ${default(map.get(pollResult.body, "skipped"), 0)}
+          failedZpids: ${failedZpids}

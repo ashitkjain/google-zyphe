@@ -68,6 +68,16 @@ const PropertyCard: React.FC<{
 
     const isNew = property.daysOnZillow != null && property.daysOnZillow <= 7;
 
+    const neighborhoodName = useMemo(() => {
+        if (!property.neighborhood) return null;
+        if (typeof property.neighborhood === 'string') return property.neighborhood;
+        if (typeof property.neighborhood === 'object') {
+            const obj = property.neighborhood as any;
+            return obj.name || obj.neighborhood_name || obj.social || obj.legal_subdivision || null;
+        }
+        return null;
+    }, [property.neighborhood]);
+
     if (viewMode === 'list') {
         return (
             <div
@@ -99,7 +109,7 @@ const PropertyCard: React.FC<{
                 {/* Tags */}
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-wider">{typeLabel}</span>
-                    {property.neighborhood && <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">{property.neighborhood}</span>}
+                    {neighborhoodName && <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">{neighborhoodName}</span>}
                 </div>
             </div>
         );
@@ -146,7 +156,7 @@ const PropertyCard: React.FC<{
                     {property.yearBuilt && <span className="flex items-center gap-1 text-slate-400"><i className="fa-solid fa-hammer text-[10px]"></i>{property.yearBuilt}</span>}
                 </div>
                 <p className="text-xs font-medium text-slate-500 truncate">{property.address}</p>
-                {property.neighborhood && <p className="text-[10px] font-bold text-indigo-400 mt-1 truncate">{property.neighborhood}</p>}
+                {neighborhoodName && <p className="text-[10px] font-bold text-indigo-400 mt-1 truncate">{neighborhoodName}</p>}
 
                 {/* School rating badge */}
                 {property.maxSchoolRating && property.maxSchoolRating >= 7 && (

@@ -1339,4 +1339,15 @@ Object.assign(exports, require('./orientationBatch'));
 Object.assign(exports, require('./propertyBatch'));
 Object.assign(exports, require('./intelBatch'));
 Object.assign(exports, require('./assetBatch'));
+Object.assign(exports, require('./contextGraphBatch'));
+Object.assign(exports, require('./buyerDnaBatch'));
 Object.assign(exports, require('./purgeLogs'));
+
+// ─── Pipeline Orchestrator (HTTP endpoints for Cloud Workflow) ──────────────
+const _pipelineOrch = require('./pipelineOrchestrator');
+exports.pipelineDiscover       = _pipelineOrch.pipelineDiscover;
+exports.pipelineCreateBatchJob = _pipelineOrch.pipelineCreateBatchJob;
+exports.pipelinePollBatch      = _pipelineOrch.pipelinePollBatch;
+exports.pipelineUpdateRun      = _pipelineOrch.pipelineUpdateRun;
+exports.pipelineSmokeCheck     = _pipelineOrch.pipelineSmokeCheck;
+exports.pipelineTrigger        = _pipelineOrch.pipelineTrigger;

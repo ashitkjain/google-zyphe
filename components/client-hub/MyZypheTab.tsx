@@ -21,6 +21,7 @@ const PAGE_LABELS: Record<string, string> = {
     my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
     sold_listings: 'Sold Listings', agent_manager: 'Agent Manager',
     cost_dashboard: 'Cost Dashboard',
+    pipeline: 'Pipeline Orchestrator',
     // Explore sub-tabs (analysis)
     interior: 'Interior', rooms: 'Rooms', exterior_and_neighborhood: 'Exterior',
     neighborhood: 'Neighborhood', schools: 'Schools', pulse: 'Community Pulse',

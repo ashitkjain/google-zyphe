@@ -390,7 +390,7 @@ export const executeGeminiRequest = async <T>(
         try {
           data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
         } catch (parseErr: any) {
-          console.error(`[Gemini] JSON parse failed for ${promptFilename}`);
+          console.error(`[Gemini] JSON parse failed for ${promptFilename}. Raw output:`, responseText);
           throw parseErr;
         }
 

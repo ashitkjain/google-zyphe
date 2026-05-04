@@ -58,10 +58,11 @@ import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 import UniversalSearchBox from './components/shared/UniversalSearchBox';
 import IDXSearchTab from './components/client-hub/IDXSearchTab';
+import PipelineRunsTab from './components/admin/PipelineRunsTab';
 import { useSearchTrie } from './hooks/useSearchTrie';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor' | 'idx_search';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor' | 'idx_search' | 'pipeline';
 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
@@ -839,6 +840,10 @@ const App: React.FC = () => {
               cloudHistory={cloudHistory}
               favorites={favorites}
             />
+          </div>
+        ) : viewMode === 'pipeline' ? (
+          <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 rounded-[2.5rem]">
+            <PipelineRunsTab />
           </div>
         ) : viewMode === 'api_monitor' ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 rounded-[2.5rem]">

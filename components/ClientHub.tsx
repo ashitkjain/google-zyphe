@@ -193,6 +193,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     ];
 
     const adminTabs: { id: HubTab; label: string; icon: string }[] = isAdmin ? [
+        { id: 'pipeline', label: 'Pipeline', icon: 'fa-sitemap' },
         { id: 'city_data', label: 'City Ingestion', icon: 'fa-city' },
         { id: 'sold_listings', label: 'Sold Listings', icon: 'fa-house-circle-check' },
         { id: 'data_health', label: 'Data Health', icon: 'fa-heart-pulse' },

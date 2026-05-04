@@ -642,10 +642,14 @@ const BrowseByCitySection: React.FC<{
         }
     };
 
-    // Available neighborhoods for filter dropdown
     const availableNeighborhoods = useMemo(() => {
         const hoods = new Set<string>();
-        results.forEach(p => { if (p.neighborhood) hoods.add(p.neighborhood); });
+        results.forEach(p => {
+            if (p.neighborhood) {
+                const name = typeof p.neighborhood === 'string' ? p.neighborhood : (p.neighborhood as any).name || (p.neighborhood as any).neighborhood_name || (p.neighborhood as any).social || (p.neighborhood as any).legal_subdivision || null;
+                if (name) hoods.add(name);
+            }
+        });
         return Array.from(hoods).sort();
     }, [results]);
 
@@ -661,7 +665,10 @@ const BrowseByCitySection: React.FC<{
         if (maxP < Infinity) list = list.filter(p => (p.listPrice || 0) <= maxP);
         if (minBeds > 0) list = list.filter(p => (p.bedrooms || 0) >= minBeds);
         if (minBaths > 0) list = list.filter(p => (p.bathrooms || 0) >= minBaths);
-        if (filterNeighborhood) list = list.filter(p => p.neighborhood === filterNeighborhood);
+        if (filterNeighborhood) list = list.filter(p => {
+            const name = typeof p.neighborhood === 'string' ? p.neighborhood : (p.neighborhood as any)?.name || (p.neighborhood as any)?.neighborhood_name || (p.neighborhood as any)?.social || (p.neighborhood as any)?.legal_subdivision || null;
+            return name === filterNeighborhood;
+        });
         // Advanced filters
         if (filterHomeType) list = list.filter(p => (p.homeType || '').toUpperCase().includes(filterHomeType.toUpperCase()));
         if (filterMinSqft) list = list.filter(p => (p.livingArea || 0) >= parseInt(filterMinSqft));

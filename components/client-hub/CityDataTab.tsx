@@ -1992,6 +1992,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 } catch (e: any) {
                     failed++;
                     addLog(`[Buyer DNA] ✗ Failed for ${addr}: ${e.message}`);
+                    if (e.rawResponse) {
+                        addLog(`[Buyer DNA] RAW RESPONSE: ${e.rawResponse.substring(0, 150)}...`);
+                    }
                 }
             }));
             

@@ -15,6 +15,15 @@ import {
 import { CityPropertySummary } from '../../services/firebase/properties';
 import { getDaysOnMarket } from '../../utils/property.ts';
 
+const getNeighborhoodName = (neighborhood: any): string | null => {
+    if (!neighborhood) return null;
+    if (typeof neighborhood === 'string') return neighborhood;
+    if (typeof neighborhood === 'object') {
+        return neighborhood.name || neighborhood.neighborhood_name || neighborhood.social || neighborhood.legal_subdivision || null;
+    }
+    return null;
+};
+
 type ViewMode = 'zypheai' | 'gallery' | 'table' | 'map' | 'verdict';
 
 interface BrowseResultsPanelProps {
@@ -125,7 +134,7 @@ function PodiumCard({ prop, match, rank, onOpen, onTour }: {
           background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.7))',
           padding: '40px 18px 14px', color: '#fff',
         }}>
-          {prop.neighborhood && <div style={{ fontSize: 9.5, letterSpacing: '0.18em', fontWeight: 700, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', marginBottom: 4 }}>{prop.neighborhood}</div>}
+          {getNeighborhoodName(prop.neighborhood) && <div style={{ fontSize: 9.5, letterSpacing: '0.18em', fontWeight: 700, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', marginBottom: 4 }}>{getNeighborhoodName(prop.neighborhood)}</div>}
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>{prop.address}</div>
         </div>
       </div>
@@ -293,9 +302,9 @@ function GalleryCard({ prop, match, onOpen, onTour }: {
               {[prop.bedrooms && `${prop.bedrooms}bd`, prop.bathrooms && `${prop.bathrooms}ba`, prop.livingArea && `${prop.livingArea.toLocaleString()}sf`].filter(Boolean).join(' · ')}
             </span>
           </div>
-          {prop.neighborhood && (
+          {getNeighborhoodName(prop.neighborhood) && (
             <div style={{ display: 'inline-block', marginTop: 4, fontSize: 9.5, fontWeight: 700, color: '#4F46E5', background: '#EEF2FF', padding: '2px 7px', borderRadius: 999, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              {prop.neighborhood}
+              {getNeighborhoodName(prop.neighborhood)}
             </div>
           )}
         </div>
@@ -472,7 +481,7 @@ function VerdictNarrativeCard({ prop, match, rank, onOpen, onTour }: {
           <div style={{ height: 170, borderRadius: 10, background: '#F3F4F6', marginBottom: 10, overflow: 'hidden', position: 'relative' }}>
             {img && <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
           </div>
-          {prop.neighborhood && <div style={{ fontSize: 9, letterSpacing: '0.16em', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 3 }}>{prop.neighborhood}</div>}
+          {getNeighborhoodName(prop.neighborhood) && <div style={{ fontSize: 9, letterSpacing: '0.16em', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 3 }}>{getNeighborhoodName(prop.neighborhood)}</div>}
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, color: '#059669', fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 3 }}>
             {fmtPrice(prop.listPrice)}
           </div>
@@ -1191,7 +1200,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                               {prop.address}
                             </button>
                             <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, marginTop: 1 }}>
-                              {prop.neighborhood || prop.zipcode} · {prop.city || selectedCity}
+                              {getNeighborhoodName(prop.neighborhood) || prop.zipcode} · {prop.city || selectedCity}
                             </div>
                           </div>
                         </div>
@@ -1290,7 +1299,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                       {/* Neighborhood (no AI results) */}
                       {!buyerResults && (
                         <td style={{ padding: '9px 14px', fontSize: 12, color: '#059669', fontWeight: 600 }}>
-                          {prop.neighborhood || '—'}
+                          {getNeighborhoodName(prop.neighborhood) || '—'}
                         </td>
                       )}
 
@@ -1446,9 +1455,9 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                         </div>
 
                         {/* Neighborhood */}
-                        {prop.neighborhood && (
+                        {getNeighborhoodName(prop.neighborhood) && (
                           <div style={{ display: 'inline-block', fontSize: 8.5, color: '#059669', fontWeight: 700, background: '#F0FDF4', padding: '1px 5px', borderRadius: 4 }}>
-                            {prop.neighborhood}
+                            {getNeighborhoodName(prop.neighborhood)}
                           </div>
                         )}
                       </div>

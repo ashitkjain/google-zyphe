@@ -38,6 +38,7 @@ import SoldListingsTab from '../SoldListingsTab';
 import AgentManagerTab from '../AgentManagerTab';
 import CostDashboardTab from '../CostDashboardTab';
 import IDXSearchTab from '../IDXSearchTab';
+import PipelineRunsTab from '../../admin/PipelineRunsTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -252,6 +253,7 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'agent_manager' && <AgentManagerTab />}
 
             {activeTab === 'cost_dashboard' && <CostDashboardTab />}
+            {activeTab === 'pipeline' && <PipelineRunsTab />}
 
             {activeTab === 'idx_search' && <IDXSearchTab onNavigateToProperty={(zpid, address) => {
                 if (onNavigate) onNavigate('explore', address);
