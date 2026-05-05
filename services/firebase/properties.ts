@@ -256,6 +256,10 @@ export const normalizeAddressString = (address: string): string => {
         .replace(/, US$/i, '')           // Remove Radar's ", US"
         .replace(/\sUS$/i, '')           // Remove Radar's " US"
         .replace(/,?\s?([A-Z]{2}),?\s?(\d{5})/, ', $1 $2') // Ensure "State Zip" format
+        // DEDUPLICATION: Remove repeating address chunks (e.g., ", Pleasanton, CA 94588, Pleasanton, CA 94588")
+        // This regex looks for a comma followed by some text, a state code, and a zip, 
+        // then identifies if that exact sequence repeats.
+        .replace(/(,\s*[^,]+,\s*[A-Z]{2}\s*\d{5})\1+/g, '$1')
         .replace(/,\s*,/g, ',')          // Fix double commas
         .replace(/\s+/g, ' ')            // Collapse whitespace
         .trim();
@@ -2167,5 +2171,49 @@ export const updateAddressIndex = async (city: string, address: string, zpid: st
         console.log(`[AddressIndex] Added "${address}" (${zpid}) to "${cityKey}" index`);
     } catch (error) {
         handleFirestoreError(error, "updateAddressIndex");
+    }
+};
+
+/**
+ * Deletes all storage assets associated with a specific ZPID.
+ * Path: properties/{zpid}/
+ */
+export const deletePropertyStorageAssets = async (zpid: string): Promise<{ success: boolean, count: number, error?: string }> => {
+    const storage = (await import('./config')).storage;
+    if (!storage) return { success: false, count: 0, error: 'Storage not initialized' };
+
+    try {
+        const { ref, listAll, deleteObject } = await import('firebase/storage');
+        const folderRef = ref(storage, `properties/${zpid}`);
+        
+        // 1. Recursive list and delete helper
+        const deleteFolderRecursive = async (folderRef: any): Promise<number> => {
+            let deletedCount = 0;
+            const listResult = await listAll(folderRef);
+
+            // Delete files
+            const fileDeletes = listResult.items.map(async (item) => {
+                await deleteObject(item);
+                deletedCount++;
+            });
+
+            // Recurse subfolders
+            const subfolderDeletes = listResult.prefixes.map(async (prefix) => {
+                deletedCount += await deleteFolderRecursive(prefix);
+            });
+
+            await Promise.all([...fileDeletes, ...subfolderDeletes]);
+            return deletedCount;
+        };
+
+        const totalDeleted = await deleteFolderRecursive(folderRef);
+        console.log(`[Storage] Purged ${totalDeleted} assets for ZPID: ${zpid}`);
+        return { success: true, count: totalDeleted };
+    } catch (error: any) {
+        // storage/object-not-found is common if the folder doesn't exist
+        if (error?.code === 'storage/object-not-found') {
+            return { success: true, count: 0 };
+        }
+        return { success: false, count: 0, error: error.message };
     }
 };

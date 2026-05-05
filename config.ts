@@ -67,6 +67,10 @@ export const APP_CONFIG = {
         key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || process.env.VITE_RAPIDAPI_KEY || '',
         host: 'us-housing-market-data1.p.rapidapi.com'
     },
+    realEstateApi: {
+        key: (import.meta as any).env?.VITE_REALESTATEAPI_KEY || process.env.VITE_REALESTATEAPI_KEY || '',
+        baseUrl: 'https://api.realestateapi.com/v2'
+    },
     radar: {
         key: (import.meta as any).env?.VITE_RADAR_KEY || process.env.VITE_RADAR_KEY || ''
     },

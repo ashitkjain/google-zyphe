@@ -146,7 +146,8 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     if (!data) return null;
 
     // Normalize factors: expand compact {i,t,v} and old {id,name,tags} formats
-    const normalizedFactors = (data.factors || []).map(resolveFactor).filter((f): f is ExtractedFactor => f !== null);
+    const rawFactors = Array.isArray(data.factors) ? data.factors : [];
+    const normalizedFactors = rawFactors.map(resolveFactor).filter((f): f is ExtractedFactor => f !== null);
     const grouped: Record<string, ExtractedFactor[]> = {};
     for (const factor of normalizedFactors) {
         if (DELETED_FACTOR_IDS.has(factor.id)) continue;
@@ -160,7 +161,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
         : [activeFilter];
 
     const totalFactors = normalizedFactors.length;
-    const allTags = normalizedFactors.flatMap(f => f.tags || []);
+    const allTags = normalizedFactors.flatMap(f => Array.isArray(f.tags) ? f.tags : []);
     const uniqueTags = new Set(allTags);
 
     // Estimate token count (~4 chars per token for Gemini)
@@ -205,7 +206,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         <i className="fa-solid fa-thumbs-up"></i> Top Strengths
                     </h4>
                     <ul className="space-y-2">
-                        {Array.isArray(data.summary.topStrengths) && data.summary.topStrengths.map((s, i) => (
+                        {Array.isArray(data.summary?.topStrengths) && data.summary.topStrengths.map((s, i) => (
                             <li key={i} className="text-sm text-emerald-700 flex items-start gap-2">
                                 <i className="fa-solid fa-check text-[10px] mt-1.5"></i>
                                 {typeof s === 'string' ? s : JSON.stringify(s)}
@@ -218,7 +219,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         <i className="fa-solid fa-triangle-exclamation"></i> Top Concerns
                     </h4>
                     <ul className="space-y-2">
-                        {Array.isArray(data.summary.topConcerns) && data.summary.topConcerns.map((c, i) => (
+                        {Array.isArray(data.summary?.topConcerns) && data.summary.topConcerns.map((c, i) => (
                             <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
                                 <i className="fa-solid fa-circle-exclamation text-[10px] mt-1.5"></i>
                                 {typeof c === 'string' ? c : JSON.stringify(c)}
@@ -226,7 +227,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         ))}
                     </ul>
                 </div>
-                {data.summary.propertyHighlight && (
+                {data.summary?.propertyHighlight && (
                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5">
                         <h4 className="text-sm font-black text-indigo-800 mb-3 flex items-center gap-2">
                             <i className="fa-solid fa-star"></i> Property Highlight
@@ -320,7 +321,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                 </>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {data.buyerDna ? (
+                    {data.buyerDna && typeof data.buyerDna === 'object' && !Array.isArray(data.buyerDna) ? (
                         Object.entries(data.buyerDna).map(([key, info]: [string, any]) => {
                             const score = info.score || 0;
                             // Color logic based on score

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Property Vision Analyzer</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-title">
+        <span class="header-icon">🏠</span>
+        <div>
+          <h1>Property Vision Analyzer</h1>
+          <p class="header-sub">Phi-3.5 Vision · Runs 100% in-browser</p>
+        </div>
+      </div>
+      <div id="model-status-badge" class="badge badge-idle">Not loaded</div>
+    </header>
+
+    <!-- WebGPU warning -->
+    <div id="webgpu-warning" class="alert alert-warning" hidden>
+      <strong>WebGPU required.</strong> Enable it at <code>chrome://flags/#enable-unsafe-webgpu</code>
+    </div>
+
+    <!-- Model Section -->
+    <section id="model-section" class="card">
+      <div class="card-body">
+        <h2>Step 1 — Load Vision Model</h2>
+        <p class="hint">
+          Downloads a vision model and caches it in-browser after first run.
+          Requires a GPU with <strong>WebGPU</strong> support.
+        </p>
+
+        <div id="model-select-row" class="model-select-row">
+          <label for="model-select">Model variant:</label>
+          <select id="model-select">
+            <option value="Phi-3.5-vision-instruct-q4f16_1-MLC" selected>
+              Phi-3.5 Vision 4B (q4f16, ~2.5 GB) — recommended, fast
+            </option>
+            <option value="Phi-3.5-vision-instruct-q4f32_1-MLC">
+              Phi-3.5 Vision 4B (q4f32, ~4 GB) — higher precision
+            </option>
+            <option value="custom">
+              Custom model ID (advanced)…
+            </option>
+          </select>
+        </div>
+
+        <div id="custom-model-row" class="model-select-row" hidden>
+          <label for="custom-model-id">Custom model ID:</label>
+          <input id="custom-model-id" type="text"
+                 placeholder="e.g. Llama-3.2-11B-Vision-Instruct-q4f16_1-MLC"
+                 style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:12px;width:100%;" />
+          <span class="hint" style="font-size:10px;">
+            Must be a model ID registered in WebLLM's prebuilt config or via a custom appConfig.
+          </span>
+        </div>
+
+        <button id="load-model-btn" class="btn btn-primary">
+          Load Model
+        </button>
+
+        <div id="loading-progress" hidden>
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="progress-text" class="progress-text">Initializing…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scan Section -->
+    <section id="scan-section" class="card" hidden>
+      <div class="card-body">
+        <h2>Step 2 — Scan Page Images</h2>
+        <p class="hint">Finds property photos on the current tab.</p>
+        <button id="scan-btn" class="btn btn-secondary">
+          🔍 Scan for Property Photos
+        </button>
+        <div id="scan-count" class="scan-count" hidden></div>
+      </div>
+    </section>
+
+    <!-- Analysis Section -->
+    <section id="analysis-section" hidden>
+      <div class="analysis-controls card">
+        <div class="card-body">
+          <h2>Step 3 — Analyze Photos</h2>
+          <div class="prompt-row">
+            <label for="custom-prompt">Analysis prompt:</label>
+            <textarea id="custom-prompt" rows="3">Analyze this real estate property photo. Identify: (1) room/area type, (2) notable features and condition, (3) quality level (entry/mid/luxury), (4) buyer-relevant strengths or concerns, (5) appeal score 1–10. Be concise.</textarea>
+          </div>
+          <div class="btn-row">
+            <button id="analyze-all-btn" class="btn btn-primary">
+              ⚡ Analyze All Photos
+            </button>
+            <button id="stop-btn" class="btn btn-danger" hidden>
+              ⏹ Stop
+            </button>
+            <span id="analysis-progress-text" class="small-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image grid -->
+      <div id="images-grid" class="images-grid"></div>
+    </section>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

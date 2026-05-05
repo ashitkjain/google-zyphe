@@ -63,12 +63,20 @@ export const formatAddress = (addr: any): string => {
         const resolvedState = state || state_code || stateCode || '';
         const resolvedZip = zipcode || zipCode || postal_code || '';
 
-        // GUARD: If the street field already contains city/state/zip info
-        // (common in Zillow responses), just return it as-is to avoid duplication
-        // like "4152 Kevin St, Dublin, CA 94568, dublin, California, 94568"
-        if (street && resolvedCity) {
-            const streetLower = street.toLowerCase();
-            if (streetLower.includes(resolvedCity.toLowerCase())) {
+        // If street is actually just a numeric ZPID, clear it
+        if (/^\d+$/.test(street)) return '';
+
+        // DEDUPLICATION GUARD: 
+        // If the street field already contains city/state/zip info
+        // just return it as-is to avoid duplication.
+        if (street) {
+            const sLower = street.toLowerCase();
+            const hasCity = resolvedCity && sLower.includes(resolvedCity.toLowerCase());
+            const hasState = resolvedState && sLower.includes(resolvedState.toLowerCase());
+            const hasZip = resolvedZip && sLower.includes(resolvedZip.toString().toLowerCase());
+            
+            // If it has at least city and state, or city and zip, it's likely a full address
+            if ((hasCity && hasState) || (hasCity && hasZip)) {
                 return street;
             }
         }
@@ -77,15 +85,27 @@ export const formatAddress = (addr: any): string => {
         let base = parts.join(', ');
 
         if (resolvedState) {
-            base += (base ? ', ' : '') + resolvedState;
+            // Check if state is already at the end of base
+            const statePattern = new RegExp(`,\\s*${resolvedState}\\s*$`, 'i');
+            if (!statePattern.test(base)) {
+                base += (base ? ', ' : '') + resolvedState;
+            }
+            
             if (resolvedZip) {
-                base += ' ' + resolvedZip;
+                const zipPattern = new RegExp(`\\s${resolvedZip}$`, 'i');
+                if (!zipPattern.test(base)) {
+                    base += ' ' + resolvedZip;
+                }
             }
         } else if (resolvedZip) {
-            base += (base ? ', ' : '') + resolvedZip;
+            const zipPattern = new RegExp(`,\\s*${resolvedZip}$`, 'i');
+            if (!zipPattern.test(base)) {
+                base += (base ? ', ' : '') + resolvedZip;
+            }
         }
 
-        return base.replace(/,\s*,/g, ',').trim();
+        // Final cleanup: fix double commas and trim
+        return base.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim();
     }
     return '';
 };

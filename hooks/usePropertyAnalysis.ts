@@ -157,11 +157,33 @@ export function usePropertyAnalysis({
         setLoadingSublabel(`Direct ZPID Search: ${searchAddress}`);
       }
 
+      let earlyShown = false;
       const fullData = await fetchPropertyDataFull(
         finalAddress,
         isZpid,
-        false, 
-        (step) => setLoadingSublabel(step)
+        false,
+        (step) => setLoadingSublabel(step),
+        false, // skipImages
+        false, // skipEnvironment
+        false, // skipParcel
+        (earlyData) => {
+          earlyShown = true;
+          const earlyAddress = displayAddressOverride || (isZpid ? (earlyData.address || `Property ID: ${searchAddress}`) : (finalAddress || earlyData.address || searchAddress));
+          const earlyMerged: PropertyData = {
+            ...earlyData,
+            coordinates: coords || earlyData.coordinates,
+            mapZoomIn: mapIn || earlyData.mapZoomIn,
+            mapZoomOut: mapOut || earlyData.mapZoomOut,
+            address: earlyAddress,
+          };
+          setPropertyData(earlyMerged);
+          setAddress(earlyMerged.address);
+          setLoading(false);
+          setImagesLoading(false);
+          if (currentUser && earlyMerged.zpid) {
+            trackUserPropertyView(currentUser.uid, earlyMerged);
+          }
+        }
       );
 
       let resolvedAddress = "";
@@ -201,10 +223,12 @@ export function usePropertyAnalysis({
 
       setPropertyData(mergedData);
       setAddress(mergedData.address);
-      setLoading(false);
-      setImagesLoading(false);
+      if (!earlyShown) {
+        setLoading(false);
+        setImagesLoading(false);
+      }
 
-      if (currentUser && mergedData.zpid) {
+      if (currentUser && mergedData.zpid && !earlyShown) {
         trackUserPropertyView(currentUser.uid, mergedData);
       }
 

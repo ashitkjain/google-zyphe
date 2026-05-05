@@ -1039,7 +1039,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                         prop={prop}
                         match={match}
                         rank={(i + 1) as 1 | 2 | 3}
-                        onOpen={() => onPropertyClick(prop.address)}
+                        onOpen={() => onPropertyClick(prop.zpid)}
                         onTour={() => onLeadCapture?.('tour', prop.address, prop.zpid, prop.listPrice)}
                       />
                     );
@@ -1071,7 +1071,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                       key={prop.zpid}
                       prop={prop}
                       match={match}
-                      onOpen={() => onPropertyClick(prop.address)}
+                      onOpen={() => onPropertyClick(prop.zpid)}
                       onTour={() => onLeadCapture?.('tour', prop.address, prop.zpid, prop.listPrice)}
                     />
                   );
@@ -1085,7 +1085,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                       property={prop as any}
                       match={match}
                       factors={cityGraphs.get(String(prop.zpid))?.factors}
-                      onClick={() => onPropertyClick(prop.address)}
+                      onClick={() => onPropertyClick(prop.zpid)}
                       onTourClick={e => { e.stopPropagation(); onLeadCapture?.('tour', prop.address, prop.zpid, prop.listPrice); }}
                       onInfoClick={e => { e.stopPropagation(); onLeadCapture?.('info', prop.address, prop.zpid, prop.listPrice); }}
                     />
@@ -1196,7 +1196,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                             {isTop && <div style={{ position: 'absolute', top: -3, right: -3, width: 13, height: 13, borderRadius: 99, background: '#FCD34D', border: '2px solid #fff', display: 'grid', placeItems: 'center', fontSize: 7, fontWeight: 800 }}>★</div>}
                           </div>
                           <div style={{ minWidth: 0 }}>
-                            <button onClick={() => onPropertyClick(prop.address)} style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
+                            <button onClick={() => onPropertyClick(prop.zpid)} style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
                               {prop.address}
                             </button>
                             <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, marginTop: 1 }}>
@@ -1307,7 +1307,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                       <td style={{ padding: '9px 14px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                           <button title="Tour" onClick={() => onLeadCapture?.('tour', prop.address, prop.zpid, prop.listPrice)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#9CA3AF' }}>📅</button>
-                          <button title="Open" onClick={() => onPropertyClick(prop.address)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #1a1330', background: '#1a1330', cursor: 'pointer', fontSize: 12, color: '#fff' }}>→</button>
+                          <button title="Open" onClick={() => onPropertyClick(prop.zpid)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #1a1330', background: '#1a1330', cursor: 'pointer', fontSize: 12, color: '#fff' }}>→</button>
                         </div>
                       </td>
                     </tr>
@@ -1388,7 +1388,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                   return (
                     <div
                       key={prop.zpid}
-                      onClick={() => onPropertyClick(prop.address)}
+                      onClick={() => onPropertyClick(prop.zpid)}
                       style={{
                         borderRadius: 10, background: '#fff', border: '1px solid #E5E7EB',
                         overflow: 'hidden', cursor: 'pointer',
@@ -1483,7 +1483,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                 topProp={topProp}
                 matchCount={buyerResults.length}
                 strongFitCount={strongFitCount}
-                onViewTop={() => onPropertyClick(topProp.address)}
+                onViewTop={() => onPropertyClick(topProp.zpid)}
               />
             );
           })()}
@@ -1498,7 +1498,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                 prop={prop}
                 match={match}
                 rank={i + 1}
-                onOpen={() => onPropertyClick(prop.address)}
+                onOpen={() => onPropertyClick(prop.zpid)}
                 onTour={() => onLeadCapture?.('tour', prop.address, prop.zpid, prop.listPrice)}
               />
             );
@@ -1517,7 +1517,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                       key={prop.zpid}
                       prop={prop}
                       match={match}
-                      onOpen={() => onPropertyClick(prop.address)}
+                      onOpen={() => onPropertyClick(prop.zpid)}
                     />
                   );
                 })}
@@ -1541,7 +1541,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                       <span style={{ fontSize: 11.5, color: '#9CA3AF', fontStyle: 'italic', flex: 1 }}>
                         {match.matchWriteup?.replace(/[✅❌👤]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100)}…
                       </span>
-                      <button onClick={() => onPropertyClick(prop.address)} style={{ background: 'transparent', color: '#9CA3AF', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                      <button onClick={() => onPropertyClick(prop.zpid)} style={{ background: 'transparent', color: '#9CA3AF', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
                         Show anyway →
                       </button>
                     </div>

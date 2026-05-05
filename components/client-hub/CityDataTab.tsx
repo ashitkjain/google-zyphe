@@ -12,6 +12,7 @@ import {
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep, refreshStreetView, getDeprecatedProperties } from '../../services/firebase/properties';
 import { fetchPropertySpecs } from '../../services/api/property';
+import { realEstateApiProvider } from '../../services/api/realEstateApiProvider';
 
 import { PropertyData } from '../../types';
 import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyPolicies';
@@ -1061,80 +1062,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         }
 
-        // 3. Paginated RapidAPI fallback
-        const baseUrl = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
-        addLog(`Fetching live data (paginated) for ${zip}…`);
-
-        const mapPage = (rawData: any[]) => rawData
-            .filter((item: any) => !!item.zpid)
-            .filter((item: any) => isSupportedPropertyType(item))
-            .map((item: any) => {
-                const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
-                const legacyAddr = legacyLoc.address || {};
-                const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
-                const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-                return {
-                    ...item,
-                    zpid: item.zpid,
-                    property_id: String(item.zpid),
-                    location: {
-                        address: {
-                            line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
-                            city: legacyAddr.city || item.city || item.town || fallbackCity || 'Unknown City',
-                            state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
-                            postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
-                        }
-                    },
-                    list_price: numericPrice,
-                    primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
-                };
-            });
-
+        // 3. RealEstateAPI — paginated active MLS search
+        addLog(`Fetching live data from RealEstateAPI for ${zip}…`);
         try {
-            const allData: any[] = [];
-
-            // Page 1
-            const resp1 = await fetch(`${baseUrl}&page=1`, {
-                method: 'GET',
-                headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
-            });
-            if (!resp1.ok) {
-                const txt = await resp1.text();
-                addLog(`API Error for ${zip}: ${resp1.status} - ${txt}`);
-                return [];
-            }
-            const result1 = await resp1.json();
-            const raw1 = Array.isArray(result1) ? result1 : (result1.props || result1.results || []);
-            const totalPages: number = result1.totalPages ?? result1.total_pages ?? 1;
-            allData.push(...raw1);
-            addLog(`  p1/${totalPages}: ${raw1.length} listings`);
-
-            // Pages 2..N
-            for (let p = 2; p <= totalPages; p++) {
-                await new Promise(r => setTimeout(r, 1000));
-                const respN = await fetch(`${baseUrl}&page=${p}`, {
-                    method: 'GET',
-                    headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
-                });
-                if (!respN.ok) {
-                    addLog(`  p${p} error: ${respN.status} — stopping pagination`);
-                    break;
-                }
-                const resultN = await respN.json();
-                const rawN = Array.isArray(resultN) ? resultN : (resultN.props || resultN.results || []);
-                allData.push(...rawN);
-                addLog(`  p${p}/${totalPages}: ${rawN.length} listings`);
-            }
-
-            const data = mapPage(allData);
-            addLog(`Live API returned ${data.length} total listings for ${zip} (${totalPages} page${totalPages !== 1 ? 's' : ''})`);
-
+            const listings = await realEstateApiProvider.searchByZip(zip, fallbackCity, fallbackState);
+            const data = listings.filter((item: any) => isSupportedPropertyType(item));
+            addLog(`RealEstateAPI returned ${data.length} active listings for ${zip}`);
             if (data.length > 0) {
                 saveZipListings(zip, data, cityStateKey).catch(console.error);
             }
             return data;
         } catch (e: any) {
-            addLog(`Fetch failed for ${zip}: ${e.message}`);
+            addLog(`RealEstateAPI fetch failed for ${zip}: ${e.message}`);
             return [];
         }
     };
@@ -1391,7 +1330,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const newZpids = allZpids.filter((z: string) => !existingSet.has(z));
                 if (newZpids.length > 0) {
                     addLog(`Enriching ${newZpids.length} new properties (${existingSet.size} already in Firestore)...`);
-                    const ENRICH_CHUNK = 3; // RapidAPI rate limit safe
+                    const ENRICH_CHUNK = 1; // Sequential — 1 request at a time
                     let enriched = 0;
                     let enrichFailed = 0;
                     let enrichSkipped = 0;
@@ -1399,7 +1338,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         const chunk = newZpids.slice(i, i + ENRICH_CHUNK);
                         const enrichResults = await Promise.allSettled(
                             chunk.map(async (zpid: string) => {
-                                const specs = await fetchPropertySpecs(zpid);
+                                const specs = await realEstateApiProvider.getPropertyDetail(zpid);
                                 if (!specs?.zpid) return false;
 
                                 // Validate before saving: reject unsupported homeType OR no bedrooms
@@ -1431,7 +1370,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             else if (r.status === 'rejected') enrichFailed++;
                         });
                         addLog(`  Enriched ${Math.min(i + ENRICH_CHUNK, newZpids.length)}/${newZpids.length}...`);
-                        if (i + ENRICH_CHUNK < newZpids.length) await new Promise(r => setTimeout(r, 1200));
+                        if (i + ENRICH_CHUNK < newZpids.length) await new Promise(r => setTimeout(r, 1500));
                     }
                     addLog(`Enrichment complete: ${enriched} saved, ${enrichSkipped} skipped (invalid type/no rooms), ${enrichFailed} failed.`);
                     logPipelineAudit('Property Enrichment', city.trim(), enrichFailed === 0 ? 'success' : 'partial', `${enriched}/${newZpids.length} enriched`, undefined, { enriched, skipped: enrichSkipped, failed: enrichFailed, existing: existingSet.size });

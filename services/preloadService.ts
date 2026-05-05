@@ -224,9 +224,12 @@ export const runFullIntelligencePipeline = async (
               onLog?.(`[Discovery] ⚠ Invalid/incomplete address detected: "${enrichedData.address}" — re-fetching from RapidAPI...`);
               try {
                 const fresh = await fetchPropertySpecs(zpid);
+                // Use only the bare street portion (before first comma) to avoid duplicating
+                // city/state/zip when RapidAPI's streetAddress already contains the full address.
+                const streetOnly = fresh?.streetAddress?.split(',')[0]?.trim() || '';
                 const freshAddress =
-                  fresh?.streetAddress
-                  ? `${fresh.streetAddress}, ${fresh.city || ''}, ${fresh.state || ''} ${fresh.zipcode || fresh.zipCode || ''}`.replace(/,\s*,/g, ',').trim()
+                  streetOnly && isValidStreetAddress(streetOnly)
+                  ? `${streetOnly}, ${fresh?.city || ''}, ${fresh?.state || ''} ${fresh?.zipcode || fresh?.zipCode || ''}`.replace(/,\s*,/g, ',').trim()
                   : null;
                 if (freshAddress && isValidStreetAddress(freshAddress)) {
                   enrichedData = { ...enrichedData, address: freshAddress } as typeof enrichedData;

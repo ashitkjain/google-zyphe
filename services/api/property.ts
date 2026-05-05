@@ -281,8 +281,11 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
             }
 
             if (!response.ok) {
+                // 401 = key rejected — retrying won't help
+                if (response.status === 401) return null;
                 if (response.status === 429 && attempt < retries) {
-                    const delay = Math.pow(2, attempt) * 500;
+                    const delay = Math.pow(2, attempt) * 2000; // 4s, 8s — give RapidAPI time to recover
+                    console.warn(`[fetchPropertySpecs] 429 for zpid ${zpid} (attempt ${attempt}/${retries}), retrying in ${delay}ms`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }

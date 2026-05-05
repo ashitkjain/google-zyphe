@@ -202,13 +202,17 @@ const pipelinePollBatch = functions.https.onRequest(async (req, res) => {
     }
 
     const data = snap.data();
+    const results = data.results || {};
+    const failedZpids = Object.entries(results)
+      .filter(([, r]) => r.status === 'failed' || r.status === 'error')
+      .map(([zpid]) => zpid);
     res.json({
       status: data.status || 'queued',
       done: data.done || 0,
       failed: data.failed || 0,
       skipped: data.skipped || 0,
       total: data.total || 0,
-      results: data.results || {},
+      failedZpids,
     });
   } catch (e) {
     console.error('[pipelinePollBatch]', e);

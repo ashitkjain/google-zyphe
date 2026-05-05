@@ -30,9 +30,12 @@ export const fetchPropertyDataFull = async (
     onStep?: (step: string) => void,
     skipImages: boolean = false,
     skipEnvironment: boolean = false,
-    skipParcel: boolean = false
+    skipParcel: boolean = false,
+    onEarlyData?: (data: PropertyData) => void
 ): Promise<PropertyData> => {
     const cacheKey = `data-full-${addressOrZpid}`;
+    const existing = ongoingRequests.get(cacheKey);
+    if (existing) return existing;
 
     const promise = (async () => {
         const _t0 = performance.now();
@@ -95,6 +98,11 @@ export const fetchPropertyDataFull = async (
             }
         }
 
+        // Notify caller with basic data before enrichment starts — enables progressive rendering.
+        if (onEarlyData) {
+            onEarlyData({ ...mappedData });
+        }
+
         // Ensure fallback coordinate geocoding runs if needed (even for cached data if they are missing)
         if ((!mappedData.coordinates || !mappedData.mapZoomOut) && mappedData.address) {
             try {
@@ -128,17 +136,11 @@ export const fetchPropertyDataFull = async (
             const storageKeyForEnv = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
             const coordsForPlaces = mappedData.coordinates;
 
-            // Cache guard for Google Places: skip if already fetched within 30 days.
-            const envDocForPlaces = storageKeyForEnv ? await getThirdPartyDataFromCloud(storageKeyForEnv).catch(() => null) : null;
-            const cachedPlaces = (envDocForPlaces as any)?.google_places as NeighborhoodPlaces | undefined;
-            const placesCachedAt = cachedPlaces?.fetchedAt;
-            const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
-
-            const needsPlacesFetch = coordsForPlaces && (!placesFresh || forceEnvironment || !cachedPlaces?.isUnified);
-
+            // Fetch env doc, scores, and images in parallel (env doc must complete before places can start)
             console.log(`[⏱ DataPipeline] +${_elapsed()} — scores/images/places parallel fetch start`);
             _mark('Scores/images/places start');
-            const [scores, assetImages, nearbyPlaces] = await Promise.all([
+            const [envDocForPlaces, scores, assetImages] = await Promise.all([
+                storageKeyForEnv ? getThirdPartyDataFromCloud(storageKeyForEnv).catch(() => null) : Promise.resolve(null),
                 needsScores ? fetchScores(mappedData.zpid) : Promise.resolve(null),
                 // Read pre-secured Firebase Storage URLs from the assets doc.
                 // We never call the RapidAPI /images endpoint at page-load time —
@@ -146,10 +148,16 @@ export const fetchPropertyDataFull = async (
                 needsImagesFromAssets
                     ? getPropertyAssetsFromCloud(mappedData.zpid).then(a => a?.images ?? []).catch(() => [])
                     : Promise.resolve(mappedData.images ?? []),
-                needsPlacesFetch
-                    ? fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address, cachedPlaces, forceEnvironment).catch(() => null)
-                    : Promise.resolve(cachedPlaces ?? null),
             ]);
+
+            const cachedPlaces = (envDocForPlaces as any)?.google_places as NeighborhoodPlaces | undefined;
+            const placesCachedAt = cachedPlaces?.fetchedAt;
+            const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
+            const needsPlacesFetch = coordsForPlaces && (!placesFresh || forceEnvironment || !cachedPlaces?.isUnified);
+
+            const nearbyPlaces = needsPlacesFetch
+                ? await fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address, cachedPlaces, forceEnvironment).catch(() => null)
+                : cachedPlaces ?? null;
             console.log(`[⏱ DataPipeline] +${_elapsed()} — scores/images/places done`);
             _mark('Scores/images/places done');
 
@@ -246,17 +254,21 @@ export const fetchPropertyDataFull = async (
 
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} faults=${needsFaults} ev=${needsEV} zypheNoise=${needsZypheNoise})`);
             _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsZypheNoise && 'zypheNoise'].filter(Boolean).join(', ') || 'all cached'})`);
-            const [freshSolar, freshAirQual, freshPollenRaw, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshZypheNoise] = await Promise.all([
-                needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsDisasters ? fetchHistoricalDisasters(lat, lng, mappedData.state, mappedData.city, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsBroadband ? fetchBroadbandData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsFaults ? fetchNearbyFaults(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsEV ? fetchNearbyEVChargers(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsZypheNoise ? calculateZypheNoiseScore(lat, lng) : Promise.resolve(null),
-            ]);
+            let freshSolar = null, freshAirQual = null, freshPollenRaw = null, freshDisasters = null,
+                freshBroadband = null, freshDrought = null, freshFaults = null, freshEV = null, freshZypheNoise = null;
+            if (envDirty) {
+                [freshSolar, freshAirQual, freshPollenRaw, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshZypheNoise] = await Promise.all([
+                    needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsDisasters ? fetchHistoricalDisasters(lat, lng, mappedData.state, mappedData.city, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsBroadband ? fetchBroadbandData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsFaults ? fetchNearbyFaults(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsEV ? fetchNearbyEVChargers(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                    needsZypheNoise ? calculateZypheNoiseScore(lat, lng) : Promise.resolve(null),
+                ]);
+            }
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch done`);
             _mark('Environmental done');
 

@@ -8,7 +8,6 @@ main:
           - state: ${args.state}
           - baseUrl: ${args.baseUrl}
           - zpids: ${args.zpids}
-          - projectId: ${args.projectId}
 
     - markRunning:
         call: http.post
@@ -22,7 +21,7 @@ main:
             data:
               status: "running"
               startedAt: ${sys.now()}
-        result: _ignored1
+        result: _r0
 
     # --- STEP 1: Property Data ---
     - kickPropertyData:
@@ -48,9 +47,9 @@ main:
 
     - retryPropertyData:
         switch:
-          - condition: ${propDataResult.failed > 0}
+          - condition: ${propDataResult.failed > 0 AND len(propDataResult.failedZpids) > 0}
             steps:
-              - createRetryPropData:
+              - kickRetryPropData:
                   call: http.post
                   args:
                     url: ${baseUrl + "/pipelineCreateBatchJob"}
@@ -68,9 +67,9 @@ main:
                     baseUrl: ${baseUrl}
                     collection: "property_data_batch_jobs"
                     jobId: ${propDataRetryKick.body.jobId}
-                  result: propDataRetryResult
+                  result: _propDataRetryResult
 
-    - updatePropertyDataStep:
+    - updatePropertyData:
         call: http.post
         args:
           url: ${baseUrl + "/pipelineUpdateRun"}
@@ -85,7 +84,7 @@ main:
               succeeded: ${propDataResult.done}
               failed: ${propDataResult.failed}
               skipped: ${propDataResult.skipped}
-        result: _ignored2
+        result: _r1
 
     # --- STEP 2: Asset Secure ---
     - kickAssetSecure:
@@ -99,21 +98,21 @@ main:
             zpids: ${zpids}
             runId: ${runId}
             stepName: "asset_secure"
-        result: assetSecureKick
+        result: assetKick
 
     - waitAssetSecure:
         call: waitForBatch
         args:
           baseUrl: ${baseUrl}
           collection: "asset_secure_batch_jobs"
-          jobId: ${assetSecureKick.body.jobId}
-        result: assetSecureResult
+          jobId: ${assetKick.body.jobId}
+        result: assetResult
 
     - retryAssetSecure:
         switch:
-          - condition: ${assetSecureResult.failed > 0}
+          - condition: ${assetResult.failed > 0 AND len(assetResult.failedZpids) > 0}
             steps:
-              - createRetryAssetSecure:
+              - kickRetryAsset:
                   call: http.post
                   args:
                     url: ${baseUrl + "/pipelineCreateBatchJob"}
@@ -121,19 +120,19 @@ main:
                       type: OIDC
                     body:
                       collection: "asset_secure_batch_jobs"
-                      zpids: ${assetSecureResult.failedZpids}
+                      zpids: ${assetResult.failedZpids}
                       runId: ${runId}
                       stepName: "asset_secure_retry"
-                  result: assetSecureRetryKick
-              - waitRetryAssetSecure:
+                  result: assetRetryKick
+              - waitRetryAsset:
                   call: waitForBatch
                   args:
                     baseUrl: ${baseUrl}
                     collection: "asset_secure_batch_jobs"
-                    jobId: ${assetSecureRetryKick.body.jobId}
-                  result: assetSecureRetryResult
+                    jobId: ${assetRetryKick.body.jobId}
+                  result: _assetRetryResult
 
-    - updateAssetSecureStep:
+    - updateAssetSecure:
         call: http.post
         args:
           url: ${baseUrl + "/pipelineUpdateRun"}
@@ -144,13 +143,13 @@ main:
             step: "asset_secure"
             data:
               status: "done"
-              total: ${assetSecureResult.total}
-              succeeded: ${assetSecureResult.done}
-              failed: ${assetSecureResult.failed}
-              skipped: ${assetSecureResult.skipped}
-        result: _ignored3
+              total: ${assetResult.total}
+              succeeded: ${assetResult.done}
+              failed: ${assetResult.failed}
+              skipped: ${assetResult.skipped}
+        result: _r2
 
-    # --- STEP 3: Intel ---
+    # --- STEP 3: Full Intel ---
     - kickIntel:
         call: http.post
         args:
@@ -174,9 +173,9 @@ main:
 
     - retryIntel:
         switch:
-          - condition: ${intelResult.failed > 0}
+          - condition: ${intelResult.failed > 0 AND len(intelResult.failedZpids) > 0}
             steps:
-              - createRetryIntel:
+              - kickRetryIntel:
                   call: http.post
                   args:
                     url: ${baseUrl + "/pipelineCreateBatchJob"}
@@ -194,9 +193,9 @@ main:
                     baseUrl: ${baseUrl}
                     collection: "full_intel_batch_jobs"
                     jobId: ${intelRetryKick.body.jobId}
-                  result: intelRetryResult
+                  result: _intelRetryResult
 
-    - updateIntelStep:
+    - updateIntel:
         call: http.post
         args:
           url: ${baseUrl + "/pipelineUpdateRun"}
@@ -211,7 +210,7 @@ main:
               succeeded: ${intelResult.done}
               failed: ${intelResult.failed}
               skipped: ${intelResult.skipped}
-        result: _ignored4
+        result: _r3
 
     # --- STEP 4: Orientation ---
     - kickOrientation:
@@ -225,21 +224,21 @@ main:
             zpids: ${zpids}
             runId: ${runId}
             stepName: "orientation"
-        result: orientationKick
+        result: orientKick
 
     - waitOrientation:
         call: waitForBatch
         args:
           baseUrl: ${baseUrl}
           collection: "orientation_batch_jobs"
-          jobId: ${orientationKick.body.jobId}
-        result: orientationResult
+          jobId: ${orientKick.body.jobId}
+        result: orientResult
 
     - retryOrientation:
         switch:
-          - condition: ${orientationResult.failed > 0}
+          - condition: ${orientResult.failed > 0 AND len(orientResult.failedZpids) > 0}
             steps:
-              - createRetryOrientation:
+              - kickRetryOrient:
                   call: http.post
                   args:
                     url: ${baseUrl + "/pipelineCreateBatchJob"}
@@ -247,19 +246,19 @@ main:
                       type: OIDC
                     body:
                       collection: "orientation_batch_jobs"
-                      zpids: ${orientationResult.failedZpids}
+                      zpids: ${orientResult.failedZpids}
                       runId: ${runId}
                       stepName: "orientation_retry"
-                  result: orientationRetryKick
-              - waitRetryOrientation:
+                  result: orientRetryKick
+              - waitRetryOrient:
                   call: waitForBatch
                   args:
                     baseUrl: ${baseUrl}
                     collection: "orientation_batch_jobs"
-                    jobId: ${orientationRetryKick.body.jobId}
-                  result: orientationRetryResult
+                    jobId: ${orientRetryKick.body.jobId}
+                  result: _orientRetryResult
 
-    - updateOrientationStep:
+    - updateOrientation:
         call: http.post
         args:
           url: ${baseUrl + "/pipelineUpdateRun"}
@@ -270,11 +269,11 @@ main:
             step: "orientation"
             data:
               status: "done"
-              total: ${orientationResult.total}
-              succeeded: ${orientationResult.done}
-              failed: ${orientationResult.failed}
-              skipped: ${orientationResult.skipped}
-        result: _ignored5
+              total: ${orientResult.total}
+              succeeded: ${orientResult.done}
+              failed: ${orientResult.failed}
+              skipped: ${orientResult.skipped}
+        result: _r4
 
     # --- STEP 5: Context Graph ---
     - kickContextGraph:
@@ -288,21 +287,21 @@ main:
             zpids: ${zpids}
             runId: ${runId}
             stepName: "context_graph"
-        result: contextGraphKick
+        result: cgKick
 
     - waitContextGraph:
         call: waitForBatch
         args:
           baseUrl: ${baseUrl}
           collection: "context_graph_batch_jobs"
-          jobId: ${contextGraphKick.body.jobId}
-        result: contextGraphResult
+          jobId: ${cgKick.body.jobId}
+        result: cgResult
 
     - retryContextGraph:
         switch:
-          - condition: ${contextGraphResult.failed > 0}
+          - condition: ${cgResult.failed > 0 AND len(cgResult.failedZpids) > 0}
             steps:
-              - createRetryContextGraph:
+              - kickRetryCG:
                   call: http.post
                   args:
                     url: ${baseUrl + "/pipelineCreateBatchJob"}
@@ -310,19 +309,19 @@ main:
                       type: OIDC
                     body:
                       collection: "context_graph_batch_jobs"
-                      zpids: ${contextGraphResult.failedZpids}
+                      zpids: ${cgResult.failedZpids}
                       runId: ${runId}
                       stepName: "context_graph_retry"
-                  result: contextGraphRetryKick
-              - waitRetryContextGraph:
+                  result: cgRetryKick
+              - waitRetryCG:
                   call: waitForBatch
                   args:
                     baseUrl: ${baseUrl}
                     collection: "context_graph_batch_jobs"
-                    jobId: ${contextGraphRetryKick.body.jobId}
-                  result: contextGraphRetryResult
+                    jobId: ${cgRetryKick.body.jobId}
+                  result: _cgRetryResult
 
-    - updateContextGraphStep:
+    - updateContextGraph:
         call: http.post
         args:
           url: ${baseUrl + "/pipelineUpdateRun"}
@@ -333,11 +332,11 @@ main:
             step: "context_graph"
             data:
               status: "done"
-              total: ${contextGraphResult.total}
-              succeeded: ${contextGraphResult.done}
-              failed: ${contextGraphResult.failed}
-              skipped: ${contextGraphResult.skipped}
-        result: _ignored6
+              total: ${cgResult.total}
+              succeeded: ${cgResult.done}
+              failed: ${cgResult.failed}
+              skipped: ${cgResult.skipped}
+        result: _r5
 
     # --- STEP 6: Buyer DNA ---
     - kickBuyerDna:
@@ -351,21 +350,21 @@ main:
             zpids: ${zpids}
             runId: ${runId}
             stepName: "buyer_dna"
-        result: buyerDnaKick
+        result: dnaKick
 
     - waitBuyerDna:
         call: waitForBatch
         args:
           baseUrl: ${baseUrl}
           collection: "buyer_dna_batch_jobs"
-          jobId: ${buyerDnaKick.body.jobId}
-        result: buyerDnaResult
+          jobId: ${dnaKick.body.jobId}
+        result: dnaResult
 
     - retryBuyerDna:
         switch:
-          - condition: ${buyerDnaResult.failed > 0}
+          - condition: ${dnaResult.failed > 0 AND len(dnaResult.failedZpids) > 0}
             steps:
-              - createRetryBuyerDna:
+              - kickRetryDna:
                   call: http.post
                   args:
                     url: ${baseUrl + "/pipelineCreateBatchJob"}
@@ -373,19 +372,19 @@ main:
                       type: OIDC
                     body:
                       collection: "buyer_dna_batch_jobs"
-                      zpids: ${buyerDnaResult.failedZpids}
+                      zpids: ${dnaResult.failedZpids}
                       runId: ${runId}
                       stepName: "buyer_dna_retry"
-                  result: buyerDnaRetryKick
-              - waitRetryBuyerDna:
+                  result: dnaRetryKick
+              - waitRetryDna:
                   call: waitForBatch
                   args:
                     baseUrl: ${baseUrl}
                     collection: "buyer_dna_batch_jobs"
-                    jobId: ${buyerDnaRetryKick.body.jobId}
-                  result: buyerDnaRetryResult
+                    jobId: ${dnaRetryKick.body.jobId}
+                  result: _dnaRetryResult
 
-    - updateBuyerDnaStep:
+    - updateBuyerDna:
         call: http.post
         args:
           url: ${baseUrl + "/pipelineUpdateRun"}
@@ -396,11 +395,11 @@ main:
             step: "buyer_dna"
             data:
               status: "done"
-              total: ${buyerDnaResult.total}
-              succeeded: ${buyerDnaResult.done}
-              failed: ${buyerDnaResult.failed}
-              skipped: ${buyerDnaResult.skipped}
-        result: _ignored7
+              total: ${dnaResult.total}
+              succeeded: ${dnaResult.done}
+              failed: ${dnaResult.failed}
+              skipped: ${dnaResult.skipped}
+        result: _r6
 
     # --- STEP 7: Smoke Check ---
     - smokeCheck:
@@ -428,7 +427,7 @@ main:
               total: ${smokeResult.body.total}
               passed: ${smokeResult.body.passed}
               failed: ${smokeResult.body.failed}
-        result: _ignored_smoke
+        result: _r7
 
     # --- Finalize ---
     - finalize:
@@ -443,26 +442,24 @@ main:
             data:
               status: "completed"
               completedAt: ${sys.now()}
-        result: _finalResult
+        result: _rFinal
 
     - done:
         return: ${runId}
 
+
 waitForBatch:
-  params: [args]
+  params: [baseUrl, collection, jobId]
   steps:
     - initPoll:
         assign:
-          - collection: ${args.collection}
-          - jobId: ${args.jobId}
-          - baseUrl: ${args.baseUrl}
           - maxWaitSeconds: 3600
           - elapsed: 0
 
     - poll:
         call: http.post
         args:
-          url: ${args.baseUrl + "/pipelinePollBatch"}
+          url: ${baseUrl + "/pipelinePollBatch"}
           auth:
             type: OIDC
           body:
@@ -473,7 +470,7 @@ waitForBatch:
     - checkDone:
         switch:
           - condition: ${pollResult.body.status == "completed"}
-            next: extractFailedZpids
+            next: returnResult
           - condition: ${elapsed >= maxWaitSeconds}
             next: timeout
 
@@ -496,16 +493,11 @@ waitForBatch:
           skipped: 0
           failedZpids: []
 
-    - extractFailedZpids:
-        assign:
-          - results: ${pollResult.body.results}
-          - failedZpids: []
-
     - returnResult:
         return:
           status: ${pollResult.body.status}
-          done: ${pollResult.body.done}
-          failed: ${pollResult.body.failed}
-          total: ${pollResult.body.total}
+          done: ${default(map.get(pollResult.body, "done"), 0)}
+          failed: ${default(map.get(pollResult.body, "failed"), 0)}
+          total: ${default(map.get(pollResult.body, "total"), 0)}
           skipped: ${default(map.get(pollResult.body, "skipped"), 0)}
-          failedZpids: ${failedZpids}
+          failedZpids: ${default(map.get(pollResult.body, "failedZpids"), [])}

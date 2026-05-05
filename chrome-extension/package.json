@@ -1,0 +1,20 @@
+{
+  "name": "zyphe-vision-analyzer",
+  "version": "1.0.0",
+  "description": "Chrome extension for AI property photo analysis using Llama 3.2 Vision via WebLLM",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.83"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.97.0",
+    "webpack-cli": "^5.1.4"
+  }
+}

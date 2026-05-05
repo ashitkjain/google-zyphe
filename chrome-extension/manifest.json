@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "Zyphe Property Vision Analyzer",
+  "version": "1.0.0",
+  "description": "AI-powered property photo analysis using Llama 3.2 Vision (runs fully in-browser)",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://zyphe.ai/*",
+    "http://localhost/*",
+    "http://localhost:3000/*",
+    "https://*.zillowstatic.com/*",
+    "https://*.cloudfront.net/*",
+    "https://*.amazonaws.com/*",
+    "https://*.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://zyphe.ai/*",
+        "http://localhost/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Property Vision Analyzer",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["sidepanel.html", "sidepanel.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

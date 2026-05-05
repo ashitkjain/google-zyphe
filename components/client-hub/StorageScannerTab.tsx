@@ -1,7 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { listPropertiesInStorage } from '../../services/firebase/storage';
-import { checkExistingPropertiesBatch, deletePropertyAnalysis, getPropertyFromCloud } from '../../services/firebase/properties';
+import { 
+    checkExistingPropertiesBatch, 
+    deletePropertyAnalysis, 
+    getPropertyFromCloud,
+    getDeprecatedProperties,
+    deletePropertyStorageAssets
+} from '../../services/firebase/properties';
 import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 import { auth } from '../../services/firebase/config';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
@@ -38,6 +44,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
     } | null>(null);
     const [dbStats, setDbStats] = useState<Record<string, { count: number, estimatedSizeKB: number }> | null>(null);
     const [loadingStats, setLoadingStats] = useState(false);
+    const [purging, setPurging] = useState(false);
 
     useEffect(() => {
         scanStorage();
@@ -202,6 +209,45 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
         }
     };
 
+    const handlePurgeDeprecated = async () => {
+        if (!window.confirm("This will PERMANENTLY delete all Firebase Storage photos for properties found in the 'sold_or_unlisted_properties' collection. Are you sure?")) return;
+        
+        setPurging(true);
+        addLog("Initiating storage purge for sold/unlisted properties...");
+        
+        try {
+            const deprecated = await getDeprecatedProperties();
+            if (deprecated.length === 0) {
+                addLog("No deprecated properties found to purge.");
+                return;
+            }
+
+            addLog(`Found ${deprecated.length} candidate properties for storage cleanup.`);
+            
+            let totalFilesDeleted = 0;
+            let successCount = 0;
+
+            for (const prop of deprecated) {
+                addLog(`[Purge] Cleaning storage for ZPID: ${prop.zpid}...`);
+                const res = await deletePropertyStorageAssets(prop.zpid);
+                if (res.success) {
+                    totalFilesDeleted += res.count;
+                    successCount++;
+                } else {
+                    addLog(`[Purge] Failed for ${prop.zpid}: ${res.error}`);
+                }
+            }
+
+            addLog(`Purge Complete! Cleaned up ${successCount}/${deprecated.length} properties. Total files removed: ${totalFilesDeleted}`);
+            await scanStorage(); // Refresh list
+        } catch (e: any) {
+            console.error(e);
+            addLog(`Purge Failed: ${e.message}`);
+        } finally {
+            setPurging(false);
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in duration-700">
             <div className="flex justify-between items-end mb-10">
@@ -218,6 +264,15 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                     >
                         {loadingStats ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-shield-heart"></i>}
                         Health Check
+                    </button>
+                    <button
+                        onClick={handlePurgeDeprecated}
+                        disabled={purging || loading}
+                        className="px-6 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl font-black transition-all flex items-center gap-3 disabled:opacity-50"
+                        title="Delete photos for sold/unlisted properties"
+                    >
+                        {purging ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-trash-can"></i>}
+                        Purge Sold Photos
                     </button>
                     <button
                         onClick={handleRunPipeline}

@@ -129,7 +129,7 @@ const buildPopupHtml = (
 ): string => {
     const propData = { ...property, livingAreaValue: property.livingArea } as any;
     return ReactDOMServer.renderToString(
-        <div style={{ width: '320px', pointerEvents: 'auto' }} className="zyphe-popup" data-address={property.address}>
+        <div style={{ width: '320px', pointerEvents: 'auto' }} className="zyphe-popup" data-zpid={property.zpid}>
             <PropertyCard property={propData} match={match} />
         </div>
     );
@@ -302,11 +302,11 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             const target = e.target as HTMLElement;
             const popup = target.closest('.zyphe-popup');
             if (popup) {
-                const address = (popup as HTMLElement).dataset.address;
-                if (address) {
+                const zpid = (popup as HTMLElement).dataset.zpid;
+                if (zpid) {
                     e.stopPropagation();
                     e.preventDefault();
-                    onPropertyClickRef.current(address);
+                    onPropertyClickRef.current(zpid);
                 }
             }
         };
