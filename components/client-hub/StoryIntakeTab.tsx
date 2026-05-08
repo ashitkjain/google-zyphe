@@ -73,6 +73,12 @@ const CHAPTERS = [
             { label: 'Divorced parent, fresh chapter', value: "I\'m starting over after a divorce with two kids on 50/50 custody. I need stability — move-in ready, great school district, a neighborhood where they can feel settled." },
             { label: 'Upsizing from a starter home', value: "We bought our first home five years ago and have completely outgrown it. Two more kids later, we need more bedrooms, a bigger kitchen, and a real garage." },
             { label: 'Relocating for a new job', value: "I just accepted a new role and need to relocate within 60 days. I\'m prioritizing a quick close, low maintenance, and a neighborhood I can grow into." },
+            { label: 'Returning from abroad', value: "We\'re moving back to California after several years overseas — re-establishing roots, finding the right school district, and settling somewhere we can stay for a decade." },
+            { label: 'Buying with aging parents in mind', value: "We don\'t need them on-site yet, but our parents are in their 70s — a layout that could accommodate them later (or an ADU) is part of our long-term thinking." },
+            { label: 'Tech equity event, ready to buy', value: "A liquidity event at work just made buying realistic for the first time. We\'re shifting from renting in the city to a long-term home in the suburbs." },
+            { label: 'Newlyweds, planning a family soon', value: "We just got married and are buying our first home together. We\'re not parents yet but planning to be in the next year or two — buying for that future, not just today." },
+            { label: 'High-income, lifestyle-driven', value: "Income isn\'t the constraint — fit is. We want a home that reflects how we live: design-forward, in a community that matches our values." },
+            { label: 'Cultural fit & community matters', value: "Being near our cultural community — temple, grocery, language schools, family friends — is a real factor in where we want to land." },
         ],
         key: 'chapter01' as const,
     },
@@ -94,6 +100,13 @@ const CHAPTERS = [
             { label: "Kids' activities drive the schedule", value: "Our days revolve around kids' soccer, swim, and music lessons — proximity to parks, fields, and rec centers keeps life sane." },
             { label: 'Creative work from home', value: "I do creative work from home — writing, design, music — and I need a space that feels inspiring and is acoustically separate from the rest of the house." },
             { label: 'Avid gardener or outdoor cook', value: "I spend most of my free time outdoors — gardening, grilling, or just being outside. A great backyard is as important to me as the interior." },
+            { label: 'Two home offices needed', value: "Both of us work from home full-time and take calls simultaneously — we genuinely need two separate, acoustically isolated office spaces." },
+            { label: 'Big family meals & extended hosting', value: "Sunday dinners with extended family are sacred — we need a dining space that seats 10+ comfortably and a kitchen that can handle real cooking volume." },
+            { label: 'Frequent travel, lock-and-leave', value: "We travel often for work and pleasure — low-maintenance landscaping, good security, and a home we can lock up for weeks at a time really matter." },
+            { label: 'Music, hobby, or maker space', value: "I need a dedicated space for my hobby — a music room, workshop, or studio that\'s separate enough that the rest of the house isn\'t affected." },
+            { label: 'Walk to coffee, school, errands', value: "Our ideal day starts with walking the kids to school and grabbing coffee on the way home. Walkability isn\'t a nice-to-have — it\'s how we want to live." },
+            { label: 'Indoor-outdoor flow is the lifestyle', value: "Sliding doors, a covered patio, an outdoor kitchen — we live with the doors open most of the year and want a home built for that." },
+            { label: 'Quiet evenings, no noise tolerance', value: "Evenings are for reading, music, and winding down. A quiet street, low ambient noise, and good interior sound isolation matter a lot to us." },
         ],
         key: 'chapter02' as const,
     },
@@ -117,6 +130,14 @@ const CHAPTERS = [
             { label: 'Avoid: high fire or flood risk', value: "We will not buy in a high fire risk zone or FEMA flood zone — insurance costs and long-term safety matter too much." },
             { label: 'Avoid: north-facing backyard', value: "North-facing backyards get almost no sun — we\'ve learned our lesson and are filtering those out entirely." },
             { label: 'Avoid: deferred maintenance', value: "A home with obvious deferred maintenance — aging roof, old HVAC, outdated electrical — is something we want to avoid entirely." },
+            { label: 'Must: walk to top middle/high school', value: "Walking distance to a top-rated middle or high school is the single biggest filter for us — we want our kids walking, not being driven." },
+            { label: 'Must: solar or sustainable build', value: "Existing solar, energy efficiency, and sustainable construction are real priorities — we want a low-carbon home, not a retrofit project." },
+            { label: 'Must: low-maintenance landscaping', value: "Drought-tolerant, low-maintenance landscaping is a must — we don\'t want a lawn we have to manage every weekend." },
+            { label: 'Must: good orientation / Vastu', value: "Orientation matters to us — we\'re looking for east-facing entrances and a home aligned with Vastu principles where possible." },
+            { label: 'Avoid: pool (safety, maintenance)', value: "We do not want a pool — young kids, ongoing maintenance, and insurance implications make it a hard no for us right now." },
+            { label: 'Avoid: power lines or cell tower', value: "Visible power lines, cell towers, or major infrastructure near the property is a no — both for aesthetics and long-term resale." },
+            { label: 'Avoid: poor school district', value: "School district is a hard filter — anything outside the top-rated boundaries is off the list, regardless of how good the home looks." },
+            { label: 'Avoid: short-term rental restrictions', value: "We want flexibility to do short- or medium-term rentals down the road — strict HOA or city limits on that are a deal-breaker." },
         ],
         key: 'chapter03' as const,
     },
@@ -137,6 +158,12 @@ const CHAPTERS = [
             { label: 'Privacy over proximity', value: "Privacy and buffer from neighbors matters more than being close to shops. I want to feel like I have my own space." },
             { label: 'Layout and flow over size', value: "A well-thought-out layout beats raw square footage for us — how the home feels and flows matters more than the listing number." },
             { label: 'Long-term appreciation over condition', value: "I\'m willing to buy something that needs cosmetic work if the location and lot have strong long-term appreciation potential." },
+            { label: 'Walkability over square footage', value: "We\'d rather have a smaller home in a truly walkable neighborhood than more space somewhere we have to drive everywhere." },
+            { label: 'Energy efficiency is a top filter', value: "Solar, efficient HVAC, and low utility costs are top filters — we want a home that\'s cheap to run, not just cheap to buy." },
+            { label: 'Lot and land over the structure', value: "We\'re buying the land and location more than the house. We\'d take a tear-down on a great lot over a perfect home on a mediocre one." },
+            { label: 'Community and neighbors matter most', value: "The kind of neighbors and community we\'ll be part of matters more than the specific home — we want a place that feels like a real neighborhood." },
+            { label: 'Safety and low-crime first', value: "A genuinely safe street and low-crime area is the top filter — everything else is negotiable around that." },
+            { label: 'Investment upside over comfort now', value: "We\'re willing to compromise on comfort or finishes today if the home has clear ADU, expansion, or appreciation upside." },
         ],
         key: 'chapter04' as const,
     },
@@ -146,7 +173,13 @@ const CHAPTERS = [
         placeholder: 'Select your current readiness level...',
         examples: [
             { label: 'Ready to offer now', value: 'Make an offer immediately (financing ready)' },
+            { label: 'Pre-approved, actively looking', value: 'Pre-approved with a lender and actively touring — ready to move on the right home' },
+            { label: 'Cash buyer, fast close', value: 'Cash buyer, prepared to close quickly with minimal contingencies' },
             { label: 'Ready in 1-2 months', value: 'Move forward within 1–2 months' },
+            { label: 'Ready in 3-6 months', value: 'Targeting a 3–6 month timeline — getting financing and logistics aligned' },
+            { label: 'Contingent on selling current home', value: 'Need to sell our current home first — would move fast on the right one if timing aligns' },
+            { label: 'Lease ending, hard deadline', value: 'Our lease ends in the next few months — we have a real move-out deadline driving us' },
+            { label: 'Spouse / partner needs to align', value: 'I\'m ready, but we make this decision together — partner needs to see and align before we move' },
             { label: 'Just exploring', value: 'Still exploring, not ready yet' }
         ],
         key: 'chapter05' as const,
@@ -165,11 +198,11 @@ const ATMOSPHERIC_ANCHORS = [
 
 // Per-chapter context chips shown in the card header
 const CHAPTER_CONTEXT_TAGS = [
-    ['Household', 'Life stage', 'Income tier'],
-    ['Routines', 'Workspace', 'Lifestyle'],
-    ['Must-haves', 'Deal-breakers'],
-    ['Values', 'Trade-offs'],
-    ['Timeline', 'Readiness'],
+    ['Household', 'Life stage', 'Income tier', 'Family size', 'Work situation', 'Relocation', 'Multi-gen', 'First-time buyer', 'Investor', 'Remote / hybrid', 'Pets', 'Cultural fit'],
+    ['Routines', 'Workspace', 'Lifestyle', 'Cooking & hosting', 'Outdoor living', 'Fitness', 'Commute', 'Kids activities', 'Quiet hours', 'Hobbies', 'Indoor-outdoor flow', 'Entertainment'],
+    ['Must-haves', 'Deal-breakers', 'Bedrooms', 'Garage', 'Yard', 'School district', 'Single story', 'ADU', 'Pool', 'EV charging', 'HOA limits', 'Fire / flood risk', 'Move-in ready', 'Orientation'],
+    ['Values', 'Trade-offs', 'Schools first', 'Commute first', 'Neighborhood feel', 'Outdoor space', 'Natural light', 'Privacy', 'Layout & flow', 'Long-term value', 'Budget stretch', 'Move-in ready', 'Walkability'],
+    ['Timeline', 'Readiness', 'Financing', 'Pre-approval', 'Offer-ready', '1–2 months', '3–6 months', 'Just exploring', 'Contingent on sale', 'Cash buyer', 'Lease ending', 'Decision makers'],
 ];
 
 const TOTAL_STEPS = 6; // 5 chapters + 1 anchors step
@@ -822,7 +855,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                         {/* Progress card */}
                         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid oklch(91% 0.01 260)', padding: '18px 12px' }}>
                             <div style={{ fontSize: 10.5, letterSpacing: '0.16em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700, marginBottom: 12, paddingLeft: 6 }}>Story progress</div>
-                            {[...CHAPTERS.map((ch, i) => ({ ...ch, type: 'chapter', i })), { num: '06', label: 'Anchors & Priorities', type: 'anchors', i: 5, key: null }].map((item, i) => {
+                            {CHAPTERS.map((ch, i) => ({ ...ch, type: 'chapter', i })).map((item, i) => {
                                 const isActive = currentStep === i;
                                 const isChapter = item.type === 'chapter';
                                 const wc = isChapter ? wordCount(data[(item as any).key]) : 0;

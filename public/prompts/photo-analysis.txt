@@ -1,0 +1,6 @@
+Describe this house photo.
+
+The very first line of your reply MUST be exactly:
+Space: <one of: Living Room, Bedroom, Primary Bedroom, Kitchen, Dining Room, Bathroom, Office, Laundry Room, Hallway, Staircase, Basement, Front Yard, Backyard, Pool Area, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Other>
+
+Then a blank line, then 2-4 sentences of plain description of what is visible.

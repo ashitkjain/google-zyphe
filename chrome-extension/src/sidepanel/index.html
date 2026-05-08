@@ -14,7 +14,7 @@
         <span class="header-icon">🏠</span>
         <div>
           <h1>Property Vision Analyzer</h1>
-          <p class="header-sub">Phi-3.5 Vision · Runs 100% in-browser</p>
+          <p class="header-sub">Local AI · Runs 100% on your machine</p>
         </div>
       </div>
       <div id="model-status-badge" class="badge badge-idle">Not loaded</div>
@@ -27,42 +27,62 @@
 
     <!-- Model Section -->
     <section id="model-section" class="card">
-      <div class="card-body">
-        <h2>Step 1 — Load Vision Model</h2>
-        <p class="hint">
-          Downloads a vision model and caches it in-browser after first run.
-          Requires a GPU with <strong>WebGPU</strong> support.
-        </p>
-
-        <div id="model-select-row" class="model-select-row">
-          <label for="model-select">Model variant:</label>
-          <select id="model-select">
-            <option value="Phi-3.5-vision-instruct-q4f16_1-MLC" selected>
-              Phi-3.5 Vision 4B (~2.5 GB) — Fast & Lightweight
-            </option>
-            <option value="Llama-3.2-11B-Vision-Instruct-q4f16_1-MLC">
-              Llama 3.2 Vision 11B (~7.5 GB) — Better Quality
-            </option>
-            <option value="Molmo-7B-D-0924-q4f16_1-MLC">
-              Molmo 7B (~5 GB) — Best Vision Precision
-            </option>
-            <option value="custom">
-              Custom model ID (advanced)…
-            </option>
-          </select>
+      <div class="card-body" style="padding-top: 10px;">
+        <!-- Engine Mode Tabs -->
+        <div class="engine-tabs">
+          <button id="tab-webgpu" class="tab-btn active">🌐 WebGPU (In-Browser)</button>
+          <button id="tab-ollama" class="tab-btn">💻 Ollama (Local Server)</button>
         </div>
 
-        <div id="custom-model-row" class="model-select-row" hidden>
-          <label for="custom-model-id">Custom model ID:</label>
-          <input id="custom-model-id" type="text"
-                 placeholder="e.g. Llama-3.2-11B-Vision-Instruct-q4f16_1-MLC"
-                 style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:12px;width:100%;" />
-          <span class="hint" style="font-size:10px;">
-            Must be a model ID registered in WebLLM's prebuilt config or via a custom appConfig.
-          </span>
+        <!-- WebGPU Controls -->
+        <div id="webgpu-controls">
+          <p class="hint" style="margin-bottom: 8px;">
+            Downloads a vision model and caches it in-browser. Runs fully sandbox-local.
+          </p>
+          <div id="model-select-row" class="model-select-row" style="margin-bottom: 10px;">
+            <label for="model-select">Model variant:</label>
+            <select id="model-select">
+              <option value="Phi-3.5-vision-instruct-q4f16_1-MLC" selected>
+                Phi-3.5 Vision 4B (q4f16, ~2.5 GB) — Fast & Lightweight
+              </option>
+              <option value="Phi-3.5-vision-instruct-q4f32_1-MLC">
+                Phi-3.5 Vision 4B (q4f32, ~4 GB) — Higher Precision
+              </option>
+              <option value="custom">
+                Custom model ID (advanced)…
+              </option>
+            </select>
+          </div>
+
+          <div id="custom-model-row" class="model-select-row" hidden style="margin-bottom: 10px;">
+            <label for="custom-model-id">Custom model ID:</label>
+            <input id="custom-model-id" type="text"
+                   placeholder="e.g. Llama-3.2-11B-Vision-Instruct-q4f16_1-MLC"
+                   style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:12px;width:100%;" />
+            <span class="hint" style="font-size:10px;">
+              Must be registered in WebLLM's config.
+            </span>
+          </div>
         </div>
 
-        <button id="load-model-btn" class="btn btn-primary">
+        <!-- Ollama Controls -->
+        <div id="ollama-controls" hidden>
+          <p class="hint" style="margin-bottom: 8px;">
+            Connects to your running local Ollama instance. Uses native Apple Silicon acceleration (Metal).
+          </p>
+          <div id="ollama-select-row" class="model-select-row" style="margin-bottom: 10px;">
+            <label for="ollama-model-select">Select local vision model:</label>
+            <div style="display: flex; gap: 6px;">
+              <select id="ollama-model-select" style="flex: 1;">
+                <option value="">Loading local models…</option>
+              </select>
+              <button id="refresh-ollama-btn" class="btn btn-secondary" style="padding: 5px 10px;" title="Refresh local models">🔄</button>
+            </div>
+            <span id="ollama-status-text" class="hint" style="font-size:11px; margin-top: 4px; display: block;"></span>
+          </div>
+        </div>
+
+        <button id="load-model-btn" class="btn btn-primary" style="width: 100%;">
           Load Model
         </button>
 
@@ -107,6 +127,7 @@
               ⏹ Stop
             </button>
             <span id="analysis-progress-text" class="small-text"></span>
+            <span id="analysis-timer" class="badge-timer" hidden>⏱️ 0.0s</span>
           </div>
         </div>
       </div>
@@ -116,7 +137,7 @@
         <div class="card-body">
           <div class="collective-header">
             <h3>Collective Analysis</h3>
-            <button class="btn-close-small" onclick="document.getElementById('collective-analysis-container').hidden = true">×</button>
+            <button class="btn-close-small" id="close-collective-btn">×</button>
           </div>
           <div id="collective-result" class="analysis-result"></div>
         </div>
