@@ -755,66 +755,6 @@ function getTemplateTypeForSpace(spaceLabel) {
   return 'INTERIOR';
 }
 
-function trimPromptTemplate(rawPrompt, templateType) {
-  if (!rawPrompt) return '';
-  if (templateType === 'ALL') return rawPrompt;
-
-  const lines = rawPrompt.split('\n');
-  const headerLines = [];
-  const templateALines = [];
-  const templateBLines = [];
-  const templateCLines = [];
-  const footerLines = [];
-
-  let currentSection = 'header'; // 'header', 'A', 'B', 'C', 'footer'
-
-  for (const line of lines) {
-    if (line.includes('USE TEMPLATE A — INTERIOR') || line.includes('--- INTERIOR ---')) {
-      currentSection = 'A';
-    } else if (line.includes('USE TEMPLATE B — PRIVATE EXTERIOR') || line.includes('--- PRIVATE EXTERIOR ---')) {
-      currentSection = 'B';
-    } else if (line.includes('USE TEMPLATE C — COMMUNITY AMENITY') || line.includes('--- COMMUNITY AMENITY ---')) {
-      currentSection = 'C';
-    } else if (line.startsWith('Context:')) {
-      currentSection = 'footer';
-    }
-
-    if (currentSection === 'header') {
-      headerLines.push(line);
-    } else if (currentSection === 'A') {
-      templateALines.push(line);
-    } else if (currentSection === 'B') {
-      templateBLines.push(line);
-    } else if (currentSection === 'C') {
-      templateCLines.push(line);
-    } else if (currentSection === 'footer') {
-      footerLines.push(line);
-    }
-  }
-
-  // Choose the target template lines
-  let chosenTemplateLines = [];
-  if (templateType === 'INTERIOR') {
-    chosenTemplateLines = templateALines;
-  } else if (templateType === 'EXTERIOR') {
-    chosenTemplateLines = templateBLines;
-  } else if (templateType === 'COMMUNITY') {
-    chosenTemplateLines = templateCLines;
-  }
-
-  // Clean up header lines (e.g. remove Rule 2 and references to other templates to keep it clean)
-  const filteredHeaderLines = headerLines.filter(line => {
-    if (line.includes('2. Choose exactly ONE of the three templates')) return false;
-    if (line.includes('2. Use exactly ONE template per photo')) return false;
-    return true;
-  });
-
-  return [
-    ...filteredHeaderLines,
-    ...chosenTemplateLines,
-    ...footerLines
-  ].join('\n');
-}
 
 async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templateType = 'ALL') {
   // User override takes priority
@@ -831,9 +771,7 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
   // misclassify legitimate new photos as duplicates and emit a refusal.
   const memoryContext = '';
 
-  const viewsContext = hasMultipleViews
-    ? `\nNOTE: You are being provided with multiple photos/angles of the same space (1 primary high-resolution photo and additional supporting thumbnail angles). Please synthesize details from all views to formulate a comprehensive, single unified description and analysis of the entire space.`
-    : '';
+  const viewsContext = '';
 
   const propertyCtx = currentProperty
     ? JSON.stringify(
@@ -842,19 +780,21 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
     )
     : 'Not available';
 
-  // 1. Attempt to fetch prompt from local development server (Vite default is 5173, fallback to 3000)
-  let promptTemplate = null;
-  const localUrls = [
-    'http://localhost:5173/prompts/photo-analysis.txt',
-    'http://localhost:3000/prompts/photo-analysis.txt'
-  ];
+  // 1. Attempt to fetch the type-specific prompt from local development server
+  const promptFileName = resolvedType === 'INTERIOR' ? 'photo-analysis.interior.txt'
+    : resolvedType === 'EXTERIOR' ? 'photo-analysis.exterior.txt'
+    : resolvedType === 'COMMUNITY' ? 'photo-analysis.community.txt'
+    : 'photo-analysis.txt';
 
-  for (const url of localUrls) {
+  let promptTemplate = null;
+  const localOrigins = ['http://localhost:5173', 'http://localhost:3000'];
+
+  for (const origin of localOrigins) {
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(`${origin}/prompts/${promptFileName}`);
       if (resp.ok) {
         promptTemplate = await resp.text();
-        console.log(`[Developer Mode] Successfully loaded dynamic prompt from ${url}`);
+        console.log(`[Developer Mode] Successfully loaded dynamic prompt from ${origin}/prompts/${promptFileName}`);
         break;
       }
     } catch (e) {
@@ -864,8 +804,7 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
 
   // 2. If dynamic prompt is successfully fetched, substitute variables and return
   if (promptTemplate) {
-    const trimmed = trimPromptTemplate(promptTemplate, resolvedType);
-    const filled = trimmed
+    const filled = promptTemplate
       .replace('{{PROPERTY_CONTEXT}}', propertyCtx)
       .replace('${propertyCtx}', propertyCtx)
       .replace('{{MEMORY_CONTEXT}}', memoryContext)
@@ -876,52 +815,61 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
   }
 
   // 3. Hardcoded fallback if offline / server not started / file missing.
-  // Mirrors public/prompts/photo-analysis.txt (the trimmed analyst prompt).
-  const fallback = [
-    'You are a real estate photo analyst. Fill in the matching template for the photo.',
-    '',
-    'RULES:',
-    '1. Start directly with "Space:" and output ONLY the filled fields. No intro, no closing remarks.',
-    '2. Use exactly ONE template per photo: INTERIOR, PRIVATE EXTERIOR, or COMMUNITY AMENITY.',
-    '3. Each field is a short phrase (under 8 words). Description is 3-4 sentences of grounded prose.',
-    '4. Describe only what is visible. Use "Not visible" when a field cannot be observed. Do not invent.',
-    '5. If the photo is an aerial, drone, or bird\'s-eye view showing multiple rooftops or streets from above, output "NA". Also output "NA" for unrelated photos (blank, blurry, screenshot).',
-    '',
-    'EXTERIOR DISAMBIGUATION (apply when filling Space):',
-    '- Front Yard = driveway, garage door, main entrance, street view, or front-facing facade.',
-    '- Backyard = enclosed, fenced, or rear-of-house outdoor area.',
-    '- Community Amenity = shared neighborhood feature at eye level (park, playground, clubhouse, tennis court, community pool, trail). Aerial shots of amenities → NA.',
-    '',
-    '--- INTERIOR ---',
-    'Space: [room name]',
-    'Style: [design aesthetic]',
-    'Colors: [walls / floor / accents]',
-    'Materials: [floor / counters / cabinets / fixtures]',
-    'Lighting: [natural and visible fixtures]',
-    'View: [through windows, or "None visible"]',
-    'Condition: [observed condition]',
-    'Description: [3-4 sentences]',
-    '',
-    '--- PRIVATE EXTERIOR ---',
-    'Space: [apply disambiguation rules]',
-    'Architecture: [exterior style]',
-    'Colors: [siding / trim / roof / driveway]',
-    'Landscaping: [lawn / plants / hardscape, or "Not visible"]',
-    'Outdoor Living: [patio / deck / pool, or "None visible"]',
-    'Views: [Scenic views and degree of privacy from neighbors or streets]',
-    'Condition: [paint, siding, windows, driveway, fences]',
-    'Description: [3-4 sentences]',
-    '',
-    '--- COMMUNITY AMENITY ---',
-    'Space: [amenity name]',
-    'Type: [kind of amenity]',
-    'Features: [equipment / surfaces / surroundings]',
-    'Condition: [observed condition]',
-    'Description: [3-4 sentences]',
-  ].join('\n');
+  const fallbacksByType = {
+    INTERIOR: [
+      'You are a real estate photo analyst. This photo has been classified as an INTERIOR space. Fill in the template below and OUTPUT NOTHING ELSE.',
+      '',
+      'RULES:',
+      '1. Start directly with "Space:" and output ONLY the filled fields. No intro, no closing remarks.',
+      '2. Each field is a short phrase (under 8 words). Description is 3-4 sentences of grounded prose.',
+      '3. Describe only what is visible. Use "Not visible" when a field cannot be observed. Do not invent.',
+      '4. If the photo is aerial/unrelated, output "NA" and nothing else.',
+      '',
+      'Space: [the specific room shown]',
+      'Style: [observed design aesthetic]',
+      'Colors & Materials: [walls, floor, accents, counters, cabinets, and fixtures visible]',
+      'Lighting: [natural light direction and any visible fixtures]',
+      'View: [what is visible through windows, or "None visible"]',
+      'Condition: [observed wear, finishes, upgrades]',
+      'Description: [3-4 sentences]',
+    ].join('\n'),
+    EXTERIOR: [
+      'You are a real estate photo analyst. This photo has been classified as a PRIVATE EXTERIOR space. Fill in the template below and OUTPUT NOTHING ELSE.',
+      '',
+      'RULES:',
+      '1. Start directly with "Space:" and output ONLY the filled fields. No intro, no closing remarks.',
+      '2. Each field is a short phrase (under 8 words). Description is 3-4 sentences of grounded prose.',
+      '3. Describe only what is visible. Use "Not visible" when a field cannot be observed. Do not invent.',
+      '4. If the photo is aerial/unrelated, output "NA" and nothing else.',
+      '',
+      'SPACE DISAMBIGUATION: Front Yard = driveway/entrance/facade. Backyard = enclosed/rear area. Pool Area = photo centered on a private pool.',
+      '',
+      'Space: [the specific exterior area]',
+      'Architecture & Landscaping: [exterior style, facade, lawn, plants, hardscape]',
+      'Colors: [siding, trim, roof, driveway]',
+      'Outdoor Living: [patio, deck, pool, seating, or "None visible"]',
+      'Views: [scenic views and privacy from neighbors/streets]',
+      'Condition: [paint, siding, windows, driveway, fences]',
+      'Description: [3-4 sentences]',
+    ].join('\n'),
+    COMMUNITY: [
+      'You are a real estate photo analyst. This photo has been classified as a COMMUNITY AMENITY. Fill in the template below and OUTPUT NOTHING ELSE.',
+      '',
+      'RULES:',
+      '1. Start directly with "Space:" and output ONLY the filled fields. No intro, no closing remarks.',
+      '2. Each field is a short phrase (under 8 words). Description is 3-4 sentences of grounded prose.',
+      '3. Describe only what is visible. Use "Not visible" when a field cannot be observed. Do not invent.',
+      '4. If the photo is an aerial/overhead shot of the amenity, output "NA" and nothing else.',
+      '',
+      'Space: [the specific amenity shown]',
+      'Type: [kind of amenity]',
+      'Features: [equipment, surfaces, surroundings]',
+      'Condition: [observed condition]',
+      'Description: [3-4 sentences]',
+    ].join('\n'),
+  };
 
-  const trimmedFallback = trimPromptTemplate(fallback, resolvedType);
-  return trimmedFallback;
+  return fallbacksByType[resolvedType] || fallbacksByType.INTERIOR;
 }
 
 // ── Analysis ───────────────────────────────────────────────────────────────
@@ -1107,13 +1055,15 @@ async function analyzeImages(indices) {
       if (signal.aborted) return;
       const idx = canonicalIdx;
 
-      // Fetch canonical + up to 3 additional members from the same semantic group for richer context (max 4 images total)
+      // Fetch canonical + up to 9 additional members from the same semantic group for richer context (max 10 images total).
+      // MiniCPM-V 2.6 natively supports multi-image reasoning up to 64 images and benefits from higher resolution
+      // via its dynamic tiling mechanism, so we send larger images than we would to llama3.2-vision.
       const otherMembers = memberIndices
         .filter(mIdx => mIdx !== canonicalIdx)
-        .slice(0, 3);
+        .slice(0, 9);
       const allIndices = [idx, ...otherMembers];
       const dataUrls = await Promise.all(
-        allIndices.map(i => fetchImageAsDataUrl(extractedImages[i].url, 448))
+        allIndices.map(i => fetchImageAsDataUrl(extractedImages[i].url, 896))
       );
       if (signal.aborted) return;
 
@@ -1749,7 +1699,10 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
           stream: true,
           options: {
             temperature: 0.2,
-            num_ctx: 4096,
+            // MiniCPM-V 2.6 has a 32K native context window. Multi-image calls at 896px consume
+            // significant tokens per image (dynamic tiling), so we raise num_ctx well above the
+            // single-image default to avoid silently truncating later images in the batch.
+            num_ctx: 32768,
             num_predict: 350,
             num_gpu: 99,     // offload all layers to GPU (no-op if already fully offloaded)
             stop: ['Space: Not', '\nSpace: N', 'USE TEMPLATE', '\n\nSpace:'],
