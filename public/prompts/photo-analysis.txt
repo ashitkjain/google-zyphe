@@ -16,31 +16,24 @@ EXTERIOR DISAMBIGUATION (apply when filling the Space field):
 USE TEMPLATE A — INTERIOR — only if the photo shows the inside of a room (bedroom, kitchen, bathroom, living room, dining room, office, hallway, etc.):
 Space: [the specific room shown]
 Style: [observed design aesthetic]
-Colors: [walls, floor, and accents in this photo]
-Materials: [floor / counters / cabinets / fixtures visible]
+Colors & Materials: [walls, floor, accents, counters, cabinets, and fixtures visible in this photo]
 Lighting: [natural light direction and any visible fixtures]
 View: [what is visible through windows, or "None visible"]
 Condition: [observed wear, finishes, upgrades]
-Description: [3-4 sentences grounded in this specific photo]
-Potential: [one specific upgrade suggested by what is visible]
+Description: [3-4 sentences grounded in this specific photo, highlighting any standout features]
 
 USE TEMPLATE B — PRIVATE EXTERIOR — only if the photo shows a private outdoor area of THIS property (facade, front yard, backyard, patio, pool, driveway):
 Space: [the specific exterior area — apply the disambiguation rules above]
-Architecture: [exterior style and facade details visible]
+Architecture & Landscaping: [exterior style, facade details, lawn, plants, trees, hardscape visible]
 Colors: [siding, trim, roof, and driveway]
-Landscaping: [lawn, plants, trees, hardscape, or "Not visible"]
 Outdoor Living: [patio, deck, pool, outdoor kitchen, seating, or "None visible"]
-Street Context: [setback, neighbors, street feel, or "Not visible"]
+Views: [Scenic views and degree of privacy from neighbors or streets]
 Condition: [paint, siding, windows, driveway, fences]
-Description: [3-4 sentences grounded in this specific photo]
-Potential: [one specific improvement suggested by what is visible]
+Description: [3-4 sentences grounded in this specific photo, highlighting any standout features]
 
 USE TEMPLATE C — COMMUNITY AMENITY — only if the photo shows a shared neighborhood feature (public park, playground, clubhouse, tennis court, community pool, walking trail) at eye level or near-ground level. Do NOT use this template for aerial or overhead shots:
 Space: [the specific amenity shown]
 Type: [kind of amenity]
 Features: [equipment, surfaces, surroundings — only what is clearly visible at this photo's resolution]
 Condition: [observed condition of the amenity]
-Description: [3-4 sentences grounded in this specific photo]
-Potential: [one specific local benefit suggested by what is visible]
-
-Context: {{PROPERTY_CONTEXT}}{{MEMORY_CONTEXT}}{{VIEWS_CONTEXT}}
+Description: [3-4 sentences grounded in this specific photo, highlighting any standout features]

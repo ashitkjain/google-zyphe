@@ -745,10 +745,86 @@ const DHASH_MERGE_THRESHOLD = 12;
 const PHASH_MERGE_THRESHOLD = 12;
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
-async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
+function getTemplateTypeForSpace(spaceLabel) {
+  if (!spaceLabel) return 'ALL';
+  const label = spaceLabel.trim();
+  const communitySpaces = ['Sports Court', 'Fitness Center', 'Clubhouse', 'Community Park'];
+  if (communitySpaces.includes(label)) return 'COMMUNITY';
+  const exteriorSpaces = ['Front Yard', 'Backyard', 'Pool Area', 'Aerial View'];
+  if (exteriorSpaces.includes(label)) return 'EXTERIOR';
+  return 'INTERIOR';
+}
+
+function trimPromptTemplate(rawPrompt, templateType) {
+  if (!rawPrompt) return '';
+  if (templateType === 'ALL') return rawPrompt;
+
+  const lines = rawPrompt.split('\n');
+  const headerLines = [];
+  const templateALines = [];
+  const templateBLines = [];
+  const templateCLines = [];
+  const footerLines = [];
+
+  let currentSection = 'header'; // 'header', 'A', 'B', 'C', 'footer'
+
+  for (const line of lines) {
+    if (line.includes('USE TEMPLATE A — INTERIOR') || line.includes('--- INTERIOR ---')) {
+      currentSection = 'A';
+    } else if (line.includes('USE TEMPLATE B — PRIVATE EXTERIOR') || line.includes('--- PRIVATE EXTERIOR ---')) {
+      currentSection = 'B';
+    } else if (line.includes('USE TEMPLATE C — COMMUNITY AMENITY') || line.includes('--- COMMUNITY AMENITY ---')) {
+      currentSection = 'C';
+    } else if (line.startsWith('Context:')) {
+      currentSection = 'footer';
+    }
+
+    if (currentSection === 'header') {
+      headerLines.push(line);
+    } else if (currentSection === 'A') {
+      templateALines.push(line);
+    } else if (currentSection === 'B') {
+      templateBLines.push(line);
+    } else if (currentSection === 'C') {
+      templateCLines.push(line);
+    } else if (currentSection === 'footer') {
+      footerLines.push(line);
+    }
+  }
+
+  // Choose the target template lines
+  let chosenTemplateLines = [];
+  if (templateType === 'INTERIOR') {
+    chosenTemplateLines = templateALines;
+  } else if (templateType === 'EXTERIOR') {
+    chosenTemplateLines = templateBLines;
+  } else if (templateType === 'COMMUNITY') {
+    chosenTemplateLines = templateCLines;
+  }
+
+  // Clean up header lines (e.g. remove Rule 2 and references to other templates to keep it clean)
+  const filteredHeaderLines = headerLines.filter(line => {
+    if (line.includes('2. Choose exactly ONE of the three templates')) return false;
+    if (line.includes('2. Use exactly ONE template per photo')) return false;
+    return true;
+  });
+
+  return [
+    ...filteredHeaderLines,
+    ...chosenTemplateLines,
+    ...footerLines
+  ].join('\n');
+}
+
+async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templateType = 'ALL') {
   // User override takes priority
   const override = customPrompt.value.trim();
   if (override) return override;
+
+  let resolvedType = templateType;
+  if (templateType && templateType !== 'ALL' && templateType !== 'INTERIOR' && templateType !== 'EXTERIOR' && templateType !== 'COMMUNITY') {
+    resolvedType = getTemplateTypeForSpace(templateType);
+  }
 
   // Phase 2 grouping/mirroring already prevents duplicate analyses, so we no
   // longer pass an "already analyzed" hint. It used to cause small models to
@@ -788,7 +864,8 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
 
   // 2. If dynamic prompt is successfully fetched, substitute variables and return
   if (promptTemplate) {
-    const filled = promptTemplate
+    const trimmed = trimPromptTemplate(promptTemplate, resolvedType);
+    const filled = trimmed
       .replace('{{PROPERTY_CONTEXT}}', propertyCtx)
       .replace('${propertyCtx}', propertyCtx)
       .replace('{{MEMORY_CONTEXT}}', memoryContext)
@@ -800,8 +877,6 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
 
   // 3. Hardcoded fallback if offline / server not started / file missing.
   // Mirrors public/prompts/photo-analysis.txt (the trimmed analyst prompt).
-  // Capable models (minicpm-v, llama3.2-vision) follow this cleanly; smaller
-  // models would collapse on it and are intentionally not used in Pass 2.
   const fallback = [
     'You are a real estate photo analyst. Fill in the matching template for the photo.',
     '',
@@ -826,7 +901,6 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
     'View: [through windows, or "None visible"]',
     'Condition: [observed condition]',
     'Description: [3-4 sentences]',
-    'Potential: [one specific upgrade]',
     '',
     '--- PRIVATE EXTERIOR ---',
     'Space: [apply disambiguation rules]',
@@ -834,10 +908,9 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
     'Colors: [siding / trim / roof / driveway]',
     'Landscaping: [lawn / plants / hardscape, or "Not visible"]',
     'Outdoor Living: [patio / deck / pool, or "None visible"]',
-    'Street Context: [setback, neighbors, street feel, or "Not visible"]',
+    'Views: [Scenic views and degree of privacy from neighbors or streets]',
     'Condition: [paint, siding, windows, driveway, fences]',
     'Description: [3-4 sentences]',
-    'Potential: [one specific improvement]',
     '',
     '--- COMMUNITY AMENITY ---',
     'Space: [amenity name]',
@@ -845,11 +918,10 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
     'Features: [equipment / surfaces / surroundings]',
     'Condition: [observed condition]',
     'Description: [3-4 sentences]',
-    'Potential: [one specific local benefit]',
-    '',
-    `Context: ${propertyCtx}${memoryContext}${viewsContext}`,
   ].join('\n');
-  return fallback;
+
+  const trimmedFallback = trimPromptTemplate(fallback, resolvedType);
+  return trimmedFallback;
 }
 
 // ── Analysis ───────────────────────────────────────────────────────────────
@@ -932,180 +1004,125 @@ async function analyzeImages(indices) {
     const results = [];
     const batchStart = performance.now();
 
-    // ── Phase 1: compute dHash + pHash for every image in parallel ───────────
-    // fetchAndComputeHashes does one fetch + one Image decode per photo,
-    // drawing to both the 9×8 (dHash) and 32×32 (pHash) canvases from the
-    // same decoded img element. This is 3× fewer decode cycles vs. calling
-    // fetchImageAsDataUrl + computeDHash + computePHash separately.
-    analysisProgressText.textContent = `Computing signatures… (0/${indices.length})`;
-    let hashDone = 0;
-    const hashes = await Promise.all(
-      indices.map(async (idx) => {
-        const { dHash, pHash } = await fetchAndComputeHashes(extractedImages[idx].url);
-        analysisProgressText.textContent = `Computing signatures… (${++hashDone}/${indices.length})`;
-        return { dHash, pHash };
-      })
-    );
-    if (signal.aborted) return;
+    // ── Phase 1 & 2: Hashing and Visual Clustering Bypassed ─────────────────
+    const t1Ms = 0;
+    const t2Ms = 0;
+    const numCanonical = indices.length;
+    const numDupes = 0;
 
-    // ── Phase 2: bin-based clustering ─────────────────────────────────────
-    // A photo joins an existing bin if EITHER its dHash distance from the bin's
-    // dHash centroid is ≤ DHASH_MERGE_THRESHOLD OR its pHash distance from the
-    // bin's canonical pHash is ≤ PHASH_MERGE_THRESHOLD. The dHash centroid
-    // drifts via majority-vote; the pHash centroid is kept fixed at the
-    // canonical's value (pHash is already robust to inter-frame drift).
-    const bins = [];
-
-    for (let i = 0; i < indices.length; i++) {
-      const { dHash: dh, pHash: ph } = hashes[i];
-      // Find the closest bin within either hash threshold.
-      let best = null;
-      let bestScore = Infinity;
-      for (const bin of bins) {
-        const dd = hammingDistance(dh, bin.dCentroid, 64);
-        const pd = hammingDistance(ph, bin.pHashCanonical, 63);
-        if (dd <= DHASH_MERGE_THRESHOLD || pd <= PHASH_MERGE_THRESHOLD) {
-          const score = Math.min(dd / DHASH_MERGE_THRESHOLD, pd / PHASH_MERGE_THRESHOLD);
-          if (score < bestScore) { bestScore = score; best = bin; }
-        }
-      }
-
-      if (best) {
-        best.memberPositions.push(i);
-        // Update dHash centroid via majority-vote so edge-case photos still attach.
-        if (dh !== null) {
-          let newCentroid = 0n;
-          for (let b = 63; b >= 0; b--) {
-            best.dBitCounts[b] += Number((dh >> BigInt(b)) & 1n);
-            const majority = best.dBitCounts[b] * 2 >= best.memberPositions.length ? 1n : 0n;
-            newCentroid = (newCentroid << 1n) | majority;
-          }
-          best.dCentroid = newCentroid;
-        }
-      } else {
-        // New bin — this photo is the canonical.
-        const dBitCounts = new Array(64).fill(0);
-        if (dh !== null) {
-          for (let b = 0; b < 64; b++) dBitCounts[b] = Number((dh >> BigInt(b)) & 1n);
-        }
-        bins.push({ dCentroid: dh, pHashCanonical: ph, canonicalPos: i, memberPositions: [i], dBitCounts });
-      }
-    }
-
-    const numCanonical = bins.length;
-    const numDupes = indices.length - numCanonical;
-    console.log(`[ZypheVision][dedup] ${indices.length} photos → ${numCanonical} bins, ${numDupes} visual duplicates`);
-
-    // ── Phase 3: mark visual duplicates immediately ────────────────────────
-    for (const bin of bins) {
-      const canonicalPhotoIdx = indices[bin.canonicalPos];
-      for (const memberPos of bin.memberPositions) {
-        if (memberPos !== bin.canonicalPos) {
-          markCardAsMirror(indices[memberPos], canonicalPhotoIdx, null);
-        }
-      }
-    }
-    if (signal.aborted) return;
-
-    // Set all visual canonicals to "Classifying…" while Phase 4 runs.
-    for (const bin of bins) {
-      const idx = indices[bin.canonicalPos];
+    // Set all images to "Classifying…" while Phase 4 runs.
+    for (const idx of indices) {
       const card = document.getElementById(`card-${idx}`);
       const statusEl = document.getElementById(`status-${idx}`);
       if (card) card.className = 'image-card analyzing';
-      if (statusEl) { statusEl.className = 'image-status-badge status-analyzing'; statusEl.textContent = 'Classifying…'; }
+      if (statusEl) {
+        statusEl.className = 'image-status-badge status-analyzing';
+        statusEl.textContent = 'Classifying…';
+      }
     }
 
-    // ── Phase 4: classify each visual canonical into a space label ─────────
-    // Run the selected model on every visual canonical with a short
-    // non-streaming prompt. Concurrent (up to 4). Results drive Phase 5.
-    analysisProgressText.textContent = `Classifying spaces… (0/${numCanonical})`;
+    // ── Phase 4: classify each image into a space label and type ─────────
+    const t4Start = performance.now();
+    analysisProgressText.textContent = `Classifying spaces… (0/${indices.length})`;
     let classifyDone = 0;
-    const spaceLabels = new Array(bins.length); // spaceLabels[binIdx] = label string
+    let classifyCalls = 0;
+    const spaceResults = new Array(indices.length); // spaceResults[i] = { label, type }
     const classifyCursor = { i: 0 };
     const classifyWorker = async () => {
       while (!signal.aborted) {
-        const binIdx = classifyCursor.i++;
-        if (binIdx >= bins.length) return;
-        const bin = bins[binIdx];
-        const idx = indices[bin.canonicalPos];
+        const i = classifyCursor.i++;
+        if (i >= indices.length) return;
+        const idx = indices[i];
         const thumb = await fetchImageAsDataUrl(extractedImages[idx].url, 320);
         if (signal.aborted) return;
-        spaceLabels[binIdx] = await classifyPhotoSpace(idx, thumb, signal);
+        spaceResults[i] = await classifyPhotoSpace(idx, thumb, signal);
+        classifyCalls += 1;
         classifyDone += 1;
-        analysisProgressText.textContent = `Classifying spaces… (${classifyDone}/${numCanonical})`;
-        console.log(`[ZypheVision][classify] photo ${idx} → "${spaceLabels[binIdx]}"`);
-        // Show the Phase 4 label on the canonical card immediately.
-        setSpaceLabelBadge(idx, spaceLabels[binIdx]);
-        // Propagate to visual-bin members too (they're mirrors-in-waiting).
-        for (const memberPos of bin.memberPositions) {
-          if (memberPos !== bin.canonicalPos) setSpaceLabelBadge(indices[memberPos], spaceLabels[binIdx]);
-        }
+        analysisProgressText.textContent = `Classifying spaces… (${classifyDone}/${indices.length})`;
+        console.log(`[ZypheVision][classify] photo ${idx} → "${spaceResults[i].label}" (${spaceResults[i].type})`);
+        // Show the Phase 4 label on the card immediately.
+        setSpaceLabelBadge(idx, spaceResults[i].label);
       }
     };
-    await Promise.all(Array.from({ length: Math.min(4, numCanonical) }, classifyWorker));
+    await Promise.all(Array.from({ length: Math.min(4, indices.length) }, classifyWorker));
+    const t4Ms = Math.round(performance.now() - t4Start);
     if (signal.aborted) return;
 
-    // ── Phase 5: semantic dedup — merge bins with the same space label ─────
-    // canonicalForSpace tracks the FIRST bin that owns each label. Any later
-    // bin with the same label is immediately marked as a mirror of that first
-    // canonical, so Phase 6 never analyzes it.
-    const canonicalForSpace = new Map(); // label → photoIdx of semantic canonical
-    const semanticBins = []; // bins selected to go to Phase 6
+    // ── Phase 5: semantic grouping ─────────────────────────────────────────
+    // Group all images by their space label.
+    // For each unique label, the first image is the canonical.
+    // The others are mirrors.
+    const semanticGroups = new Map(); // label → { canonicalIdx: number, memberIndices: number[], type: string }
 
-    for (let binIdx = 0; binIdx < bins.length; binIdx++) {
-      const bin = bins[binIdx];
-      const label = spaceLabels[binIdx];
-      const idx = indices[bin.canonicalPos];
+    for (let i = 0; i < indices.length; i++) {
+      const idx = indices[i];
+      const { label, type } = spaceResults[i];
 
-      // Aerial views are skipped entirely — mark all bin members as NA now.
-      if (label === 'Aerial View') {
-        for (const memberPos of bin.memberPositions) {
-          copyAnalysisToCard(indices[memberPos], 'NA', null);
-        }
+      // Aerial views are skipped entirely — mark them as NA now (unless it is the first photo).
+      if (label === 'Aerial View' && i > 0) {
+        copyAnalysisToCard(idx, 'NA', null);
         console.log(`[ZypheVision][aerial-skip] photo ${idx} classified as Aerial View — skipped`);
         continue;
       }
 
-      const existing = canonicalForSpace.get(label);
+      const existing = semanticGroups.get(label);
       if (existing !== undefined) {
-        // Same space as a prior bin — mark as mirror right now (before streaming).
-        markCardAsMirror(idx, existing, label);
-        // Propagate to this bin's visual members too.
-        for (const memberPos of bin.memberPositions) {
-          if (memberPos !== bin.canonicalPos) {
-            markCardAsMirror(indices[memberPos], existing, label);
-          }
-        }
-        console.log(`[ZypheVision][semantic-dedup] photo ${idx} merged into ${existing} (label="${label}")`);
+        existing.memberIndices.push(idx);
+        // Mark as mirror immediately
+        markCardAsMirror(idx, existing.canonicalIdx, label);
+        console.log(`[ZypheVision][semantic-dedup] photo ${idx} merged into ${existing.canonicalIdx} (label="${label}")`);
       } else {
-        canonicalForSpace.set(label, idx);
-        semanticBins.push({ bin, label });
+        semanticGroups.set(label, {
+          canonicalIdx: idx,
+          memberIndices: [idx],
+          type
+        });
         // Reset status to "Analyzing…" for Phase 6.
         const card = document.getElementById(`card-${idx}`);
         const statusEl = document.getElementById(`status-${idx}`);
         if (card) card.className = 'image-card analyzing';
-        if (statusEl) { statusEl.className = 'image-status-badge status-analyzing'; statusEl.textContent = 'Analyzing…'; }
+        if (statusEl) {
+          statusEl.className = 'image-status-badge status-analyzing';
+          statusEl.textContent = 'Analyzing…';
+        }
       }
     }
 
+    const semanticBins = Array.from(semanticGroups.entries()).map(([label, group]) => ({
+      label,
+      canonicalIdx: group.canonicalIdx,
+      memberIndices: group.memberIndices,
+      type: group.type
+    }));
+
     const numSemantic = semanticBins.length;
-    const numSemanticDupes = numCanonical - numSemantic;
-    console.log(`[ZypheVision][semantic-dedup] ${numCanonical} visual bins → ${numSemantic} unique spaces, ${numSemanticDupes} semantic duplicates`);
+    const numSemanticDupes = indices.length - numSemantic;
+    console.log(`[ZypheVision][semantic-dedup] Grouped into ${numSemantic} unique semantic spaces, ${numSemanticDupes} semantic duplicates`);
 
     // ── Phase 6: full analysis — one canonical per unique space ───────────
+    const t6Start = performance.now();
     let analyzed = 0;
-    const analyzeBin = async ({ bin, label }) => {
+    let analyzeCalls = 0;
+    const analyzeBin = async ({ label, canonicalIdx, memberIndices, type }) => {
       if (signal.aborted) return;
-      const idx = indices[bin.canonicalPos];
-      const dataUrl = await fetchImageAsDataUrl(extractedImages[idx].url, 448);
+      const idx = canonicalIdx;
+
+      // Fetch canonical + up to 3 additional members from the same semantic group for richer context (max 4 images total)
+      const otherMembers = memberIndices
+        .filter(mIdx => mIdx !== canonicalIdx)
+        .slice(0, 3);
+      const allIndices = [idx, ...otherMembers];
+      const dataUrls = await Promise.all(
+        allIndices.map(i => fetchImageAsDataUrl(extractedImages[i].url, 448))
+      );
       if (signal.aborted) return;
 
-      // Prepend the Phase 4 label as a hint so the model rarely disagrees.
-      const prompt = await buildPrompt(extractedImages[idx].url, idx, false);
+      const hasMultiple = dataUrls.length > 1;
+      const prompt = await buildPrompt(extractedImages[idx].url, idx, hasMultiple, type);
+      analyzeCalls += 1;
       let result;
       try {
-        result = await analyzeOneImage(idx, prompt, signal, [dataUrl]);
+        result = await analyzeOneImage(idx, prompt, signal, dataUrls, allIndices);
       } catch (err) {
         if (!signal.aborted) throw err;
         return;
@@ -1122,11 +1139,11 @@ async function analyzeImages(indices) {
         if (analysis !== result.analysis) copyAnalysisToCard(idx, analysis, result.score);
         results.push({ url: extractedImages[idx].url, analysis, score: result.score });
 
-        // Backfill label into all visual bin members' mirror cards.
-        for (const memberPos of bin.memberPositions) {
-          if (memberPos !== bin.canonicalPos) {
-            markCardAsMirror(indices[memberPos], idx, label);
-            results.push({ url: extractedImages[indices[memberPos]].url, analysis, score: result.score });
+        // Backfill label into all other semantic group members
+        for (const mIdx of memberIndices) {
+          if (mIdx !== canonicalIdx) {
+            markCardAsMirror(mIdx, idx, label);
+            results.push({ url: extractedImages[mIdx].url, analysis, score: result.score });
           }
         }
       }
@@ -1145,11 +1162,17 @@ async function analyzeImages(indices) {
       }
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, numSemantic) }, worker));
+    const t6Ms = Math.round(performance.now() - t6Start);
 
     analysisProgressText.textContent = signal.aborted ? 'Stopped.' : 'Done.';
 
     const batchMs = Math.round(performance.now() - batchStart);
-    console.log(`[ZypheVision][batch] photos=${indices.length} visual_bins=${numCanonical} visual_dupes=${numDupes} unique_spaces=${numSemantic} semantic_dupes=${numSemanticDupes} wall_clock_ms=${batchMs}`);
+    console.log(
+      `[ZypheVision][batch] photos=${indices.length} unique_spaces=${numSemantic} semantic_dupes=${numSemanticDupes} wall_clock_ms=${batchMs}\n` +
+      `  Classify LLM (${classifyCalls} calls):  ${t4Ms} ms\n` +
+      `  Analyze LLM (${analyzeCalls} calls):   ${t6Ms} ms\n` +
+      `  Other (overhead):        ${batchMs - t4Ms - t6Ms} ms`
+    );
 
     // Persist to Firestore for any multi-image batch.
     if (!signal.aborted && results.length > 0 && indices.length > 1) {
@@ -1279,13 +1302,44 @@ function inferSpaceFromText(text) {
   return best ? best.label : null;
 }
 
-// Phase 2 of the batch pipeline: classify one photo into a ROOM_VOCABULARY
-// label using a short, non-streaming LLM call. Returns a vocab label or a
-// unique "Unclassified N" placeholder so failures never false-merge.
-const CLASSIFY_PROMPT = `Look at this real estate photo. Reply with EXACTLY ONE label from this list, no other text:\n${ROOM_VOCABULARY.join(', ')}\n\nUse "Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
+function parseClassificationResponse(text, idx) {
+  if (!text) return { label: `Unclassified ${idx}`, type: 'INTERIOR' };
+
+  let type = 'INTERIOR';
+  let label = null;
+
+  // Extract Type line
+  const typeMatch = text.match(/Type:\s*([^\n]+)/i);
+  if (typeMatch) {
+    const rawType = typeMatch[1].toLowerCase();
+    if (rawType.includes('community')) {
+      type = 'COMMUNITY';
+    } else if (rawType.includes('exterior')) {
+      type = 'EXTERIOR';
+    } else {
+      type = 'INTERIOR';
+    }
+  }
+
+  // Extract Space line
+  const spaceMatch = text.match(/Space:\s*([^\n]+)/i);
+  const spaceText = spaceMatch ? spaceMatch[1].trim() : text;
+  label = inferSpaceFromText(spaceText) || `Unclassified ${idx}`;
+
+  return { label, type };
+}
+
+// Phase 2 of the batch pipeline: classify one photo into its category (type)
+// and specific space label using a short, non-streaming LLM call.
+const CLASSIFY_PROMPT = `Look at this real estate photo. Reply in this exact format:
+Type: [Interior, Exterior, or Community]
+Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Hallway, Staircase, Basement, Front Yard, Backyard, Pool Area, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View]
+
+Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
 
 async function classifyPhotoSpace(idx, dataUrl, signal) {
   try {
+    let text = '';
     if (engineMode === 'ollama') {
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
@@ -1298,17 +1352,13 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
             images: [dataUrl.split(',')[1] || dataUrl],
           }],
           stream: false,
-          options: { temperature: 0, num_predict: 30, num_ctx: 4096, num_gpu: 99 },
+          options: { temperature: 0, num_predict: 50, num_ctx: 4096, num_gpu: 99 },
         }),
         signal,
       });
       if (!response.ok) throw new Error(`Status ${response.status}`);
       const data = await response.json();
-      const text = (data.message?.content || '').trim();
-      const label = inferSpaceFromText(text) || `Unclassified ${idx}`;
-      if (!text) console.warn(`[ZypheVision][classify] empty response for photo ${idx}, full data:`, data);
-      console.log(`[ZypheVision][classify-raw] photo ${idx} raw="${text}" → label="${label}"`);
-      return label;
+      text = (data.message?.content || '').trim();
     } else {
       // WebGPU
       const resp = await engine.chat.completions.create({
@@ -1317,14 +1367,17 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
           { type: 'text', text: CLASSIFY_PROMPT },
         ]}],
         stream: false,
-        max_tokens: 15,
+        max_tokens: 30,
       });
-      const text = (resp.choices[0].message.content || '').trim();
-      return inferSpaceFromText(text) || `Unclassified ${idx}`;
+      text = (resp.choices[0].message.content || '').trim();
     }
+
+    const parsed = parseClassificationResponse(text, idx);
+    console.log(`[ZypheVision][classify-raw] photo ${idx} raw="${text.replace(/\n/g, ' ')}" → label="${parsed.label}" type="${parsed.type}"`);
+    return parsed;
   } catch (err) {
     if (!signal.aborted) console.error(`[ZypheVision] Classification failed for photo ${idx}:`, err);
-    return `Unclassified ${idx}`;
+    return { label: `Unclassified ${idx}`, type: 'INTERIOR' };
   }
 }
 
@@ -1623,7 +1676,7 @@ async function analyzeMultipleImages(indices) {
   }
 }
 
-async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
+async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, sentIndices = null) {
   const img = extractedImages[idx];
   if (!img) return null;
 
@@ -1639,6 +1692,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
 
   try {
     let imagesPayload = [];
+    let resolvedIndices = sentIndices;
     if (preloadedDataUrls) {
       if (Array.isArray(preloadedDataUrls)) {
         imagesPayload = preloadedDataUrls;
@@ -1649,6 +1703,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
       resultEl.innerHTML = '<span class="analyzing-spinner"></span>Fetching image…';
       const masterUrl = await fetchImageAsDataUrl(img.url);
       imagesPayload = [masterUrl];
+      resolvedIndices = [idx];
     }
 
     if (signal.aborted) return null;
@@ -1671,7 +1726,8 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
       const imgDiag = imagesPayload.map((u, i) => {
         const head = u.slice(0, 30);
         const b64 = u.includes(',') ? u.split(',')[1] : u;
-        return `img${i}[${head}…, b64len=${b64.length}]`;
+        const indexStr = (resolvedIndices && resolvedIndices[i] !== undefined) ? `(photo #${resolvedIndices[i] + 1})` : '';
+        return `img${i}${indexStr}[${head}…, b64len=${b64.length}]`;
       }).join(' ');
       console.log(`[ZypheVision][master idx=${idx}] model=${ollamaSelectedModel} prompt=`, JSON.stringify(prompt), `${imgDiag}`);
       const response = await fetch('http://localhost:11434/api/chat', {
@@ -1682,7 +1738,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
           messages: [
             {
               role: 'system',
-              content: 'You are a real estate photo analyst. Fill in ALL fields of EXACTLY ONE matching template. Stop immediately after the final "Potential:" field. Never start a second template.',
+              content: 'You are a real estate photo analyst. Fill in ALL fields of EXACTLY ONE matching template. Stop immediately after the final "Description:" field. Never start a second template.',
             },
             {
               role: 'user',

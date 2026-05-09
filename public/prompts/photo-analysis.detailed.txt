@@ -19,7 +19,6 @@ Lighting: [observed natural light direction/quality and any visible artificial f
 View: [what is actually visible through windows in this photo, or "None visible"]
 Condition: [observed condition: wear, finishes, upgrades visible]
 Description: [3-4 sentences of flowing prose grounded in what is shown in this photo]
-Potential: [one specific upgrade suggested by what is visible]
 
 --- IF PRIVATE EXTERIOR (facade, front yard, backyard, patio, pool, driveway, etc.) ---
 Space: [the specific exterior area shown]
