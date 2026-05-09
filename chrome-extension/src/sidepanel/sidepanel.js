@@ -1298,7 +1298,7 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
             images: [dataUrl.split(',')[1] || dataUrl],
           }],
           stream: false,
-          options: { temperature: 0, num_predict: 15, num_ctx: 512, num_gpu: 99, stop: ['\n'] },
+          options: { temperature: 0, num_predict: 30, num_ctx: 4096, num_gpu: 99 },
         }),
         signal,
       });
@@ -1306,6 +1306,7 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
       const data = await response.json();
       const text = (data.message?.content || '').trim();
       const label = inferSpaceFromText(text) || `Unclassified ${idx}`;
+      if (!text) console.warn(`[ZypheVision][classify] empty response for photo ${idx}, full data:`, data);
       console.log(`[ZypheVision][classify-raw] photo ${idx} raw="${text}" → label="${label}"`);
       return label;
     } else {
