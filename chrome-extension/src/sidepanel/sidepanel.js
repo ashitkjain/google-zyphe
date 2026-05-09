@@ -398,6 +398,7 @@ function buildImageCard(img, idx) {
       <div class="image-selection-overlay">
         <input type="checkbox" class="image-checkbox" data-index="${idx}" />
       </div>
+      <span class="space-label-badge" id="space-label-${idx}"></span>
       <span class="image-status-badge status-pending" id="status-${idx}">Pending</span>
     </div>
     <div class="image-card-body">
@@ -527,6 +528,103 @@ function dedupeRepeatedBlocks(text) {
 
 
 // ── Perceptual similarity (dHash) ─────────────────────────────────────────
+// Pre-computed cosine table for the 32×32 pHash DCT — same values every call.
+const PHASH_N = 32;
+const PHASH_COS = (() => {
+  const cos = new Float64Array(PHASH_N * PHASH_N);
+  for (let k = 0; k < PHASH_N; k++) {
+    for (let n = 0; n < PHASH_N; n++) {
+      cos[k * PHASH_N + n] = Math.cos((Math.PI / PHASH_N) * (n + 0.5) * k);
+    }
+  }
+  return cos;
+})();
+
+// Shared hash computation from a pre-decoded Image element.
+// Draws to a 9×8 canvas (dHash) and a 32×32 canvas (pHash) from the same img
+// so the caller only pays one Image decode instead of two.
+function computeHashesFromImage(img) {
+  // dHash: 9×8 grayscale, compare each pixel to its right neighbour.
+  const dc = document.createElement('canvas');
+  dc.width = 9; dc.height = 8;
+  const dctx = dc.getContext('2d');
+  dctx.drawImage(img, 0, 0, 9, 8);
+  const ddata = dctx.getImageData(0, 0, 9, 8).data;
+  const gray9 = new Uint8Array(72);
+  for (let i = 0; i < 72; i++) {
+    gray9[i] = (0.299 * ddata[i * 4] + 0.587 * ddata[i * 4 + 1] + 0.114 * ddata[i * 4 + 2]) | 0;
+  }
+  let dHash = 0n;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      dHash = (dHash << 1n) | (gray9[r * 9 + c] > gray9[r * 9 + c + 1] ? 1n : 0n);
+    }
+  }
+
+  // pHash: 32×32 DCT using the pre-computed cosine table.
+  const N = PHASH_N;
+  const pc = document.createElement('canvas');
+  pc.width = N; pc.height = N;
+  const pctx = pc.getContext('2d');
+  pctx.drawImage(img, 0, 0, N, N);
+  const pdata = pctx.getImageData(0, 0, N, N).data;
+  const gray32 = new Float64Array(N * N);
+  for (let i = 0; i < N * N; i++) {
+    gray32[i] = 0.299 * pdata[i * 4] + 0.587 * pdata[i * 4 + 1] + 0.114 * pdata[i * 4 + 2];
+  }
+  const rowDct = new Float64Array(N * N);
+  for (let r = 0; r < N; r++) {
+    for (let k = 0; k < N; k++) {
+      let sum = 0;
+      for (let n = 0; n < N; n++) sum += gray32[r * N + n] * PHASH_COS[k * N + n];
+      rowDct[r * N + k] = sum;
+    }
+  }
+  const dct2d = new Float64Array(N * N);
+  for (let k = 0; k < N; k++) {
+    for (let k2 = 0; k2 < N; k2++) {
+      let sum = 0;
+      for (let r = 0; r < N; r++) sum += rowDct[r * N + k] * PHASH_COS[k2 * N + r];
+      dct2d[k2 * N + k] = sum;
+    }
+  }
+  const LOW = 8;
+  const vals = [];
+  for (let r = 0; r < LOW; r++) {
+    for (let c = 0; c < LOW; c++) {
+      if (r === 0 && c === 0) continue;
+      vals.push(dct2d[r * N + c]);
+    }
+  }
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  let pHash = 0n;
+  for (const v of vals) pHash = (pHash << 1n) | (v >= mean ? 1n : 0n);
+
+  return { dHash, pHash };
+}
+
+// Phase 1 entry point: fetch once, decode once, compute both hashes.
+// Eliminates the two extra Image.onload cycles from calling computeDHash and
+// computePHash separately on the same dataUrl.
+async function fetchAndComputeHashes(url) {
+  const resp = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+  if (!resp.ok) throw new Error(`Failed to fetch image (${resp.status})`);
+  const blob = await resp.blob();
+  const rawDataUrl = await blobToDataUrl(blob);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        resolve(computeHashesFromImage(img));
+      } catch (e) {
+        resolve({ dHash: null, pHash: null });
+      }
+    };
+    img.onerror = () => resolve({ dHash: null, pHash: null });
+    img.src = rawDataUrl;
+  });
+}
+
 // Fast 64-bit difference hash for "is this the same scene as that one?"
 // Used to dedup multiple photos of the same space (skipping a Pass 2 call
 // each) without false-merging two different rooms that share a Pass 1 tag.
@@ -579,7 +677,7 @@ async function computePHash(dataUrl) {
     const img = new Image();
     img.onload = () => {
       try {
-        const N = 32;
+        const N = PHASH_N;
         const canvas = document.createElement('canvas');
         canvas.width = N;
         canvas.height = N;
@@ -587,26 +685,16 @@ async function computePHash(dataUrl) {
         ctx.drawImage(img, 0, 0, N, N);
         const { data } = ctx.getImageData(0, 0, N, N);
 
-        // Grayscale
         const gray = new Float64Array(N * N);
         for (let i = 0; i < N * N; i++) {
           gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
         }
 
-        // Pre-compute cosine table: cos[k][n] = cos(π/N * (n+0.5) * k)
-        const cos = new Float64Array(N * N);
-        for (let k = 0; k < N; k++) {
-          for (let n = 0; n < N; n++) {
-            cos[k * N + n] = Math.cos((Math.PI / N) * (n + 0.5) * k);
-          }
-        }
-
-        // Separable 2D DCT-II: DCT each row, then DCT each column
         const rowDct = new Float64Array(N * N);
         for (let r = 0; r < N; r++) {
           for (let k = 0; k < N; k++) {
             let sum = 0;
-            for (let n = 0; n < N; n++) sum += gray[r * N + n] * cos[k * N + n];
+            for (let n = 0; n < N; n++) sum += gray[r * N + n] * PHASH_COS[k * N + n];
             rowDct[r * N + k] = sum;
           }
         }
@@ -614,12 +702,11 @@ async function computePHash(dataUrl) {
         for (let k = 0; k < N; k++) {
           for (let k2 = 0; k2 < N; k2++) {
             let sum = 0;
-            for (let r = 0; r < N; r++) sum += rowDct[r * N + k] * cos[k2 * N + r];
+            for (let r = 0; r < N; r++) sum += rowDct[r * N + k] * PHASH_COS[k2 * N + r];
             dct2d[k2 * N + k] = sum;
           }
         }
 
-        // Top-left 8×8, skip DC component at [0,0] → 63 values
         const LOW = 8;
         const vals = [];
         for (let r = 0; r < LOW; r++) {
@@ -775,6 +862,13 @@ stopBtn.addEventListener('click', () => {
 
 window.analyzeSingle = (idx) => analyzeImages([idx]);
 
+function setSpaceLabelBadge(idx, label) {
+  const el = document.getElementById(`space-label-${idx}`);
+  if (!el) return;
+  el.textContent = label;
+  el.classList.add('visible');
+}
+
 function copyAnalysisToCard(targetIdx, analysis, score) {
   const card = document.getElementById(`card-${targetIdx}`);
   const resultEl = document.getElementById(`result-${targetIdx}`);
@@ -839,14 +933,15 @@ async function analyzeImages(indices) {
     const batchStart = performance.now();
 
     // ── Phase 1: compute dHash + pHash for every image in parallel ───────────
-    // Fetch each image at 100px (tiny, fast). Browser cache means the
-    // full-size fetch in Phase 4 is nearly free.
+    // fetchAndComputeHashes does one fetch + one Image decode per photo,
+    // drawing to both the 9×8 (dHash) and 32×32 (pHash) canvases from the
+    // same decoded img element. This is 3× fewer decode cycles vs. calling
+    // fetchImageAsDataUrl + computeDHash + computePHash separately.
     analysisProgressText.textContent = `Computing signatures… (0/${indices.length})`;
     let hashDone = 0;
     const hashes = await Promise.all(
       indices.map(async (idx) => {
-        const thumb = await fetchImageAsDataUrl(extractedImages[idx].url, 100);
-        const [dHash, pHash] = await Promise.all([computeDHash(thumb), computePHash(thumb)]);
+        const { dHash, pHash } = await fetchAndComputeHashes(extractedImages[idx].url);
         analysisProgressText.textContent = `Computing signatures… (${++hashDone}/${indices.length})`;
         return { dHash, pHash };
       })
@@ -940,6 +1035,12 @@ async function analyzeImages(indices) {
         classifyDone += 1;
         analysisProgressText.textContent = `Classifying spaces… (${classifyDone}/${numCanonical})`;
         console.log(`[ZypheVision][classify] photo ${idx} → "${spaceLabels[binIdx]}"`);
+        // Show the Phase 4 label on the canonical card immediately.
+        setSpaceLabelBadge(idx, spaceLabels[binIdx]);
+        // Propagate to visual-bin members too (they're mirrors-in-waiting).
+        for (const memberPos of bin.memberPositions) {
+          if (memberPos !== bin.canonicalPos) setSpaceLabelBadge(indices[memberPos], spaceLabels[binIdx]);
+        }
       }
     };
     await Promise.all(Array.from({ length: Math.min(4, numCanonical) }, classifyWorker));
@@ -1197,14 +1298,16 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
             images: [dataUrl.split(',')[1] || dataUrl],
           }],
           stream: false,
-          options: { temperature: 0, num_predict: 15, num_ctx: 512, num_gpu: 99 },
+          options: { temperature: 0, num_predict: 15, num_ctx: 512, num_gpu: 99, stop: ['\n'] },
         }),
         signal,
       });
       if (!response.ok) throw new Error(`Status ${response.status}`);
       const data = await response.json();
       const text = (data.message?.content || '').trim();
-      return inferSpaceFromText(text) || `Unclassified ${idx}`;
+      const label = inferSpaceFromText(text) || `Unclassified ${idx}`;
+      console.log(`[ZypheVision][classify-raw] photo ${idx} raw="${text}" → label="${label}"`);
+      return label;
     } else {
       // WebGPU
       const resp = await engine.chat.completions.create({

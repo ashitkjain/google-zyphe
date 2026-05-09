@@ -322,6 +322,21 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .status-done { background: rgba(76,175,125,0.8); color: #fff; }
 .status-error { background: rgba(224,92,92,0.8); color: #fff; }
 
+.space-label-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.65);
+  color: #e8e8e8;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+  display: none;
+}
+.space-label-badge.visible { display: inline-block; }
+
 .image-card-body {
   padding: 12px;
 }
