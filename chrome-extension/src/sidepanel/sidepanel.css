@@ -52,6 +52,7 @@ body {
 .header-icon { font-size: 22px; }
 .header h1 { font-size: 14px; font-weight: 700; color: var(--text); }
 .header-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.build-stamp { font-size: 10px; color: var(--text-dim); opacity: 0.6; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* Badges */
 .badge {
@@ -430,3 +431,19 @@ textarea:focus { outline: none; border-color: var(--accent); }
   line-height: 1;
 }
 .btn-close-small:hover { color: var(--text); }
+
+/* Mirror reference cards */
+.image-card.mirror { border-color: var(--border); opacity: 0.8; }
+.mirror-ref {
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+}
+.mirror-icon {
+  font-size: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+}

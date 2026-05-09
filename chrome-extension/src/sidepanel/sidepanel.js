@@ -9,7 +9,6 @@ let engine = null;
 let engineMode = 'webgpu'; // 'webgpu' or 'ollama'
 let ollamaSelectedModel = '';
 let ollamaInstalledModels = []; // cache of /api/tags model names
-let ollamaWarmedModels = new Set(); // models we've already pre-warmed this session
 let extractedImages = []; // [{ url, width, height, alt }]
 let identifiedRooms = new Set(); // Track unique room names in current session
 let analysisAbortController = null;
@@ -21,6 +20,29 @@ let analysisStartTime = null;
 let analysisTimerInterval = null;
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
+// Build stamp — webpack DefinePlugin replaces __BUILD_TIME__ with the ISO
+// timestamp of the bundle build. Lets you confirm at a glance which bundle
+// Chrome has loaded ("did the chrome://extensions reload pick up my change?").
+// eslint-disable-next-line no-undef
+const __ZYPHE_BUILD_TIME__ = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev';
+(() => {
+  const el = document.getElementById('build-stamp');
+  if (!el) return;
+  const t = __ZYPHE_BUILD_TIME__;
+  // Render as "build YYYY-MM-DD HH:mm" in local time so the user can
+  // eyeball it against when they ran `npm run build`.
+  let label = `build ${t}`;
+  try {
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) {
+      const pad = (n) => String(n).padStart(2, '0');
+      label = `build ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  } catch {}
+  el.textContent = label;
+  console.log(`[ZypheVision] bundle build time: ${t}`);
+})();
+
 const modelStatusBadge = document.getElementById('model-status-badge');
 const webgpuWarning = document.getElementById('webgpu-warning');
 const modelSection = document.getElementById('model-section');
@@ -296,6 +318,14 @@ chrome.runtime.onMessage.addListener((message) => {
 
 window.handleImagesFound = handleImagesFound;
 window.updateZpidDisplay = updateZpidDisplay;
+window.computeDHash = computeDHash;
+window.computePHash = computePHash;
+window.hammingDistance = hammingDistance;
+// Test-only: lets Playwright tests inject scraped property metadata so the
+// {{PROPERTY_CONTEXT}} substitution in buildPrompt can be exercised. The
+// real flow sets `currentProperty` from a chrome.runtime.sendMessage
+// response inside the module's closure, which is not reachable from a test.
+window.__zypheSetCurrentProperty = (p) => { currentProperty = p; };
 
 function handleImagesFound(images, zpid) {
   extractedImages = images;
@@ -415,6 +445,45 @@ function truncateUrl(url) {
   return url.length > 60 ? url.slice(0, 57) + '…' : url;
 }
 
+// Defensive post-processor: even with explicit "choose ONE template" rules
+// in the prompt, capable models (minicpm-v, llama3.2-vision) sometimes
+// fill in all three templates in sequence with "Not visible" / "Not
+// applicable" placeholders for the irrelevant ones. The structured prompt
+// reads like three labeled sections to fill, and the model defaults to
+// thoroughness over selection. We strip everything from the second
+// template header onward so the user only sees the one that actually
+// applies. Idempotent — safe to call on already-clean output.
+function trimToFirstTemplate(text) {
+  if (!text) return text;
+
+  // Find the first "Space:" — every template starts with one.
+  const firstMatch = /Space\s*:/i.exec(text);
+  if (!firstMatch) return text;
+
+  // Skip past the value on the first Space line (find the end of "Space: X\n"
+  // or "Space: X " followed by the next field). We search for a second "Space:"
+  // anywhere in the remaining text, plus any explicit template divider.
+  // Models sometimes emit fields inline (no newlines), so we can't rely on
+  // line-start anchors alone — we search in the raw string.
+  const afterFirstValue = firstMatch.index + firstMatch[0].length + 1; // past "Space: "
+  const rest = text.slice(afterFirstValue);
+
+  // Divider of the form "--- PRIVATE EXTERIOR ---" always marks a new template.
+  const dividerMatch = /(?:^|\n)\s*-{2,}\s*(?:INTERIOR|PRIVATE EXTERIOR|COMMUNITY AMENITY)/im.exec(rest);
+  // Second "Space:" — field label pattern; colon ensures we don't clip prose
+  // containing the word "space" without a colon (very unlikely but safe).
+  const secondSpaceMatch = /\bSpace\s*:/i.exec(rest);
+
+  let cutAt = Infinity;
+  if (dividerMatch) cutAt = Math.min(cutAt, afterFirstValue + dividerMatch.index);
+  if (secondSpaceMatch) cutAt = Math.min(cutAt, afterFirstValue + secondSpaceMatch.index);
+
+  if (cutAt < Infinity) {
+    return text.slice(0, cutAt).trimEnd();
+  }
+  return text;
+}
+
 function cleanRefusals(text) {
   const trimmed = text.trim();
   if (!trimmed) return 'NA';
@@ -456,6 +525,137 @@ function dedupeRepeatedBlocks(text) {
   return out.join('\n\n');
 }
 
+
+// ── Perceptual similarity (dHash) ─────────────────────────────────────────
+// Fast 64-bit difference hash for "is this the same scene as that one?"
+// Used to dedup multiple photos of the same space (skipping a Pass 2 call
+// each) without false-merging two different rooms that share a Pass 1 tag.
+//
+// Algorithm: downscale to 9×8 grayscale, then for each row emit 8 bits
+// where bit_n = 1 iff pixel[n] > pixel[n+1]. Returns a BigInt or null on
+// decode failure. ~0.2ms on a 64-bit BigInt host.
+async function computeDHash(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 9;
+        canvas.height = 8;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 9, 8);
+        const { data } = ctx.getImageData(0, 0, 9, 8);
+        const gray = new Uint8Array(72);
+        for (let i = 0; i < 72; i += 1) {
+          gray[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) | 0;
+        }
+        let hash = 0n;
+        for (let r = 0; r < 8; r += 1) {
+          for (let c = 0; c < 8; c += 1) {
+            hash = (hash << 1n) | (gray[r * 9 + c] > gray[r * 9 + c + 1] ? 1n : 0n);
+          }
+        }
+        resolve(hash);
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+// pHash (perceptual hash) — DCT-based 63-bit hash more robust to zoom/crop
+// than dHash. Downscales to 32×32 grayscale, applies separable 2D DCT-II,
+// takes the top-left 8×8 low-frequency block (64 values), drops DC [0,0],
+// then encodes each remaining 63 values as above/below the block mean.
+// Hamming distance empirical thresholds for real-estate photos:
+//   ≤  8 : near-duplicate (same shot, slight re-encode/crop)
+//   ≤ 12 : same scene, different zoom or minor crop ← merge sweet spot
+//   ≤ 18 : possibly related (same property, very different angle)
+//   > 18 : different scenes
+async function computePHash(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const N = 32;
+        const canvas = document.createElement('canvas');
+        canvas.width = N;
+        canvas.height = N;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, N, N);
+        const { data } = ctx.getImageData(0, 0, N, N);
+
+        // Grayscale
+        const gray = new Float64Array(N * N);
+        for (let i = 0; i < N * N; i++) {
+          gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+        }
+
+        // Pre-compute cosine table: cos[k][n] = cos(π/N * (n+0.5) * k)
+        const cos = new Float64Array(N * N);
+        for (let k = 0; k < N; k++) {
+          for (let n = 0; n < N; n++) {
+            cos[k * N + n] = Math.cos((Math.PI / N) * (n + 0.5) * k);
+          }
+        }
+
+        // Separable 2D DCT-II: DCT each row, then DCT each column
+        const rowDct = new Float64Array(N * N);
+        for (let r = 0; r < N; r++) {
+          for (let k = 0; k < N; k++) {
+            let sum = 0;
+            for (let n = 0; n < N; n++) sum += gray[r * N + n] * cos[k * N + n];
+            rowDct[r * N + k] = sum;
+          }
+        }
+        const dct2d = new Float64Array(N * N);
+        for (let k = 0; k < N; k++) {
+          for (let k2 = 0; k2 < N; k2++) {
+            let sum = 0;
+            for (let r = 0; r < N; r++) sum += rowDct[r * N + k] * cos[k2 * N + r];
+            dct2d[k2 * N + k] = sum;
+          }
+        }
+
+        // Top-left 8×8, skip DC component at [0,0] → 63 values
+        const LOW = 8;
+        const vals = [];
+        for (let r = 0; r < LOW; r++) {
+          for (let c = 0; c < LOW; c++) {
+            if (r === 0 && c === 0) continue;
+            vals.push(dct2d[r * N + c]);
+          }
+        }
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+
+        let hash = 0n;
+        for (const v of vals) hash = (hash << 1n) | (v >= mean ? 1n : 0n);
+        resolve(hash);
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+// Hamming distance between two BigInt hashes (works for both 64-bit dHash and
+// 63-bit pHash). Returns max-bits on null input so a missing hash never merges.
+function hammingDistance(a, b, maxBits = 64) {
+  if (a === null || b === null || a === undefined || b === undefined) return maxBits;
+  let x = a ^ b;
+  let n = 0n;
+  while (x) { n += x & 1n; x >>= 1n; }
+  return Number(n);
+}
+
+// dHash threshold: 18/64 bits — catches same-scene slightly-different-angle pairs.
+const DHASH_MERGE_THRESHOLD = 12;
+// pHash threshold: 12/63 bits — catches same-scene zoom/crop pairs dHash misses.
+const PHASH_MERGE_THRESHOLD = 12;
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
 async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
@@ -501,19 +701,68 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false) {
 
   // 2. If dynamic prompt is successfully fetched, substitute variables and return
   if (promptTemplate) {
-    return promptTemplate
+    const filled = promptTemplate
       .replace('{{PROPERTY_CONTEXT}}', propertyCtx)
       .replace('${propertyCtx}', propertyCtx)
       .replace('{{MEMORY_CONTEXT}}', memoryContext)
       .replace('${memoryContext}', memoryContext)
       .replace('{{VIEWS_CONTEXT}}', viewsContext)
       .replace('${viewsContext}', viewsContext);
+    return filled;
   }
 
   // 3. Hardcoded fallback if offline / server not started / file missing.
-  // The model now self-tags by emitting "Space: <label>" as its first line,
-  // so we no longer need a separate tagging pass.
-  return `Describe this house photo.\n\nThe very first line of your reply MUST be exactly:\nSpace: <one of: ${ROOM_VOCABULARY.join(', ')}, Other>\n\nThen a blank line, then 2-4 sentences of plain description of what is visible.\n`;
+  // Mirrors public/prompts/photo-analysis.txt (the trimmed analyst prompt).
+  // Capable models (minicpm-v, llama3.2-vision) follow this cleanly; smaller
+  // models would collapse on it and are intentionally not used in Pass 2.
+  const fallback = [
+    'You are a real estate photo analyst. Fill in the matching template for the photo.',
+    '',
+    'RULES:',
+    '1. Start directly with "Space:" and output ONLY the filled fields. No intro, no closing remarks.',
+    '2. Use exactly ONE template per photo: INTERIOR, PRIVATE EXTERIOR, or COMMUNITY AMENITY.',
+    '3. Each field is a short phrase (under 8 words). Description is 3-4 sentences of grounded prose.',
+    '4. Describe only what is visible. Use "Not visible" when a field cannot be observed. Do not invent.',
+    '5. If the photo is an aerial, drone, or bird\'s-eye view showing multiple rooftops or streets from above, output "NA". Also output "NA" for unrelated photos (blank, blurry, screenshot).',
+    '',
+    'EXTERIOR DISAMBIGUATION (apply when filling Space):',
+    '- Front Yard = driveway, garage door, main entrance, street view, or front-facing facade.',
+    '- Backyard = enclosed, fenced, or rear-of-house outdoor area.',
+    '- Community Amenity = shared neighborhood feature at eye level (park, playground, clubhouse, tennis court, community pool, trail). Aerial shots of amenities → NA.',
+    '',
+    '--- INTERIOR ---',
+    'Space: [room name]',
+    'Style: [design aesthetic]',
+    'Colors: [walls / floor / accents]',
+    'Materials: [floor / counters / cabinets / fixtures]',
+    'Lighting: [natural and visible fixtures]',
+    'View: [through windows, or "None visible"]',
+    'Condition: [observed condition]',
+    'Description: [3-4 sentences]',
+    'Potential: [one specific upgrade]',
+    '',
+    '--- PRIVATE EXTERIOR ---',
+    'Space: [apply disambiguation rules]',
+    'Architecture: [exterior style]',
+    'Colors: [siding / trim / roof / driveway]',
+    'Landscaping: [lawn / plants / hardscape, or "Not visible"]',
+    'Outdoor Living: [patio / deck / pool, or "None visible"]',
+    'Street Context: [setback, neighbors, street feel, or "Not visible"]',
+    'Condition: [paint, siding, windows, driveway, fences]',
+    'Description: [3-4 sentences]',
+    'Potential: [one specific improvement]',
+    '',
+    '--- COMMUNITY AMENITY ---',
+    'Space: [amenity name]',
+    'Type: [kind of amenity]',
+    'Features: [equipment / surfaces / surroundings]',
+    'Condition: [observed condition]',
+    'Description: [3-4 sentences]',
+    'Potential: [one specific local benefit]',
+    '',
+    `Context: ${propertyCtx}${memoryContext}${viewsContext}`,
+  ].join('\n');
+  return fallback;
 }
 
 // ── Analysis ───────────────────────────────────────────────────────────────
@@ -554,6 +803,23 @@ function copyAnalysisToCard(targetIdx, analysis, score) {
   if (singleBtn) singleBtn.disabled = false;
 }
 
+function markCardAsMirror(targetIdx, canonicalIdx, spaceLabel) {
+  const card = document.getElementById(`card-${targetIdx}`);
+  const resultEl = document.getElementById(`result-${targetIdx}`);
+  const statusEl = document.getElementById(`status-${targetIdx}`);
+  const singleBtn = document.getElementById(`single-btn-${targetIdx}`);
+  if (!card || !resultEl) return;
+  const label = spaceLabel ? ` · ${spaceLabel}` : '';
+  resultEl.className = 'analysis-result mirror-ref';
+  resultEl.innerHTML = `<span class="mirror-icon">↗</span> Same as photo #${canonicalIdx + 1}${escapeHtml(label)}`;
+  card.className = 'image-card done mirror';
+  if (statusEl) {
+    statusEl.className = 'image-status-badge status-done';
+    statusEl.textContent = 'Mirrored';
+  }
+  if (singleBtn) singleBtn.disabled = false;
+}
+
 async function analyzeImages(indices) {
   const isEngineReady = engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   if (!isEngineReady || isAnalyzing || indices.length === 0) return;
@@ -569,138 +835,223 @@ async function analyzeImages(indices) {
   startAnalysisTimer();
 
   try {
-    // Phase 1 (separate vocabulary tagger) was removed: small models running
-    // a quick "what room is this" pass were noisy enough to either over-merge
-    // distinct rooms or split the same room across groups, neither of which
-    // helped. The main analysis pass now self-tags by emitting
-    // "Space: <label>" as its first line, and post-hoc dedup via
-    // `canonicalBySpace` collapses duplicates after the fact.
-    const groups = {};
-    indices.forEach(idx => { groups[`Photo ${idx}`] = [idx]; });
-    const groupNames = Object.keys(groups);
     const results = [];
+    const batchStart = performance.now();
 
-    // Phase 2: Grouped Analysis with Master-and-Mirror Deduplication
-    // Build a flat plan of groups that still need work, then run masters in
-    // parallel via a worker pool so total wall-clock = ceil(N / concurrency)
-    // master analyses instead of N.
-    const groupPlans = groupNames
-      .map(name => ({
-        name,
-        indices: groups[name].filter(idx => !document.getElementById(`card-${idx}`)?.classList.contains('done')),
-      }))
-      .filter(g => g.indices.length > 0);
+    // ── Phase 1: compute dHash + pHash for every image in parallel ───────────
+    // Fetch each image at 100px (tiny, fast). Browser cache means the
+    // full-size fetch in Phase 4 is nearly free.
+    analysisProgressText.textContent = `Computing signatures… (0/${indices.length})`;
+    let hashDone = 0;
+    const hashes = await Promise.all(
+      indices.map(async (idx) => {
+        const thumb = await fetchImageAsDataUrl(extractedImages[idx].url, 100);
+        const [dHash, pHash] = await Promise.all([computeDHash(thumb), computePHash(thumb)]);
+        analysisProgressText.textContent = `Computing signatures… (${++hashDone}/${indices.length})`;
+        return { dHash, pHash };
+      })
+    );
+    if (signal.aborted) return;
 
-    // Mark every non-master sibling as Queued upfront — no spinner, no
-    // "Linking..." state. They aren't doing work; they're waiting on a master.
-    groupPlans.forEach(plan => {
-      const masterIdx = plan.indices[0];
-      plan.indices.slice(1).forEach(idx => {
+    // ── Phase 2: bin-based clustering ─────────────────────────────────────
+    // A photo joins an existing bin if EITHER its dHash distance from the bin's
+    // dHash centroid is ≤ DHASH_MERGE_THRESHOLD OR its pHash distance from the
+    // bin's canonical pHash is ≤ PHASH_MERGE_THRESHOLD. The dHash centroid
+    // drifts via majority-vote; the pHash centroid is kept fixed at the
+    // canonical's value (pHash is already robust to inter-frame drift).
+    const bins = [];
+
+    for (let i = 0; i < indices.length; i++) {
+      const { dHash: dh, pHash: ph } = hashes[i];
+      // Find the closest bin within either hash threshold.
+      let best = null;
+      let bestScore = Infinity;
+      for (const bin of bins) {
+        const dd = hammingDistance(dh, bin.dCentroid, 64);
+        const pd = hammingDistance(ph, bin.pHashCanonical, 63);
+        if (dd <= DHASH_MERGE_THRESHOLD || pd <= PHASH_MERGE_THRESHOLD) {
+          const score = Math.min(dd / DHASH_MERGE_THRESHOLD, pd / PHASH_MERGE_THRESHOLD);
+          if (score < bestScore) { bestScore = score; best = bin; }
+        }
+      }
+
+      if (best) {
+        best.memberPositions.push(i);
+        // Update dHash centroid via majority-vote so edge-case photos still attach.
+        if (dh !== null) {
+          let newCentroid = 0n;
+          for (let b = 63; b >= 0; b--) {
+            best.dBitCounts[b] += Number((dh >> BigInt(b)) & 1n);
+            const majority = best.dBitCounts[b] * 2 >= best.memberPositions.length ? 1n : 0n;
+            newCentroid = (newCentroid << 1n) | majority;
+          }
+          best.dCentroid = newCentroid;
+        }
+      } else {
+        // New bin — this photo is the canonical.
+        const dBitCounts = new Array(64).fill(0);
+        if (dh !== null) {
+          for (let b = 0; b < 64; b++) dBitCounts[b] = Number((dh >> BigInt(b)) & 1n);
+        }
+        bins.push({ dCentroid: dh, pHashCanonical: ph, canonicalPos: i, memberPositions: [i], dBitCounts });
+      }
+    }
+
+    const numCanonical = bins.length;
+    const numDupes = indices.length - numCanonical;
+    console.log(`[ZypheVision][dedup] ${indices.length} photos → ${numCanonical} bins, ${numDupes} visual duplicates`);
+
+    // ── Phase 3: mark visual duplicates immediately ────────────────────────
+    for (const bin of bins) {
+      const canonicalPhotoIdx = indices[bin.canonicalPos];
+      for (const memberPos of bin.memberPositions) {
+        if (memberPos !== bin.canonicalPos) {
+          markCardAsMirror(indices[memberPos], canonicalPhotoIdx, null);
+        }
+      }
+    }
+    if (signal.aborted) return;
+
+    // Set all visual canonicals to "Classifying…" while Phase 4 runs.
+    for (const bin of bins) {
+      const idx = indices[bin.canonicalPos];
+      const card = document.getElementById(`card-${idx}`);
+      const statusEl = document.getElementById(`status-${idx}`);
+      if (card) card.className = 'image-card analyzing';
+      if (statusEl) { statusEl.className = 'image-status-badge status-analyzing'; statusEl.textContent = 'Classifying…'; }
+    }
+
+    // ── Phase 4: classify each visual canonical into a space label ─────────
+    // Run the selected model on every visual canonical with a short
+    // non-streaming prompt. Concurrent (up to 4). Results drive Phase 5.
+    analysisProgressText.textContent = `Classifying spaces… (0/${numCanonical})`;
+    let classifyDone = 0;
+    const spaceLabels = new Array(bins.length); // spaceLabels[binIdx] = label string
+    const classifyCursor = { i: 0 };
+    const classifyWorker = async () => {
+      while (!signal.aborted) {
+        const binIdx = classifyCursor.i++;
+        if (binIdx >= bins.length) return;
+        const bin = bins[binIdx];
+        const idx = indices[bin.canonicalPos];
+        const thumb = await fetchImageAsDataUrl(extractedImages[idx].url, 320);
+        if (signal.aborted) return;
+        spaceLabels[binIdx] = await classifyPhotoSpace(idx, thumb, signal);
+        classifyDone += 1;
+        analysisProgressText.textContent = `Classifying spaces… (${classifyDone}/${numCanonical})`;
+        console.log(`[ZypheVision][classify] photo ${idx} → "${spaceLabels[binIdx]}"`);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, numCanonical) }, classifyWorker));
+    if (signal.aborted) return;
+
+    // ── Phase 5: semantic dedup — merge bins with the same space label ─────
+    // canonicalForSpace tracks the FIRST bin that owns each label. Any later
+    // bin with the same label is immediately marked as a mirror of that first
+    // canonical, so Phase 6 never analyzes it.
+    const canonicalForSpace = new Map(); // label → photoIdx of semantic canonical
+    const semanticBins = []; // bins selected to go to Phase 6
+
+    for (let binIdx = 0; binIdx < bins.length; binIdx++) {
+      const bin = bins[binIdx];
+      const label = spaceLabels[binIdx];
+      const idx = indices[bin.canonicalPos];
+
+      // Aerial views are skipped entirely — mark all bin members as NA now.
+      if (label === 'Aerial View') {
+        for (const memberPos of bin.memberPositions) {
+          copyAnalysisToCard(indices[memberPos], 'NA', null);
+        }
+        console.log(`[ZypheVision][aerial-skip] photo ${idx} classified as Aerial View — skipped`);
+        continue;
+      }
+
+      const existing = canonicalForSpace.get(label);
+      if (existing !== undefined) {
+        // Same space as a prior bin — mark as mirror right now (before streaming).
+        markCardAsMirror(idx, existing, label);
+        // Propagate to this bin's visual members too.
+        for (const memberPos of bin.memberPositions) {
+          if (memberPos !== bin.canonicalPos) {
+            markCardAsMirror(indices[memberPos], existing, label);
+          }
+        }
+        console.log(`[ZypheVision][semantic-dedup] photo ${idx} merged into ${existing} (label="${label}")`);
+      } else {
+        canonicalForSpace.set(label, idx);
+        semanticBins.push({ bin, label });
+        // Reset status to "Analyzing…" for Phase 6.
         const card = document.getElementById(`card-${idx}`);
         const statusEl = document.getElementById(`status-${idx}`);
-        const resultEl = document.getElementById(`result-${idx}`);
-        if (card) card.className = 'image-card';
-        if (statusEl) {
-          statusEl.className = 'image-status-badge status-pending';
-          statusEl.textContent = 'Queued';
-        }
-        if (resultEl) {
-          resultEl.innerHTML = `<em>Queued — will mirror analysis from Master Photo #${masterIdx + 1}.</em>`;
-        }
-      });
-    });
-
-    // Post-master merge guard: maps a normalized declared Space (e.g.
-    // "front yard") to the canonical { analysis, score, masterIdx } from the
-    // first master that declared it. When a later master self-declares the
-    // same Space — even though the tagger split them into different groups —
-    // we mirror the canonical result over the duplicate so the user sees one
-    // consistent write-up per space.
-    const canonicalBySpace = new Map();
-    const extractSpaceKey = (text) => {
-      const m = text && text.match(/Space:\s*(.+)/i);
-      if (!m) return null;
-      const raw = m[1].trim().split(/[,\.\n]/)[0].trim().toLowerCase();
-      return raw.length >= 3 ? raw : null;
-    };
-
-    let groupsCompleted = 0;
-    const runGroup = async (plan) => {
-      if (signal.aborted) return;
-      const toAnalyze = plan.indices;
-      const masterIdx = toAnalyze[0];
-      const restOfGroup = toAnalyze.slice(1);
-
-      // Fetch Master Photo (800px) and up to 3 Sibling Photos (150px) as supportive thumbnails for rich context with zero VRAM overhead
-      const masterDataUrl = await fetchImageAsDataUrl(extractedImages[masterIdx].url, 448);
-      const imagesPayload = [masterDataUrl];
-
-      // Ollama's Llama 3.2 Vision engine only supports exactly ONE image per prompt request.
-      // Sibling thumbnail context is only enabled for WebGPU (WebLLM / Phi-3.5 Vision).
-      const siblingIndices = restOfGroup.slice(0, 3);
-      const hasThumbnails = siblingIndices.length > 0 && engineMode !== 'ollama';
-      if (hasThumbnails) {
-        const thumbnailDataUrls = await Promise.all(
-          siblingIndices.map(async (idx) => await fetchImageAsDataUrl(extractedImages[idx].url, 150))
-        );
-        imagesPayload.push(...thumbnailDataUrls);
+        if (card) card.className = 'image-card analyzing';
+        if (statusEl) { statusEl.className = 'image-status-badge status-analyzing'; statusEl.textContent = 'Analyzing…'; }
       }
+    }
 
-      const prompt = await buildPrompt(extractedImages[masterIdx].url, masterIdx, hasThumbnails);
-      const masterResult = await analyzeOneImage(masterIdx, prompt, signal, imagesPayload);
+    const numSemantic = semanticBins.length;
+    const numSemanticDupes = numCanonical - numSemantic;
+    console.log(`[ZypheVision][semantic-dedup] ${numCanonical} visual bins → ${numSemantic} unique spaces, ${numSemanticDupes} semantic duplicates`);
+
+    // ── Phase 6: full analysis — one canonical per unique space ───────────
+    let analyzed = 0;
+    const analyzeBin = async ({ bin, label }) => {
+      if (signal.aborted) return;
+      const idx = indices[bin.canonicalPos];
+      const dataUrl = await fetchImageAsDataUrl(extractedImages[idx].url, 448);
       if (signal.aborted) return;
 
-      if (masterResult && masterResult.analysis) {
-        // The model self-declares its Space on the first line; we no longer
-        // synthesize one from a separate tag pass.
-        const spaceKey = extractSpaceKey(masterResult.analysis);
-        const canonical = spaceKey ? canonicalBySpace.get(spaceKey) : null;
+      // Prepend the Phase 4 label as a hint so the model rarely disagrees.
+      const prompt = await buildPrompt(extractedImages[idx].url, idx, false);
+      let result;
+      try {
+        result = await analyzeOneImage(idx, prompt, signal, [dataUrl]);
+      } catch (err) {
+        if (!signal.aborted) throw err;
+        return;
+      }
+      if (signal.aborted) return;
 
-        // Choose what to mirror across this group: prefer an earlier master
-        // that already analyzed this same Space, otherwise this master's own
-        // result becomes the canonical entry.
-        const winning = canonical || { analysis: masterResult.analysis, score: masterResult.score, masterIdx };
-        if (canonical) {
-          // Overwrite the duplicate master's card with the canonical write-up.
-          copyAnalysisToCard(masterIdx, winning.analysis, winning.score);
-        } else if (spaceKey) {
-          canonicalBySpace.set(spaceKey, winning);
+      if (result && result.analysis) {
+        let analysis = result.analysis.trim();
+        if (!/^space\s*:/i.test(analysis) && analysis !== 'NA') {
+          // Fall back to Phase 4 label if the model didn't include a Space: header.
+          analysis = `Space: ${label}\n\n${analysis}`;
         }
 
-        results.push({ url: extractedImages[masterIdx].url, analysis: winning.analysis, score: winning.score });
-        restOfGroup.forEach(idx => {
-          copyAnalysisToCard(idx, winning.analysis, winning.score);
-          results.push({
-            url: extractedImages[idx].url,
-            analysis: winning.analysis,
-            score: winning.score,
-          });
-        });
+        if (analysis !== result.analysis) copyAnalysisToCard(idx, analysis, result.score);
+        results.push({ url: extractedImages[idx].url, analysis, score: result.score });
+
+        // Backfill label into all visual bin members' mirror cards.
+        for (const memberPos of bin.memberPositions) {
+          if (memberPos !== bin.canonicalPos) {
+            markCardAsMirror(indices[memberPos], idx, label);
+            results.push({ url: extractedImages[indices[memberPos]].url, analysis, score: result.score });
+          }
+        }
       }
 
-      groupsCompleted += 1;
-      analysisProgressText.textContent = `Analyzed ${groupsCompleted}/${groupPlans.length} spaces…`;
+      analyzed += 1;
+      analysisProgressText.textContent = `Analyzing… (${analyzed}/${numSemantic} unique spaces)`;
     };
 
-    // WebGPU shares a single engine instance — concurrent calls would serialize
-    // anyway, so keep it at 1. Ollama serves OLLAMA_NUM_PARALLEL=4 by default;
-    // 2 in flight overlaps fetch/decode with GPU compute without thrashing VRAM.
-    const GROUP_CONCURRENCY = engineMode === 'ollama' ? 2 : 1;
-    let groupCursor = 0;
-    const groupWorker = async () => {
+    const CONCURRENCY = engineMode === 'ollama' ? 3 : 1;
+    let cursor = 0;
+    const worker = async () => {
       while (!signal.aborted) {
-        const i = groupCursor++;
-        if (i >= groupPlans.length) return;
-        await runGroup(groupPlans[i]);
+        const item = semanticBins[cursor++];
+        if (!item) return;
+        await analyzeBin(item);
       }
     };
-    const groupWorkerCount = Math.min(GROUP_CONCURRENCY, groupPlans.length);
-    await Promise.all(Array.from({ length: groupWorkerCount }, () => groupWorker()));
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, numSemantic) }, worker));
 
     analysisProgressText.textContent = signal.aborted ? 'Stopped.' : 'Done.';
 
-    // Persist to Firestore if we have a batch
-    if (!signal.aborted && results.length > 0 && isBatch) {
+    const batchMs = Math.round(performance.now() - batchStart);
+    console.log(`[ZypheVision][batch] photos=${indices.length} visual_bins=${numCanonical} visual_dupes=${numDupes} unique_spaces=${numSemantic} semantic_dupes=${numSemanticDupes} wall_clock_ms=${batchMs}`);
+
+    // Persist to Firestore for any multi-image batch.
+    if (!signal.aborted && results.length > 0 && indices.length > 1) {
       await saveAnalysisToFirestore(results);
     }
 
@@ -765,6 +1116,7 @@ const ROOM_VOCABULARY = [
   'Clubhouse',
   'Community Park',
   'Floor Plan',
+  'Aerial View',
 ];
 
 // Aliases route subdivision-level words into their parent vocabulary bucket.
@@ -784,158 +1136,98 @@ const VOCABULARY_ALIASES = {
   'garden': 'Backyard',
 };
 
-function matchTagToVocabulary(rawTag) {
-  const clean = (rawTag || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!clean) return null;
-  for (const label of ROOM_VOCABULARY) {
-    if (clean.includes(label.toLowerCase())) return label;
-  }
-  for (const [alias, label] of Object.entries(VOCABULARY_ALIASES)) {
-    if (clean.includes(alias)) return label;
-  }
-  return null;
-}
+// Infer the dominant space label from free-form prose. Picks the vocabulary
+// term (or alias parent) that appears EARLIEST in the text — not first in
+// the vocabulary list. This matters because models tend to lead with the
+// actual subject ("a front yard with a garage…") and only mention other
+// rooms in passing later ("…would be a great living room"). Ties are
+// broken by ROOM_VOCABULARY order (longer/more-specific first), so e.g.
+// "Primary Bedroom" still wins over "Bedroom" when both appear at the
+// same position.
+function inferSpaceFromText(text) {
+  if (!text) return null;
+  const haystack = text.toLowerCase();
+  let best = null; // { pos, vocabRank, label }
 
-// Pick a small, fast vision model for the tagging pass if one is installed.
-// Tagging is a "what room is this" task — a 1-2GB model handles it ~5-10x faster
-// than llama3.2-vision:11b. Falls back to the user's selected model if none found.
-function pickOllamaTagModel() {
-  const preferred = ['moondream', 'llava-phi3', 'minicpm-v', 'llava:7b', 'bakllava'];
-  for (const pref of preferred) {
-    const hit = ollamaInstalledModels.find(name => name.toLowerCase().startsWith(pref));
-    if (hit) return hit;
-  }
-  return ollamaSelectedModel;
-}
-
-// Fire one tiny request so the model is loaded into VRAM before the timed loop.
-async function warmOllamaModel(model, signal) {
-  if (!model || ollamaWarmedModels.has(model)) return;
-  try {
-    await fetch('http://localhost:11434/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: 'hi' }],
-        stream: false,
-        options: { num_predict: 1 },
-      }),
-      signal,
-    });
-    ollamaWarmedModels.add(model);
-  } catch (err) {
-    // non-fatal; the real call will pay the load cost instead
-  }
-}
-
-async function tagImages(indices, signal) {
-  const tags = {};
-
-  if (engineMode === 'ollama') {
-    // IMPORTANT: Ollama vision models only support ONE image per request, so we
-    // tag one image at a time. We use a small dedicated tag model when available
-    // (moondream etc.) and a 160px thumbnail to keep each call fast.
-    const tagModel = pickOllamaTagModel();
-    const usingSmallTagModel = tagModel !== ollamaSelectedModel;
-    const tagPrompt = `Identify the space in this photo. Reply with EXACTLY ONE label, copied verbatim, from this list:\n${ROOM_VOCABULARY.join(', ')}\nNo other words, no punctuation, no explanation.`;
-
-    await warmOllamaModel(tagModel, signal);
-    if (signal.aborted) return tags;
-
-    // Worker pool: run up to OLLAMA_TAG_CONCURRENCY tag requests in flight at once.
-    // Ollama serves parallel requests (default OLLAMA_NUM_PARALLEL=4); a single GPU
-    // still serializes the heavy compute, but overlapping image fetch/decode with
-    // model inference typically gives ~2-3x wall-clock speedup on M-series.
-    const OLLAMA_TAG_CONCURRENCY = 4;
-    const suffix = usingSmallTagModel ? ` (using ${tagModel.split(':')[0]})` : '';
-    let cursor = 0;
-    let done = 0;
-
-    const tagOne = async (idx) => {
-      try {
-        const dataUrl = await fetchImageAsDataUrl(extractedImages[idx].url, 320);
-        if (signal.aborted) return;
-        const response = await fetch('http://localhost:11434/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: tagModel,
-            messages: [{
-              role: 'user',
-              content: tagPrompt,
-              images: [dataUrl.split(',')[1] || dataUrl]
-            }],
-            stream: false,
-            options: { temperature: 0.1, num_predict: 20 }
-          }),
-          signal
-        });
-        if (!response.ok) throw new Error(`Status ${response.status}`);
-        const data = await response.json();
-        const text = (data.message?.content || "").trim();
-        const tag = text.replace(/^\d+[\.\:\s]*/, '').split('\n')[0].trim();
-        // Out-of-vocabulary replies get a unique placeholder so they don't
-        // false-merge with each other under a shared "Other" bucket.
-        tags[idx] = matchTagToVocabulary(tag) || `Unclassified ${idx}`;
-      } catch (err) {
-        if (!signal.aborted) console.error(`[Ollama] Failed to index photo ${idx}:`, err);
-        // Unique placeholder so failures don't collapse photos into one group.
-        tags[idx] = `Unclassified ${idx}`;
-      } finally {
-        done += 1;
-        analysisProgressText.textContent = `Indexing photos… (${done}/${indices.length})${suffix}`;
-      }
-    };
-
-    const worker = async () => {
-      while (!signal.aborted) {
-        const i = cursor++;
-        if (i >= indices.length) return;
-        await tagOne(indices[i]);
-      }
-    };
-
-    const workerCount = Math.min(OLLAMA_TAG_CONCURRENCY, indices.length);
-    await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  } else {
-    // WebGPU WebLLM
-    const batchSize = 5;
-    for (let i = 0; i < indices.length; i += batchSize) {
-      if (signal.aborted) break;
-      const batch = indices.slice(i, i + batchSize);
-
-      // Fetch images
-      const dataUrls = await Promise.all(
-        batch.map(async (idx) => await fetchImageAsDataUrl(extractedImages[idx].url))
-      );
-
-      const tagPrompt = `Identify the space in each photo. For each image, reply with EXACTLY ONE label, copied verbatim, from this list:\n${ROOM_VOCABULARY.join(', ')}\nReturn a numbered list in the exact order of the images. Example:\n1. Kitchen\n2. Front Yard\n3. Bedroom\nNo other words, no explanation.`;
-      const content = dataUrls.map(url => ({ type: 'image_url', image_url: { url } }));
-      content.push({ type: 'text', text: tagPrompt });
-
-      const resp = await engine.chat.completions.create({
-        messages: [{ role: 'user', content }],
-        stream: false,
-        max_tokens: 100,
-      });
-      const text = resp.choices[0].message.content;
-      const lines = text.split('\n').filter(l => l.trim().match(/^\d+/));
-
-      batch.forEach((idx, bIdx) => {
-        const line = lines[bIdx] || '';
-        const raw = line.replace(/^\d+[\.\:\s]*/, '').trim();
-        // If the model didn't return a tag for this slot, give it a unique placeholder
-        // so it doesn't get grouped (and master-mirrored) with other unclassified photos.
-        tags[idx] = matchTagToVocabulary(raw) || `Unclassified ${idx}`;
-      });
+  const consider = (label, pattern, vocabRank) => {
+    let pos;
+    if (pattern instanceof RegExp) {
+      const m = haystack.match(pattern);
+      if (!m || m.index === undefined) return;
+      pos = m.index;
+    } else {
+      pos = haystack.indexOf(pattern);
+      if (pos === -1) return;
     }
-  }
-  return tags;
+    if (best === null || pos < best.pos || (pos === best.pos && vocabRank < best.vocabRank)) {
+      best = { pos, vocabRank, label };
+    }
+  };
+
+  ROOM_VOCABULARY.forEach((label, rank) => {
+    consider(label, label.toLowerCase(), rank);
+  });
+  // Aliases share the rank of their parent label so a direct vocab hit at
+  // the same position still wins over an alias.
+  Object.entries(VOCABULARY_ALIASES).forEach(([alias, label]) => {
+    const parentRank = ROOM_VOCABULARY.indexOf(label);
+    // Word-boundary so "garage" doesn't fire on "garaged" etc.
+    consider(label, new RegExp(`\\b${alias}\\b`, 'i'), parentRank >= 0 ? parentRank : ROOM_VOCABULARY.length);
+  });
+
+  return best ? best.label : null;
 }
 
-async function analyzeImageGroup(indices, prompt, signal, dataUrls) {
-  // Use the first index to update the UI (all will be updated with same result)
+// Phase 2 of the batch pipeline: classify one photo into a ROOM_VOCABULARY
+// label using a short, non-streaming LLM call. Returns a vocab label or a
+// unique "Unclassified N" placeholder so failures never false-merge.
+const CLASSIFY_PROMPT = `Look at this real estate photo. Reply with EXACTLY ONE label from this list, no other text:\n${ROOM_VOCABULARY.join(', ')}\n\nUse "Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
+
+async function classifyPhotoSpace(idx, dataUrl, signal) {
+  try {
+    if (engineMode === 'ollama') {
+      const response = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ollamaSelectedModel,
+          messages: [{
+            role: 'user',
+            content: CLASSIFY_PROMPT,
+            images: [dataUrl.split(',')[1] || dataUrl],
+          }],
+          stream: false,
+          options: { temperature: 0, num_predict: 15, num_ctx: 512, num_gpu: 99 },
+        }),
+        signal,
+      });
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+      const data = await response.json();
+      const text = (data.message?.content || '').trim();
+      return inferSpaceFromText(text) || `Unclassified ${idx}`;
+    } else {
+      // WebGPU
+      const resp = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: dataUrl } },
+          { type: 'text', text: CLASSIFY_PROMPT },
+        ]}],
+        stream: false,
+        max_tokens: 15,
+      });
+      const text = (resp.choices[0].message.content || '').trim();
+      return inferSpaceFromText(text) || `Unclassified ${idx}`;
+    }
+  } catch (err) {
+    if (!signal.aborted) console.error(`[ZypheVision] Classification failed for photo ${idx}:`, err);
+    return `Unclassified ${idx}`;
+  }
+}
+
+// analyzeImageGroup intentionally removed — replaced by the two-phase
+// classify-then-analyze pipeline in analyzeImages().
+
+async function analyzeImageGroup_DELETED(indices, prompt, signal, dataUrls) {
   const masterIdx = indices[0];
 
   // Mark all cards in group as analyzing
@@ -1259,9 +1551,17 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
 
     resultEl.innerHTML = '<span class="analyzing-spinner"></span>Running…';
 
-    // Stream the response
+    // Stream the response.
+    // Use a raw Text node so we can append deltas without rebuilding innerHTML
+    // on every chunk (the previous approach was O(n²): escapeHtml on the full
+    // accumulated string for every token). Text nodes are XSS-safe by definition.
     let fullText = '';
-    resultEl.innerHTML = '<span class="stream-cursor"></span>';
+    resultEl.innerHTML = '';
+    const streamTextNode = document.createTextNode('');
+    const streamCursor = document.createElement('span');
+    streamCursor.className = 'stream-cursor';
+    resultEl.appendChild(streamTextNode);
+    resultEl.appendChild(streamCursor);
 
     if (engineMode === 'ollama') {
       const imgDiag = imagesPayload.map((u, i) => {
@@ -1275,18 +1575,24 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: ollamaSelectedModel,
-          messages: [{
-            role: 'user',
-            content: prompt,
-            images: imagesPayload.map(url => url.split(',')[1] || url)
-          }],
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a real estate photo analyst. Fill in ALL fields of EXACTLY ONE matching template. Stop immediately after the final "Potential:" field. Never start a second template.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+              images: imagesPayload.map(url => url.split(',')[1] || url),
+            },
+          ],
           stream: true,
           options: {
             temperature: 0.2,
-            num_ctx: 4096
-            // No num_predict cap — let the model emit EOS naturally so long
-            // descriptions don't get truncated mid-sentence. Loop pathology
-            // is still handled downstream by dedupeRepeatedBlocks().
+            num_ctx: 4096,
+            num_predict: 350,
+            num_gpu: 99,     // offload all layers to GPU (no-op if already fully offloaded)
+            stop: ['Space: Not', '\nSpace: N', 'USE TEMPLATE', '\n\nSpace:'],
           }
         }),
         signal
@@ -1321,7 +1627,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
             }
             const delta = parsed.message?.content || '';
             fullText += delta;
-            resultEl.innerHTML = escapeHtml(fullText) + '<span class="stream-cursor"></span>';
+            streamTextNode.data = fullText;
           } catch (e) {
             console.warn(`[ZypheVision][master idx=${idx}] failed to parse stream line:`, JSON.stringify(line).slice(0, 200), e.message);
           }
@@ -1372,7 +1678,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
         }
         const delta = chunk.choices[0]?.delta?.content || '';
         fullText += delta;
-        resultEl.innerHTML = escapeHtml(fullText) + '<span class="stream-cursor"></span>';
+        if (streamTextNode) streamTextNode.data = fullText;
       }
     }
 
@@ -1382,14 +1688,18 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
     if (beforeClean !== fullText) {
       console.log(`[ZypheVision][master idx=${idx}] cleanRefusals rewrote: ${JSON.stringify(beforeClean).slice(0, 200)} → ${JSON.stringify(fullText).slice(0, 200)}`);
     }
+    // Strip any extra templates the model emitted in violation of the
+    // "choose ONE template" rule.
+    const beforeTrim = fullText;
+    fullText = trimToFirstTemplate(fullText);
+    if (beforeTrim !== fullText) {
+      console.log(`[ZypheVision][master idx=${idx}] trimmed extra template(s): kept ${fullText.length}/${beforeTrim.length} chars`);
+    }
 
     const scoreMatch = fullText.match(/(\d{1,2})\s*(?:\/\s*10|out of 10)/i) ||
       fullText.match(/score[:\s]+(\d{1,2})/i) ||
       fullText.match(/appeal[:\s]+(\d{1,2})/i);
     const score = scoreMatch ? parseInt(scoreMatch[1], 10) : null;
-
-    resultEl.className = 'analysis-result';
-    resultEl.innerHTML = escapeHtml(fullText);
 
     // Extract Space/Room name for session memory
     const spaceMatch = fullText.match(/Space:\s*(.*)/i);
@@ -1400,16 +1710,17 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null) {
       }
     }
 
+    resultEl.className = 'analysis-result';
+    resultEl.innerHTML = escapeHtml(fullText);
     if (score !== null) {
       const scoreHtml = buildScoreHtml(score);
       resultEl.insertAdjacentHTML('beforebegin', scoreHtml);
     }
-
     card.className = 'image-card done';
     statusEl.className = 'image-status-badge status-done';
     statusEl.textContent = score !== null ? `Score: ${score}/10` : 'Done ✓';
-
     if (singleBtn) singleBtn.disabled = false;
+
     return { url: img.url, analysis: fullText, score };
 
   } catch (err) {
