@@ -1055,15 +1055,23 @@ async function analyzeImages(indices) {
       if (signal.aborted) return;
       const idx = canonicalIdx;
 
-      // Fetch canonical + up to 9 additional members from the same semantic group for richer context (max 10 images total).
-      // MiniCPM-V 2.6 natively supports multi-image reasoning up to 64 images and benefits from higher resolution
-      // via its dynamic tiling mechanism, so we send larger images than we would to llama3.2-vision.
-      const otherMembers = memberIndices
-        .filter(mIdx => mIdx !== canonicalIdx)
-        .slice(0, 9);
+      // Fetch canonical + up to 5 additional members from the same semantic group (max 6 images total).
+      // 672px is the sweet spot for MiniCPM-V 2.6's tile slicer — landscape photos produce ~2 tiles
+      // + 1 thumbnail, roughly half the vision tokens of 896px while keeping most of the detail benefit.
+      // Stride sampling picks evenly-spaced members rather than the first N, since listing photos are
+      // often shot sequentially from similar angles and consecutive members tend to be near-duplicates.
+      const candidates = memberIndices.filter(mIdx => mIdx !== canonicalIdx);
+      const MAX_EXTRA = 5;
+      let otherMembers;
+      if (candidates.length <= MAX_EXTRA) {
+        otherMembers = candidates;
+      } else {
+        const step = candidates.length / MAX_EXTRA;
+        otherMembers = Array.from({ length: MAX_EXTRA }, (_, k) => candidates[Math.floor(k * step)]);
+      }
       const allIndices = [idx, ...otherMembers];
       const dataUrls = await Promise.all(
-        allIndices.map(i => fetchImageAsDataUrl(extractedImages[i].url, 896))
+        allIndices.map(i => fetchImageAsDataUrl(extractedImages[i].url, 672))
       );
       if (signal.aborted) return;
 
@@ -1699,10 +1707,10 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
           stream: true,
           options: {
             temperature: 0.2,
-            // MiniCPM-V 2.6 has a 32K native context window. Multi-image calls at 896px consume
-            // significant tokens per image (dynamic tiling), so we raise num_ctx well above the
-            // single-image default to avoid silently truncating later images in the batch.
-            num_ctx: 32768,
+            // Sized for up to 6 images at 672px (~2 tiles + thumbnail each via MiniCPM-V's slicer)
+            // plus the prompt and output. 16K leaves comfortable headroom without the KV-cache
+            // allocation overhead of the model's full 32K context.
+            num_ctx: 16384,
             num_predict: 350,
             num_gpu: 99,     // offload all layers to GPU (no-op if already fully offloaded)
             stop: ['Space: Not', '\nSpace: N', 'USE TEMPLATE', '\n\nSpace:'],
