@@ -1036,7 +1036,7 @@ async function analyzeImages(indices) {
     }
 
     // ── Phase 4: classify each image into a space label and type ─────────
-    const PHASE1_CONCURRENCY = 1;
+    const PHASE1_CONCURRENCY = 4;
     const PHASE1_THUMB_PX = 224;
     console.log(
       `[ZypheVision][phase1-config] concurrency=${PHASE1_CONCURRENCY} thumb_px=${PHASE1_THUMB_PX} ` +
