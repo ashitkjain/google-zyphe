@@ -62,4 +62,9 @@ module.exports = {
   optimization: {
     splitChunks: false,
   },
+  // Chrome extension bundles load from local disk, so webpack's default 244 KiB
+  // web-page budget doesn't apply. The bulk of sidepanel.js is @mlc-ai/web-llm.
+  performance: {
+    hints: false,
+  },
 };

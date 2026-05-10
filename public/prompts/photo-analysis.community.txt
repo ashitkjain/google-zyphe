@@ -12,5 +12,3 @@ Type: [kind of amenity]
 Features: [equipment, surfaces, surroundings — only what is clearly visible]
 Condition: [observed condition of the amenity]
 Description: [3-4 sentences grounded in this specific photo, highlighting any standout features]
-
-Context: {{PROPERTY_CONTEXT}}{{MEMORY_CONTEXT}}{{VIEWS_CONTEXT}}

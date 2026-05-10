@@ -752,8 +752,16 @@ function getTemplateTypeForSpace(spaceLabel) {
   if (communitySpaces.includes(label)) return 'COMMUNITY';
   if (label === 'Backyard') return 'BACKYARD';
   if (label === 'Aerial View') return 'AERIAL';
-  const exteriorSpaces = ['Front Yard', 'Pool Area'];
+  if (label === 'Front Yard') return 'FRONT_YARD';
+  const exteriorSpaces = ['Pool Area'];
   if (exteriorSpaces.includes(label)) return 'EXTERIOR';
+  if (label === 'Kitchen') return 'KITCHEN';
+  if (label === 'Living Room') return 'LIVING_ROOM';
+  if (label === 'Dining Room') return 'DINING_ROOM';
+  if (label === 'Bedroom') return 'BEDROOM';
+  if (label === 'Bathroom') return 'BATHROOM';
+  if (label === 'Entryway') return 'ENTRYWAY';
+  if (label === 'Floor Plan') return 'FLOOR_PLAN';
   return 'INTERIOR';
 }
 
@@ -763,8 +771,13 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
   const override = customPrompt.value.trim();
   if (override) return override;
 
+  const KNOWN_TEMPLATE_TYPES = new Set([
+    'ALL', 'INTERIOR', 'EXTERIOR', 'COMMUNITY', 'BACKYARD', 'AERIAL',
+    'KITCHEN', 'LIVING_ROOM', 'DINING_ROOM',
+    'BEDROOM', 'BATHROOM', 'ENTRYWAY', 'FRONT_YARD', 'FLOOR_PLAN',
+  ]);
   let resolvedType = templateType;
-  if (templateType && templateType !== 'ALL' && templateType !== 'INTERIOR' && templateType !== 'EXTERIOR' && templateType !== 'COMMUNITY' && templateType !== 'BACKYARD' && templateType !== 'AERIAL') {
+  if (templateType && !KNOWN_TEMPLATE_TYPES.has(templateType)) {
     resolvedType = getTemplateTypeForSpace(templateType);
   }
 
@@ -796,6 +809,14 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
     : resolvedType === 'AERIAL' ? 'photo-analysis.aerial.txt'
     : resolvedType === 'EXTERIOR' ? 'photo-analysis.exterior.txt'
     : resolvedType === 'COMMUNITY' ? 'photo-analysis.community.txt'
+    : resolvedType === 'KITCHEN' ? 'photo-analysis.kitchen.txt'
+    : resolvedType === 'LIVING_ROOM' ? 'photo-analysis.livingroom.txt'
+    : resolvedType === 'DINING_ROOM' ? 'photo-analysis.diningroom.txt'
+    : resolvedType === 'BEDROOM' ? 'photo-analysis.bedroom.txt'
+    : resolvedType === 'BATHROOM' ? 'photo-analysis.bathroom.txt'
+    : resolvedType === 'ENTRYWAY' ? 'photo-analysis.entryway.txt'
+    : resolvedType === 'FRONT_YARD' ? 'photo-analysis.frontyard.txt'
+    : resolvedType === 'FLOOR_PLAN' ? 'photo-analysis.floorplan.txt'
     : 'photo-analysis.txt';
 
   let promptTemplate = null;
@@ -983,21 +1004,41 @@ function applyGroupStrip(canonicalIdx, sentIndices, allMemberIndices, spaceLabel
   }
 }
 
-function markCardAsMirror(targetIdx, canonicalIdx, spaceLabel) {
+// Hide the card for a photo that shares its semantic group with a canonical
+// analysis. The indices are surfaced in the bottom "skipped" summary instead,
+// so the grid stays focused on photos that contributed to an analysis.
+function markCardAsMirror(targetIdx /* , canonicalIdx, spaceLabel */) {
   const card = document.getElementById(`card-${targetIdx}`);
-  const resultEl = document.getElementById(`result-${targetIdx}`);
-  const statusEl = document.getElementById(`status-${targetIdx}`);
-  const singleBtn = document.getElementById(`single-btn-${targetIdx}`);
-  if (!card || !resultEl) return;
-  const label = spaceLabel ? ` · ${spaceLabel}` : '';
-  resultEl.className = 'analysis-result mirror-ref';
-  resultEl.innerHTML = `<span class="mirror-icon">↗</span> Same as photo #${canonicalIdx + 1}${escapeHtml(label)}`;
-  card.className = 'image-card done mirror';
-  if (statusEl) {
-    statusEl.className = 'image-status-badge status-done';
-    statusEl.textContent = 'Mirrored';
+  if (!card) return;
+  card.classList.add('hidden-mirror');
+}
+
+function resetSkippedSummary() {
+  const el = document.getElementById('skipped-summary');
+  if (!el) return;
+  el.hidden = true;
+  el.innerHTML = '';
+}
+
+// Render a one-shot summary of photos that were classified into a semantic
+// group but were NOT among the photos actually sent to the LLM for that group.
+// `entries` is an array of { label, canonicalIdx, indices: number[] }.
+function renderSkippedSummary(entries) {
+  const el = document.getElementById('skipped-summary');
+  if (!el) return;
+  const nonEmpty = entries.filter(e => e.indices && e.indices.length > 0);
+  if (nonEmpty.length === 0) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
   }
-  if (singleBtn) singleBtn.disabled = false;
+  const rows = nonEmpty.map(e => {
+    const list = e.indices.map(i => `#${i + 1}`).join(', ');
+    const labelText = e.label ? escapeHtml(e.label) : 'Unlabeled';
+    return `<div class="skipped-summary-group"><span class="skipped-summary-group-label">${labelText}</span> · grouped with photo #${e.canonicalIdx + 1} · <span class="skipped-summary-indices">${list}</span></div>`;
+  }).join('');
+  el.innerHTML = `<div class="skipped-summary-title">Not sent to the LLM (treated as duplicates):</div>${rows}`;
+  el.hidden = false;
 }
 
 async function analyzeImages(indices) {
@@ -1017,6 +1058,8 @@ async function analyzeImages(indices) {
   try {
     const results = [];
     const batchStart = performance.now();
+    resetSkippedSummary();
+    const skippedSummary = []; // { label, canonicalIdx, indices: number[] }
 
     // ── Phase 1 & 2: Hashing and Visual Clustering Bypassed ─────────────────
     const t1Ms = 0;
@@ -1187,12 +1230,22 @@ async function analyzeImages(indices) {
         if (analysis !== result.analysis) copyAnalysisToCard(idx, analysis, result.score);
         results.push({ url: extractedImages[idx].url, analysis, score: result.score });
 
-        // Backfill label into all other semantic group members
+        // Backfill label into all other semantic group members. None of them
+        // get a visible "Same as #X" card — strip photos are represented in
+        // the canonical's group strip, and photos that weren't sent to the
+        // LLM (the "+N similar" bucket) are listed in the skipped-summary at
+        // the bottom of the panel.
+        const sentSet = new Set(allIndices);
+        const skippedHere = [];
         for (const mIdx of memberIndices) {
           if (mIdx !== canonicalIdx) {
-            markCardAsMirror(mIdx, idx, label);
+            markCardAsMirror(mIdx);
             results.push({ url: extractedImages[mIdx].url, analysis, score: result.score });
+            if (!sentSet.has(mIdx)) skippedHere.push(mIdx);
           }
+        }
+        if (skippedHere.length > 0) {
+          skippedSummary.push({ label, canonicalIdx: idx, indices: skippedHere });
         }
       }
 
@@ -1213,6 +1266,7 @@ async function analyzeImages(indices) {
     const t6Ms = Math.round(performance.now() - t6Start);
 
     analysisProgressText.textContent = signal.aborted ? 'Stopped.' : 'Done.';
+    if (!signal.aborted) renderSkippedSummary(skippedSummary);
 
     const batchMs = Math.round(performance.now() - batchStart);
     console.log(
@@ -1267,9 +1321,8 @@ async function analyzeImages(indices) {
 // Canonical vocabulary the tagger MUST choose from. Matching the model's reply
 // against this fixed list is what guarantees photos of the same space share a
 // group label. Order matters for matchTagToVocabulary: longer/more specific
-// labels are listed first so "Primary Bedroom" wins over "Bedroom".
+// labels are listed first so "Living Room" wins over "Room" etc.
 const ROOM_VOCABULARY = [
-  'Primary Bedroom',
   'Bedroom',
   'Kitchen',
   'Living Room',
@@ -1277,6 +1330,7 @@ const ROOM_VOCABULARY = [
   'Bathroom',
   'Office',
   'Laundry Room',
+  'Entryway',
   'Hallway',
   'Staircase',
   'Basement',
@@ -1306,6 +1360,29 @@ const VOCABULARY_ALIASES = {
   'porch': 'Backyard',
   'balcony': 'Backyard',
   'garden': 'Backyard',
+  'walk in closet': 'Bedroom',
+  'walk-in closet': 'Bedroom',
+  'wardrobe': 'Bedroom',
+  'dressing room': 'Bedroom',
+  'primary bedroom': 'Bedroom',
+  'master bedroom': 'Bedroom',
+  'owner’s suite': 'Bedroom',
+  'owner\'s suite': 'Bedroom',
+  'primary suite': 'Bedroom',
+  'primary bathroom': 'Bathroom',
+  'master bathroom': 'Bathroom',
+  'master bath': 'Bathroom',
+  'ensuite bathroom': 'Bathroom',
+  'en-suite bathroom': 'Bathroom',
+  'ensuite': 'Bathroom',
+  'powder room': 'Bathroom',
+  'half bath': 'Bathroom',
+  'foyer': 'Entryway',
+  'entry': 'Entryway',
+  'entrance': 'Entryway',
+  'vestibule': 'Entryway',
+  'mudroom': 'Entryway',
+  'mud room': 'Entryway',
 };
 
 // Infer the dominant space label from free-form prose. Picks the vocabulary
@@ -1314,8 +1391,7 @@ const VOCABULARY_ALIASES = {
 // actual subject ("a front yard with a garage…") and only mention other
 // rooms in passing later ("…would be a great living room"). Ties are
 // broken by ROOM_VOCABULARY order (longer/more-specific first), so e.g.
-// "Primary Bedroom" still wins over "Bedroom" when both appear at the
-// same position.
+// "Living Room" still wins over a bare alias-style match at the same position.
 function inferSpaceFromText(text) {
   if (!text) return null;
   const haystack = text.toLowerCase();
@@ -1379,6 +1455,14 @@ function parseClassificationResponse(text, idx) {
   // override a Backyard photo would route to the generic exterior prompt.
   if (label === 'Backyard') type = 'BACKYARD';
   if (label === 'Aerial View') type = 'AERIAL';
+  if (label === 'Kitchen') type = 'KITCHEN';
+  if (label === 'Living Room') type = 'LIVING_ROOM';
+  if (label === 'Dining Room') type = 'DINING_ROOM';
+  if (label === 'Bedroom') type = 'BEDROOM';
+  if (label === 'Bathroom') type = 'BATHROOM';
+  if (label === 'Entryway') type = 'ENTRYWAY';
+  if (label === 'Front Yard') type = 'FRONT_YARD';
+  if (label === 'Floor Plan') type = 'FLOOR_PLAN';
 
   return { label, type };
 }
@@ -1387,7 +1471,7 @@ function parseClassificationResponse(text, idx) {
 // and specific space label using a short, non-streaming LLM call.
 const CLASSIFY_PROMPT = `Look at this real estate photo. Reply in this exact format:
 Type: [Interior, Exterior, or Community]
-Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Hallway, Staircase, Basement, Front Yard, Backyard, Pool Area, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View]
+Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Entryway, Hallway, Staircase, Basement, Front Yard, Backyard, Pool Area, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View]
 
 Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
 
@@ -1406,7 +1490,7 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
             images: [dataUrl.split(',')[1] || dataUrl],
           }],
           stream: false,
-          options: { temperature: 0, num_predict: 30, num_ctx: 1024, num_gpu: 99 },
+          options: { temperature: 0, num_predict: 20, num_ctx: 1024, num_gpu: 99 },
         }),
         signal,
       });
@@ -1421,7 +1505,7 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
           { type: 'text', text: CLASSIFY_PROMPT },
         ]}],
         stream: false,
-        max_tokens: 30,
+        max_tokens: 20,
       });
       text = (resp.choices[0].message.content || '').trim();
     }

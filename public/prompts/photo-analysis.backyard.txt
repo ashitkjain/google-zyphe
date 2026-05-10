@@ -5,15 +5,21 @@ RULES:
 2. Each field is a short phrase or comma-separated list. The "Description" field is 3-4 sentences of grounded prose.
 3. Describe only what is clearly visible in the photo(s). If a field cannot be observed, write "Not visible". Do not invent details and do not copy phrasing from the bracketed field guidance.
 4. EXHAUSTIVE OBSERVATION: List EVERY notable feature you can see. The bracketed examples below are not a checklist — they are hints. Do not omit a visible feature just because it isn't in the example list, and do not skip a visible feature because you've already mentioned a few.
-5. If the photo is an aerial, drone, or bird's-eye view showing multiple rooftops, streets, or properties from above, output "NA" and nothing else. Also output "NA" for photos that are unrelated to the property (blank, blurry, screenshot, irrelevant).
-6. Your job is to EVALUATE — focus on standout features, buyer appeal, usability, privacy, condition, and resale value.
+
+LUXURY SIGNALS TO CALL OUT WHEN VISIBLE:
+- Indoor-outdoor living with covered patios, retractable sliding or accordion glass walls, outdoor kitchens, BBQ stations, bars, and weather-resistant furnishings.
+- Fire pits, outdoor fireplaces, fountains, waterfalls, infinity pools, spas/hot tubs, jacuzzis, cabanas, pergolas, gazebos, and rooftop decks.
+- Mature landscaping with privacy hedges, trees, garden beds, and resort-style planting design.
+- Modern hardscape elements including stone patios, pavers, concrete finishes, and integrated lighting.
+- Outdoor entertainment features such as built-in speakers, string lighting, TVs, and integrated AV systems.
+- Additional amenities when present: sport courts, putting greens, ADUs/guesthouses, side-yard access, storage structures, or utility zones.
 
 Space: Backyard
-Standout Features: [List EVERY upscale or distinctive feature visible across the photos. Examples to look for include — but are not limited to — pool, spa, hot tub, outdoor kitchen, BBQ island, covered patio, pergola, gazebo, fire pit, fireplace, mature landscaping, privacy walls/hedges, modern hardscape, water features, sport court, putting green, ADU/guesthouse, indoor-outdoor flow via large sliders or accordion doors, string lights, built-ins. Do NOT skip any visible feature.]
-Usability: [Describe how the space would actually be used: entertaining capacity (seating/dining areas), family/pet usability (lawn for play, fenced safety, kid-friendly surfaces), and side-yard functionality (storage, side-gate access, gardening beds, trash/equipment concealment, AC/pool equipment placement, usable vs. dead space).]
-Privacy & Atmosphere: [Degree of privacy from neighbors and street, plus the overall vibe — private, resort-like, cozy, crowded, dated, high-maintenance, sterile, lush, etc.]
-Condition & Maintenance: [Observed care level and finish quality — paint/stain, fence/gate condition, hardscape cracks, lawn health, deck/patio wear, pool surface, weed/overgrowth level. Combine condition AND red flags here: drainage issues (pooling, stained concrete, eroded soil), unsafe surfaces, deferred maintenance, obvious DIY work, code-questionable structures. Write "Well-maintained, no concerns visible" if truly nothing is wrong.]
-Resale Appeal: [One short evaluative phrase — e.g., "Strong differentiator", "Average for the price band", "Will need work to compete".]
-Description: [3-4 sentences of grounded synthesis — what a buyer walking the yard would notice first, how it would actually be used, and what affects its value. This field is REQUIRED — do not stop the response before completing it.]
-
-Context: {{PROPERTY_CONTEXT}}{{MEMORY_CONTEXT}}{{VIEWS_CONTEXT}}
+Indoor-Outdoor & Living: [covered patios, sliding/accordion glass walls, outdoor kitchens, BBQ stations, bars, cabanas, pergolas, gazebos, or "None visible"]
+Pool & Water Features: [pools, spas/hot tubs, jacuzzis, fountains, waterfalls, or "None visible"]
+Landscaping & Hardscape: [privacy hedges, mature trees, garden beds, stone patios, pavers, concrete finishes, integrated lighting, or "None visible"]
+Amenities & Entertainment: [fire pits, fireplaces, sport courts, putting greens, ADUs/guesthouses, built-in speakers, string lights, TVs, or "None visible"]
+Usability: [seating and dining capacity for entertaining, multi-zone layout for gatherings, kid/pet-friendly lawn or play areas, fenced or secure zones, and functional side-yard uses such as storage, gardening beds, trash/equipment concealment, and pool/AC equipment placement]
+Privacy & Atmosphere: [degree of separation from neighbors and street (open, semi-private, fully private), and overall feel such as resort-like, lush, cozy, modern, high-maintenance, or minimalistic]
+View Quality Tier: [One of: None, Partial, Strong, Premium, Landmark]
+Description: [3-4 sentences of grounded synthesis — what a buyer walking the yard would like to know (standout features), how it would actually be used, and what affects its value. This field is REQUIRED — do not stop the response before completing it.]

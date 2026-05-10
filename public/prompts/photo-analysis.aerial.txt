@@ -12,5 +12,3 @@ Surroundings & Views: [List EVERY natural feature, neighborhood characteristic, 
 Privacy & Neighbor Proximity: [Degree of separation from neighboring lots and streets — setbacks, fencing, hedges/tree buffers, whether the property overlooks neighbors or is shielded, density of surrounding lots.]
 Potential Concerns: [List EVERY visible red flag — power lines, busy road / freeway / commercial proximity, drainage paths, awkward lot shape, limited usable yard, overhead exposure to neighbors, dense canopy hiding maintenance, flood-prone topography, etc. Write "None visible" only if nothing is observable.]
 Description: [3-4 sentences of grounded synthesis — what the aerial uniquely reveals that ground photos cannot, and how it shapes the property's value story. This field is REQUIRED — do not stop the response before completing it.]
-
-Context: {{PROPERTY_CONTEXT}}{{MEMORY_CONTEXT}}{{VIEWS_CONTEXT}}

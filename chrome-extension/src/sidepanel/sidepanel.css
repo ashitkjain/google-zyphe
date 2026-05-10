@@ -450,6 +450,27 @@ textarea:focus { outline: none; border-color: var(--accent); }
 /* Mirror reference cards */
 .image-card.mirror { border-color: var(--border); opacity: 0.8; }
 .image-card.hidden-mirror { display: none; }
+
+/* Summary of photos that weren't sent to the LLM (kept in a semantic group as duplicates) */
+.skipped-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.skipped-summary-title {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.skipped-summary-group { margin-top: 4px; }
+.skipped-summary-group-label { font-weight: 600; color: var(--text); }
+.skipped-summary-indices { font-variant-numeric: tabular-nums; }
 .mirror-ref {
   font-size: 13px;
   color: var(--text-dim);
