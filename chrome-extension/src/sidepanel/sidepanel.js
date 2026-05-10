@@ -2368,8 +2368,9 @@ async function downloadImageOffline(idx) {
       setTimeout(() => URL.revokeObjectURL(localUrl), 1000);
       console.log(`[ZypheVision] Photo #${idx + 1} downloaded via cached fetch.`);
     } catch (fetchErr) {
-      console.error(`[ZypheVision] Download failed:`, fetchErr);
+      console.error(`[ZypheVision] Cached fetch download failed:`, fetchErr);
       // 3. Last resort fallback: open in new tab
+      console.log(`[ZypheVision] Photo #${idx + 1} opened via last resort fallback (new browser tab).`);
       window.open(url, '_blank');
     }
   }
