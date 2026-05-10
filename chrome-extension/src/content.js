@@ -252,7 +252,8 @@ const observer = new MutationObserver(() => {
     const images = extractPropertyImages();
     if (images.length > 0) {
       const zpid = extractZpid();
-      chrome.runtime.sendMessage({ type: 'IMAGES_UPDATED', images, zpid }).catch(() => {});
+      const property = extractPropertyMetadata();
+      chrome.runtime.sendMessage({ type: 'IMAGES_UPDATED', images, zpid, property }).catch(() => {});
     }
   }, 800);
 });

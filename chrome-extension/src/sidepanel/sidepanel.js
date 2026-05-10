@@ -165,10 +165,15 @@ const scanCount = document.getElementById('scan-count');
 const analysisSection = document.getElementById('analysis-section');
 const analyzeAllBtn = document.getElementById('analyze-all-btn');
 const analyzeSelectedBtn = document.getElementById('analyze-selected-btn');
+const downloadAllBtn = document.getElementById('download-all-btn');
 const stopBtn = document.getElementById('stop-btn');
 const analysisProgressText = document.getElementById('analysis-progress-text');
 const customPrompt = document.getElementById('custom-prompt');
 const imagesGrid = document.getElementById('images-grid');
+
+if (downloadAllBtn) {
+  downloadAllBtn.addEventListener('click', downloadAllImages);
+}
 
 const collectiveAnalysisContainer = document.getElementById('collective-analysis-container');
 const collectiveResult = document.getElementById('collective-result');
@@ -272,23 +277,38 @@ loadModelBtn.addEventListener('click', async () => {
 });
 
 // ── Image extraction ───────────────────────────────────────────────────────
-scanBtn.addEventListener('click', () => {
-  scanBtn.disabled = true;
-  scanBtn.textContent = 'Scanning…';
+// Scan the active tab for property data. When `silent` is true (auto-scan on
+// side-panel open), failures stay quiet — the user didn't ask, so don't
+// surface "Could not reach page" errors before they've done anything.
+function runScan({ silent = false } = {}) {
+  if (!silent) {
+    scanBtn.disabled = true;
+    scanBtn.textContent = 'Scanning…';
+  }
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (!tabs[0]) return resetScanBtn();
+    if (!tabs[0]) {
+      if (!silent) resetScanBtn();
+      return;
+    }
     chrome.tabs.sendMessage(tabs[0].id, { type: 'EXTRACT_IMAGES' }, (response) => {
-      resetScanBtn();
+      if (!silent) resetScanBtn();
       if (chrome.runtime.lastError) {
-        scanCount.hidden = false;
-        scanCount.style.color = 'var(--danger)';
-        scanCount.textContent = 'Could not reach page. Reload the tab and try again.';
+        if (!silent) {
+          scanCount.hidden = false;
+          scanCount.style.color = 'var(--danger)';
+          scanCount.textContent = 'Could not reach page. Reload the tab and try again.';
+        }
         return;
       }
       const images = response?.images || [];
       const zpid = response?.zpid || null;
-      currentProperty = response?.property || null;
+      const property = response?.property || null;
+      // On silent auto-scan, only adopt the property if we actually got photos.
+      // This avoids wiping a previously-loaded property because the panel
+      // opened on a non-property tab.
+      if (silent && images.length === 0) return;
+      currentProperty = property;
       handleImagesFound(images, zpid);
       updateZpidDisplay(zpid);
 
@@ -301,16 +321,23 @@ scanBtn.addEventListener('click', () => {
       });
     });
   });
-});
+}
+
+scanBtn.addEventListener('click', () => runScan({ silent: false }));
 
 function resetScanBtn() {
   scanBtn.disabled = false;
   scanBtn.textContent = '🔍 Scan for Property Photos';
 }
 
+// Auto-scan on side-panel open so a rebuild/reload doesn't force the user to
+// click "Scan" again to repopulate a property that's still on the page.
+runScan({ silent: true });
+
 // Also receive live updates when the page DOM changes
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'IMAGES_UPDATED' && !isAnalyzing) {
+    if (message.property) currentProperty = message.property;
     handleImagesFound(message.images, message.zpid);
     if (message.zpid) updateZpidDisplay(message.zpid);
   }
@@ -337,12 +364,14 @@ function handleImagesFound(images, zpid) {
     scanCount.hidden = false;
     scanCount.style.color = 'var(--text-dim)';
     scanCount.textContent = 'No property photos found on this page.';
+    if (downloadAllBtn) downloadAllBtn.style.display = 'none';
     return;
   }
 
   scanCount.hidden = false;
   scanCount.style.color = 'var(--success)';
   scanCount.textContent = `Found ${images.length} property photo${images.length !== 1 ? 's' : ''}`;
+  if (downloadAllBtn) downloadAllBtn.style.display = 'inline-block';
 
   images.forEach((img, idx) => {
     imagesGrid.appendChild(buildImageCard(img, idx));
@@ -408,9 +437,14 @@ function buildImageCard(img, idx) {
       <div class="image-url">
         <a href="${escapeHtml(img.url)}" target="_blank" rel="noopener">${truncateUrl(img.url)}</a>
       </div>
-      <button class="btn btn-secondary analyze-single-btn" id="single-btn-${idx}" ${!isEngineReady ? 'disabled' : ''}>
-        Analyze this photo
-      </button>
+      <div style="display: flex; gap: 6px;">
+        <button class="btn btn-secondary analyze-single-btn" id="single-btn-${idx}" ${!isEngineReady ? 'disabled' : ''} style="flex: 1;">
+          Analyze this photo
+        </button>
+        <button class="btn btn-secondary download-offline-btn" id="download-btn-${idx}" style="padding: 5px 12px;" title="Download photo 100% offline">
+          💾
+        </button>
+      </div>
     </div>
   `;
 
@@ -429,6 +463,11 @@ function buildImageCard(img, idx) {
   const singleBtn = card.querySelector('.analyze-single-btn');
   singleBtn.addEventListener('click', () => {
     analyzeSingle(idx);
+  });
+
+  const downloadBtn = card.querySelector('.download-offline-btn');
+  downloadBtn.addEventListener('click', () => {
+    downloadImageOffline(idx);
   });
 
   return card;
@@ -1228,19 +1267,36 @@ async function analyzeImages(indices) {
         }
 
         if (analysis !== result.analysis) copyAnalysisToCard(idx, analysis, result.score);
-        results.push({ url: extractedImages[idx].url, analysis, score: result.score });
+        results.push({
+          photo_index: idx,
+          url: extractedImages[idx].url,
+          analysis,
+          score: result.score,
+          group_label: label,
+          group_member_indices: memberIndices.slice(),
+          group_sent_indices: allIndices.slice(),
+        });
 
         // Backfill label into all other semantic group members. None of them
         // get a visible "Same as #X" card — strip photos are represented in
         // the canonical's group strip, and photos that weren't sent to the
         // LLM (the "+N similar" bucket) are listed in the skipped-summary at
-        // the bottom of the panel.
+        // the bottom of the panel. We also no longer duplicate the analysis
+        // text on each mirror — instead the saved entry references the
+        // canonical photo via `mirror_of`.
         const sentSet = new Set(allIndices);
         const skippedHere = [];
         for (const mIdx of memberIndices) {
           if (mIdx !== canonicalIdx) {
             markCardAsMirror(mIdx);
-            results.push({ url: extractedImages[mIdx].url, analysis, score: result.score });
+            results.push({
+              photo_index: mIdx,
+              url: extractedImages[mIdx].url,
+              mirror_of: idx,
+              mirror_of_url: extractedImages[idx].url,
+              group_label: label,
+              sent_to_llm: sentSet.has(mIdx),
+            });
             if (!sentSet.has(mIdx)) skippedHere.push(mIdx);
           }
         }
@@ -2170,12 +2226,34 @@ async function saveAnalysisToFirestore(results) {
       model: document.getElementById('model-select')?.value || 'Phi-3.5-vision-instruct-q4f16_1-MLC',
       prompt: customPrompt.value.trim(),
       photo_count: results.length,
-      photos: results.map((r) => ({
-        url: r.url,
-        analysis: r.analysis,
-        score: r.score ?? null,
-        error: r.error ?? null,
-      })),
+      analyzed_photo_count: results.filter(r => r.analysis != null).length,
+      photos: results.map((r) => {
+        // Mirror entry: just point at the canonical photo, no analysis text
+        // duplicated. The reader resolves the analysis by looking up
+        // `mirror_of` (or `mirror_of_url`) in the same array.
+        if (r.mirror_of != null || r.mirror_of_url != null) {
+          return {
+            photo_index: r.photo_index ?? null,
+            url: r.url,
+            mirror_of: r.mirror_of ?? null,
+            mirror_of_url: r.mirror_of_url ?? null,
+            group_label: r.group_label ?? null,
+            sent_to_llm: r.sent_to_llm ?? null,
+          };
+        }
+        // Canonical entry: full analysis text + group bookkeeping so a reader
+        // can reconstruct which photos shared this analysis.
+        return {
+          photo_index: r.photo_index ?? null,
+          url: r.url,
+          analysis: r.analysis,
+          score: r.score ?? null,
+          error: r.error ?? null,
+          group_label: r.group_label ?? null,
+          group_member_indices: r.group_member_indices ?? null,
+          group_sent_indices: r.group_sent_indices ?? null,
+        };
+      }),
       summary_scores: results.filter(r => r.score != null).map(r => r.score),
       avg_score: results.filter(r => r.score != null).length > 0
         ? results.filter(r => r.score != null).reduce((a, b) => a + b.score, 0) /
@@ -2242,6 +2320,88 @@ function clearAnalysisTimer() {
   const timerEl = document.getElementById('analysis-timer');
   if (timerEl) {
     timerEl.hidden = true;
+  }
+}
+
+// Download a single image using the 100% offline Canvas-to-blob method with cached fetch fallback
+async function downloadImageOffline(idx) {
+  const card = document.getElementById(`card-${idx}`);
+  if (!card) return;
+  const imgEl = card.querySelector('.image-thumb-wrapper img');
+  if (!imgEl) return;
+
+  const url = imgEl.src;
+  const filename = `property-photo-${idx + 1}.jpg`;
+
+  try {
+    // 1. Try Canvas extraction (direct from GPU/RAM pixel memory, completely offline)
+    const canvas = document.createElement('canvas');
+    canvas.width = imgEl.naturalWidth || imgEl.width || 300;
+    canvas.height = imgEl.naturalHeight || imgEl.height || 300;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(imgEl, 0, 0);
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    console.log(`[ZypheVision] Photo #${idx + 1} downloaded 100% offline via Canvas.`);
+  } catch (err) {
+    console.warn(`[ZypheVision] Canvas extraction failed (CORS taint), falling back to cached fetch:`, err);
+    try {
+      // 2. Fallback to fetch (resolves from local browser disk cache, indistinguishable from browser scrolling)
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const localUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = localUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Cleanup the object URL
+      setTimeout(() => URL.revokeObjectURL(localUrl), 1000);
+      console.log(`[ZypheVision] Photo #${idx + 1} downloaded via cached fetch.`);
+    } catch (fetchErr) {
+      console.error(`[ZypheVision] Download failed:`, fetchErr);
+      // 3. Last resort fallback: open in new tab
+      window.open(url, '_blank');
+    }
+  }
+}
+
+// Download all images sequentially using the offline-first method
+async function downloadAllImages() {
+  if (!downloadAllBtn) return;
+  
+  const originalText = downloadAllBtn.textContent;
+  downloadAllBtn.disabled = true;
+  
+  try {
+    const total = extractedImages.length;
+    console.log(`[ZypheVision] Starting batch offline download of ${total} images...`);
+    
+    for (let idx = 0; idx < total; idx++) {
+      downloadAllBtn.textContent = `💾 Saving (${idx + 1}/${total})…`;
+      await downloadImageOffline(idx);
+      // Brief delay to prevent browser download congestion
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    downloadAllBtn.textContent = '✅ All Saved!';
+    setTimeout(() => {
+      downloadAllBtn.disabled = false;
+      downloadAllBtn.textContent = originalText;
+    }, 2000);
+  } catch (err) {
+    console.error(`[ZypheVision] Batch download failed:`, err);
+    downloadAllBtn.disabled = false;
+    downloadAllBtn.textContent = originalText;
   }
 }
 
