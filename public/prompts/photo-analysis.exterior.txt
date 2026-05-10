@@ -4,7 +4,6 @@ RULES:
 1. Start directly with "Space:" and fill in EVERY field from top to bottom. No conversational intro and no closing remarks.
 2. Each field is a short phrase (under 8 words). The "Description" field is 3-4 sentences of grounded prose.
 3. Describe only what is clearly visible in THIS photo. If a field cannot be observed, write "Not visible". Do not invent details and do not copy phrasing from the bracketed field guidance.
-4. If the photo is an aerial, drone, or bird's-eye view showing multiple rooftops, streets, or properties from above, output "NA" and nothing else. Also output "NA" for photos that are unrelated to the property (blank, blurry, screenshot, irrelevant).
 
 SPACE DISAMBIGUATION (apply when filling the Space field):
 - Front Yard = driveway, garage door, main entrance, street view, or front-facing facade.
@@ -14,9 +13,7 @@ SPACE DISAMBIGUATION (apply when filling the Space field):
 Space: [the specific exterior area — apply the disambiguation rules above]
 Architecture & Landscaping: [exterior style, facade details, lawn, plants, trees, hardscape visible]
 Colors: [siding, trim, roof, and driveway]
-Outdoor Living: [patio, deck, pool, outdoor kitchen, seating, or "None visible"]
 Views: [scenic views and degree of privacy from neighbors or streets]
-Condition: [paint, siding, windows, driveway, fences]
 Description: [3-4 sentences grounded in this specific photo, highlighting any standout features]
 
 Context: {{PROPERTY_CONTEXT}}{{MEMORY_CONTEXT}}{{VIEWS_CONTEXT}}

@@ -750,7 +750,9 @@ function getTemplateTypeForSpace(spaceLabel) {
   const label = spaceLabel.trim();
   const communitySpaces = ['Sports Court', 'Fitness Center', 'Clubhouse', 'Community Park'];
   if (communitySpaces.includes(label)) return 'COMMUNITY';
-  const exteriorSpaces = ['Front Yard', 'Backyard', 'Pool Area', 'Aerial View'];
+  if (label === 'Backyard') return 'BACKYARD';
+  if (label === 'Aerial View') return 'AERIAL';
+  const exteriorSpaces = ['Front Yard', 'Pool Area'];
   if (exteriorSpaces.includes(label)) return 'EXTERIOR';
   return 'INTERIOR';
 }
@@ -762,7 +764,7 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
   if (override) return override;
 
   let resolvedType = templateType;
-  if (templateType && templateType !== 'ALL' && templateType !== 'INTERIOR' && templateType !== 'EXTERIOR' && templateType !== 'COMMUNITY') {
+  if (templateType && templateType !== 'ALL' && templateType !== 'INTERIOR' && templateType !== 'EXTERIOR' && templateType !== 'COMMUNITY' && templateType !== 'BACKYARD' && templateType !== 'AERIAL') {
     resolvedType = getTemplateTypeForSpace(templateType);
   }
 
@@ -771,7 +773,15 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
   // misclassify legitimate new photos as duplicates and emit a refusal.
   const memoryContext = '';
 
-  const viewsContext = '';
+  const viewsContext = hasMultipleViews
+    ? `\nMULTI-IMAGE INSTRUCTIONS:
+- You are being provided with MULTIPLE photographs of the SAME space, taken from different angles.
+- Examine EACH image individually before writing anything. Do not anchor on the first image alone.
+- Different angles reveal different features (pools, spas, views, fixtures, far walls, ceilings, fences, hardscape) that may be cropped out of any single shot. You MUST mention every notable feature visible in ANY of the images.
+- Your response must be ONE unified analysis that synthesizes evidence from ALL images. If a feature appears in only one angle, still include it.
+- If two images contradict each other on a detail, mention both observations rather than picking one.
+- Do not enumerate per-image findings — produce a single, coherent description of the entire space as if you walked through it.`
+    : '';
 
   const propertyCtx = currentProperty
     ? JSON.stringify(
@@ -782,6 +792,8 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
 
   // 1. Attempt to fetch the type-specific prompt from local development server
   const promptFileName = resolvedType === 'INTERIOR' ? 'photo-analysis.interior.txt'
+    : resolvedType === 'BACKYARD' ? 'photo-analysis.backyard.txt'
+    : resolvedType === 'AERIAL' ? 'photo-analysis.aerial.txt'
     : resolvedType === 'EXTERIOR' ? 'photo-analysis.exterior.txt'
     : resolvedType === 'COMMUNITY' ? 'photo-analysis.community.txt'
     : 'photo-analysis.txt';
@@ -917,6 +929,60 @@ function copyAnalysisToCard(targetIdx, analysis, score) {
   if (singleBtn) singleBtn.disabled = false;
 }
 
+// Transform the canonical card to display all images that were sent together to the LLM
+// as a horizontal strip, then hide the individual mirror cards. The shared analysis
+// renders below the strip in the canonical's existing body, so the user sees the full
+// group context first and the unified description right under it.
+function applyGroupStrip(canonicalIdx, sentIndices, allMemberIndices, spaceLabel) {
+  const card = document.getElementById(`card-${canonicalIdx}`);
+  if (!card) return;
+  const wrapper = card.querySelector('.image-thumb-wrapper');
+  if (!wrapper || wrapper.classList.contains('group-strip')) return;
+  if (!sentIndices || sentIndices.length <= 1) return;
+
+  const totalMembers = allMemberIndices ? allMemberIndices.length : sentIndices.length;
+  const droppedCount = Math.max(0, totalMembers - sentIndices.length);
+
+  // Detach the status badge before we wipe the wrapper — analyzeOneImage and
+  // copyAnalysisToCard both reach for #status-${idx} after this transform runs,
+  // so it must keep existing in the DOM.
+  const statusEl = wrapper.querySelector(`#status-${canonicalIdx}`);
+
+  wrapper.classList.add('group-strip');
+  wrapper.style.height = '';
+  wrapper.innerHTML = sentIndices.map(i => {
+    const img = extractedImages[i];
+    if (!img) return '';
+    const isCanonical = i === canonicalIdx;
+    return `
+      <div class="group-thumb${isCanonical ? ' canonical' : ''}">
+        <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.alt || '')}" loading="lazy"
+             onerror="this.style.display='none'" />
+        <span class="group-thumb-badge">#${i + 1}</span>
+      </div>
+    `;
+  }).join('');
+
+  const labelText = spaceLabel ? `${escapeHtml(spaceLabel)} · ` : '';
+  const droppedText = droppedCount > 0 ? ` (+${droppedCount} similar)` : '';
+  const pill = document.createElement('span');
+  pill.className = 'group-count-pill';
+  pill.textContent = `${labelText}${sentIndices.length} photos${droppedText}`;
+  wrapper.appendChild(pill);
+
+  // Re-attach the preserved status badge so downstream code can keep updating it.
+  if (statusEl) wrapper.appendChild(statusEl);
+
+  // Hide every mirror card in this group so the strip is the single visual representation.
+  if (allMemberIndices) {
+    for (const mIdx of allMemberIndices) {
+      if (mIdx === canonicalIdx) continue;
+      const mCard = document.getElementById(`card-${mIdx}`);
+      if (mCard) mCard.classList.add('hidden-mirror');
+    }
+  }
+}
+
 function markCardAsMirror(targetIdx, canonicalIdx, spaceLabel) {
   const card = document.getElementById(`card-${targetIdx}`);
   const resultEl = document.getElementById(`result-${targetIdx}`);
@@ -970,10 +1036,18 @@ async function analyzeImages(indices) {
     }
 
     // ── Phase 4: classify each image into a space label and type ─────────
+    const PHASE1_CONCURRENCY = 1;
+    const PHASE1_THUMB_PX = 224;
+    console.log(
+      `[ZypheVision][phase1-config] concurrency=${PHASE1_CONCURRENCY} thumb_px=${PHASE1_THUMB_PX} ` +
+      `num_ctx=1024 num_predict=30 model=${ollamaSelectedModel || 'webllm'}`
+    );
     const t4Start = performance.now();
     analysisProgressText.textContent = `Classifying spaces… (0/${indices.length})`;
     let classifyDone = 0;
     let classifyCalls = 0;
+    let classifyCallMsTotal = 0;
+    let classifyFetchMsTotal = 0;
     const spaceResults = new Array(indices.length); // spaceResults[i] = { label, type }
     const classifyCursor = { i: 0 };
     const classifyWorker = async () => {
@@ -981,19 +1055,34 @@ async function analyzeImages(indices) {
         const i = classifyCursor.i++;
         if (i >= indices.length) return;
         const idx = indices[i];
-        const thumb = await fetchImageAsDataUrl(extractedImages[idx].url, 320);
+        const tFetch = performance.now();
+        const thumb = await fetchImageAsDataUrl(extractedImages[idx].url, PHASE1_THUMB_PX);
+        const fetchMs = performance.now() - tFetch;
         if (signal.aborted) return;
+        const tCall = performance.now();
         spaceResults[i] = await classifyPhotoSpace(idx, thumb, signal);
+        const callMs = performance.now() - tCall;
+        classifyFetchMsTotal += fetchMs;
+        classifyCallMsTotal += callMs;
         classifyCalls += 1;
         classifyDone += 1;
         analysisProgressText.textContent = `Classifying spaces… (${classifyDone}/${indices.length})`;
-        console.log(`[ZypheVision][classify] photo ${idx} → "${spaceResults[i].label}" (${spaceResults[i].type})`);
+        console.log(
+          `[ZypheVision][classify] photo ${idx} → "${spaceResults[i].label}" (${spaceResults[i].type}) ` +
+          `[fetch=${Math.round(fetchMs)}ms call=${Math.round(callMs)}ms]`
+        );
         // Show the Phase 4 label on the card immediately.
         setSpaceLabelBadge(idx, spaceResults[i].label);
       }
     };
-    await Promise.all(Array.from({ length: Math.min(4, indices.length) }, classifyWorker));
+    await Promise.all(Array.from({ length: Math.min(PHASE1_CONCURRENCY, indices.length) }, classifyWorker));
     const t4Ms = Math.round(performance.now() - t4Start);
+    const avgCallMs = classifyCalls > 0 ? Math.round(classifyCallMsTotal / classifyCalls) : 0;
+    const avgFetchMs = classifyCalls > 0 ? Math.round(classifyFetchMsTotal / classifyCalls) : 0;
+    console.log(
+      `[ZypheVision][phase1-summary] photos=${classifyCalls} wall_clock=${t4Ms}ms ` +
+      `avg_call=${avgCallMs}ms avg_fetch=${avgFetchMs}ms throughput=${(classifyCalls / (t4Ms/1000)).toFixed(2)} photos/sec`
+    );
     if (signal.aborted) return;
 
     // ── Phase 5: semantic grouping ─────────────────────────────────────────
@@ -1005,13 +1094,6 @@ async function analyzeImages(indices) {
     for (let i = 0; i < indices.length; i++) {
       const idx = indices[i];
       const { label, type } = spaceResults[i];
-
-      // Aerial views are skipped entirely — mark them as NA now (unless it is the first photo).
-      if (label === 'Aerial View' && i > 0) {
-        copyAnalysisToCard(idx, 'NA', null);
-        console.log(`[ZypheVision][aerial-skip] photo ${idx} classified as Aerial View — skipped`);
-        continue;
-      }
 
       const existing = semanticGroups.get(label);
       if (existing !== undefined) {
@@ -1074,6 +1156,14 @@ async function analyzeImages(indices) {
         allIndices.map(i => fetchImageAsDataUrl(extractedImages[i].url, 672))
       );
       if (signal.aborted) return;
+
+      // Show the full group of images that will be sent to the LLM as a single
+      // horizontal strip on the canonical card, and hide the individual mirror cards.
+      // This lets the user see the collective context first and the shared analysis
+      // right beneath it.
+      if (allIndices.length > 1) {
+        applyGroupStrip(idx, allIndices, memberIndices, label);
+      }
 
       const hasMultiple = dataUrls.length > 1;
       const prompt = await buildPrompt(extractedImages[idx].url, idx, hasMultiple, type);
@@ -1284,6 +1374,12 @@ function parseClassificationResponse(text, idx) {
   const spaceText = spaceMatch ? spaceMatch[1].trim() : text;
   label = inferSpaceFromText(spaceText) || `Unclassified ${idx}`;
 
+  // Promote specialized labels to their dedicated prompt type. The "Type:" line from
+  // the classifier only distinguishes Interior/Exterior/Community, so without this
+  // override a Backyard photo would route to the generic exterior prompt.
+  if (label === 'Backyard') type = 'BACKYARD';
+  if (label === 'Aerial View') type = 'AERIAL';
+
   return { label, type };
 }
 
@@ -1310,7 +1406,7 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
             images: [dataUrl.split(',')[1] || dataUrl],
           }],
           stream: false,
-          options: { temperature: 0, num_predict: 50, num_ctx: 4096, num_gpu: 99 },
+          options: { temperature: 0, num_predict: 30, num_ctx: 1024, num_gpu: 99 },
         }),
         signal,
       });
@@ -1644,9 +1740,11 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
   const singleBtn = document.getElementById(`single-btn-${idx}`);
   if (singleBtn) singleBtn.disabled = true;
 
-  card.className = 'image-card analyzing';
-  statusEl.className = 'image-status-badge status-analyzing';
-  statusEl.textContent = 'Analyzing…';
+  if (card) card.className = 'image-card analyzing';
+  if (statusEl) {
+    statusEl.className = 'image-status-badge status-analyzing';
+    statusEl.textContent = 'Analyzing…';
+  }
 
   try {
     let imagesPayload = [];
@@ -1711,7 +1809,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
             // plus the prompt and output. 16K leaves comfortable headroom without the KV-cache
             // allocation overhead of the model's full 32K context.
             num_ctx: 16384,
-            num_predict: 350,
+            num_predict: 500,
             num_gpu: 99,     // offload all layers to GPU (no-op if already fully offloaded)
             stop: ['Space: Not', '\nSpace: N', 'USE TEMPLATE', '\n\nSpace:'],
           }

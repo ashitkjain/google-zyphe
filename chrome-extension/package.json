@@ -5,7 +5,9 @@
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack --mode development --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test:phase1": "node tests/phase1-classify.test.mjs",
+    "bench:phase1": "node tests/phase1-bench-speed.mjs"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.83"
