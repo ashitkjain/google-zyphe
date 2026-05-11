@@ -246,7 +246,13 @@ function groupByLabel(spaceResults) {
 // Labels that can legitimately contain multiple distinct rooms in the same
 // property. For these, we send ALL photos in one call and Gemini returns a
 // `rooms[]` array so the same group can yield multiple analyses.
-const MULTI_ROOM_LABELS = new Set(["Bedroom", "Bathroom"]);
+// Bedroom and Bathroom both used to be here but were switched to a
+// single-shot text analysis (3-7 sentences, primary-focused) — splitting
+// them apart was creating shallow per-room cards and confusing standalone
+// entries (closets, powder rooms). The multi-room infrastructure below
+// (MULTI_ROOM_RESPONSE_SCHEMA, normalizeRoomsResponse, enforceOnePrimary)
+// is preserved in case a future label legitimately needs it.
+const MULTI_ROOM_LABELS = new Set();
 
 // Cap on photos sent per group call. Gemini 2.5-flash handles much more
 // token-wise, but multi-image attention degrades past ~20. Above this we
@@ -384,35 +390,6 @@ function enforceOnePrimary(rooms) {
             { ...r, room_type: "secondary" } :
             r,
     );
-}
-
-// Merge any "walk_in_closet" rooms (the prompt's fallback bucket for
-// standalone closet shots) into the primary bedroom — or, if no real
-// bedroom exists in this call, drop them so we don't render a "Bedroom"
-// card that's actually just a closet. The closet's photos are folded
-// into the host bedroom's photo_indices; its standalone analysis text
-// is discarded (the host bedroom's "Storage / Walk-in Closet" field
-// already covers it, and re-running the LLM to splice prose isn't worth
-// the cost). Dropped closet photos surface as orphans via the normal
-// unassigned-index path in the caller.
-function mergeStandaloneClosets(rooms) {
-    if (!Array.isArray(rooms) || rooms.length === 0) return rooms;
-    const closets = rooms.filter((r) => r.room_type === "walk_in_closet");
-    if (closets.length === 0) return rooms;
-    const bedrooms = rooms.filter((r) => r.room_type !== "walk_in_closet");
-    if (bedrooms.length === 0) {
-        // No actual bedroom in this call — drop the closet rooms entirely.
-        // Their indices become orphans via the buildResults coverage check.
-        return [];
-    }
-    const host = bedrooms.find((r) => r.room_type === "primary") ||
-        bedrooms.slice().sort((a, b) => b.photo_indices.length - a.photo_indices.length)[0];
-    const closetIndices = closets.flatMap((c) => c.photo_indices);
-    return bedrooms.map((r) => (
-        r.room_id === host.room_id ?
-            { ...r, photo_indices: [...r.photo_indices, ...closetIndices] } :
-            r
-    ));
 }
 
 // ─── Phase 7: property-level synthesis (interior + exterior) ──────────────
@@ -704,10 +681,7 @@ async function analyzeBin(model, group, inlineParts, property) {
             if (warnings.length > 0) {
                 console.warn(`[visionPipeline] ${group.label} normalize warnings:`, warnings.join("; "));
             }
-            const withOnePrimary = enforceOnePrimary(normalized);
-            const rooms = group.label === "Bedroom" ?
-                mergeStandaloneClosets(withOnePrimary) :
-                withOnePrimary;
+            const rooms = enforceOnePrimary(normalized);
             return { sentIndices, rooms, error: null };
         }
 

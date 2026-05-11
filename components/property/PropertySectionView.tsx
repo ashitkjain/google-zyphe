@@ -377,7 +377,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 label="Photo Pipeline"
                                 description="Classify each listing photo, group by space, then run a structured per-space analysis with Gemini."
                                 color="text-indigo-500" {...headerProps} />
-                            <VisionAnalysisPage propertyData={data} />
+                            <VisionAnalysisPage propertyData={data} userRole={userRole} />
                         </div>
                     );
                 }

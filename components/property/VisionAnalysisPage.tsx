@@ -28,6 +28,7 @@ interface Props {
     // overlay with a Close button. When absent (the default path now), it
     // renders as a normal section page inside the property nav.
     onClose?: () => void;
+    userRole?: string;
 }
 
 interface PhotoEntry {
@@ -128,7 +129,9 @@ function groupPhotos(photos: PhotoEntry[] | undefined): { groups: GroupView[]; o
         // Prefer the room-specific label when present (e.g. "Primary Bedroom"
         // instead of the generic group label "Bedroom"). Falls back to the
         // group label for single-room categories like Kitchen.
-        const displayLabel = canonical.room_label || canonical.group_label || 'Unlabeled';
+        let displayLabel = canonical.room_label || canonical.group_label || 'Unlabeled';
+        if (displayLabel === 'Bathroom') displayLabel = 'Bathrooms';
+        if (displayLabel === 'Bedroom') displayLabel = 'Bedrooms';
         return {
             label: displayLabel,
             canonical,
@@ -140,12 +143,11 @@ function groupPhotos(photos: PhotoEntry[] | undefined): { groups: GroupView[]; o
     return { groups, orphans };
 }
 
-const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
+const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }) => {
     const zpid = propertyData?.zpid ? String(propertyData.zpid) : '';
     const [running, setRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [docData, setDocData] = useState<VisionDoc | null>(null);
-    const [showSimilarFor, setShowSimilarFor] = useState<Record<number, boolean>>({});
     // Wall-clock elapsed timer. Driven by local `running` state + the
     // pipeline's status field so it continues ticking even if the client
     // callable times out (the server keeps working, the page keeps timing).
@@ -153,6 +155,10 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
     const [elapsedMs, setElapsedMs] = useState(0);
     const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<ActiveTab>('indoor');
+    // Lifted out of RoomsWalkthrough so it survives parent re-renders caused
+    // by setEnlargedImage (Wrapper is defined inside this component which
+    // would otherwise remount RoomsWalkthrough and reset its state).
+    const [selectedRoomIdx, setSelectedRoomIdx] = useState(0);
 
     useEffect(() => {
         if (!zpid) return;
@@ -223,39 +229,24 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
     return (
         <Wrapper>
             <div className="max-w-6xl mx-auto px-6 py-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-6">
-                    <div>
-                        <h1 className="text-xl font-black text-slate-900">Vision Analysis</h1>
-                        <p className="text-sm text-slate-600">{propertyData?.address || zpid}</p>
-                        <p className="text-xs text-slate-400 font-mono">
-                            properties/{zpid}/analysis/vision_v2
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
+                {userRole === 'admin' && (
+                    <div className="flex justify-end mb-4">
                         {inProgress && (
-                            <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg">
-                                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                            <span className="inline-flex items-center gap-2 px-3 py-1 mr-2 text-xs font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                                 {formatElapsed(elapsedMs)}
                             </span>
                         )}
                         <button
                             onClick={handleRun}
                             disabled={!zpid || inProgress}
-                            className="px-4 py-2 text-sm font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-slate-400 hover:text-indigo-600 transition-colors"
+                            title={inProgress ? 'Running…' : (docData ? 'Re-run Analysis' : 'Run Analysis')}
                         >
-                            {inProgress ? 'Running…' : (docData ? 'Re-run' : 'Run Analysis')}
+                            <i className={`fa-solid fa-arrows-rotate ${inProgress ? 'animate-spin text-indigo-600' : ''}`} />
                         </button>
-                        {onClose && (
-                            <button
-                                onClick={onClose}
-                                className="px-4 py-2 text-sm font-bold rounded-lg border border-slate-300 text-slate-700 hover:bg-white"
-                            >
-                                Close
-                            </button>
-                        )}
                     </div>
-                </div>
+                )}
 
                 {error && (
                     <div className="text-sm text-red-700 bg-red-50 border border-red-200 p-3 rounded mb-4">
@@ -305,49 +296,7 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                     </div>
                 )}
 
-                {/* Status row */}
-                <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                    <div>
-                        <div className="text-slate-500 uppercase font-bold tracking-wide">Function deployed</div>
-                        <div className="text-slate-900 font-mono mt-1">
-                            {docData?.function_deployed_at ? new Date(docData.function_deployed_at).toLocaleString() : '—'}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-slate-500 uppercase font-bold tracking-wide">Model</div>
-                        <div className="text-slate-900 font-mono mt-1">{docData?.model || '—'}</div>
-                    </div>
-                    <div>
-                        <div className="text-slate-500 uppercase font-bold tracking-wide">Photos</div>
-                        <div className="text-slate-900 mt-1">
-                            {docData ? (
-                                <>
-                                    {docData.analyzed_photo_count} analyses
-                                    {docData.room_count != null && docData.room_count !== docData.group_count && (
-                                        <> · {docData.room_count} rooms in {docData.group_count} groups</>
-                                    )}
-                                    {(docData.room_count == null || docData.room_count === docData.group_count) && (
-                                        <> · {docData.group_count} groups</>
-                                    )}
-                                    {' · '}{docData.photo_count} total
-                                </>
-                            ) : '—'}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-slate-500 uppercase font-bold tracking-wide">Timing</div>
-                        <div className="text-slate-900 mt-1">
-                            {docData?.timing_ms ? `${Math.round((docData.timing_ms.total || 0)/1000)}s total` : '—'}
-                            {docData?.timing_ms && (
-                                <span className="text-slate-500 ml-1">
-                                    (fetch {Math.round((docData.timing_ms.fetch || 0)/1000)}s · classify {Math.round((docData.timing_ms.classify || 0)/1000)}s · analyze {Math.round((docData.timing_ms.analyze || 0)/1000)}s
-                                    {docData.timing_ms.synthesis != null && <> · synthesize {Math.round((docData.timing_ms.synthesis || 0)/1000)}s</>}
-                                    )
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
+
 
                 {!docData && (
                     <div className="text-center py-16 text-slate-500">
@@ -398,121 +347,15 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                     />
                 )}
 
-                {/* Per-room detail tab — original per-group sections */}
-                {docData && activeTab === 'rooms' && groups.map((group, gi) => {
-                    const stripPhotos: PhotoEntry[] = [group.canonical, ...group.sent];
-                    const showSimilar = !!showSimilarFor[gi];
-                    return (
-                        <div key={gi} className="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden">
-                            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div>
-                                        <h3 className="text-sm font-black text-slate-900">{group.label}</h3>
-                                        <p className="text-xs text-slate-500">
-                                            {stripPhotos.length} photo{stripPhotos.length === 1 ? '' : 's'} sent to LLM
-                                            {group.similar.length > 0 && <> · +{group.similar.length} similar</>}
-                                        </p>
-                                    </div>
-                                    {group.canonical.room_type === 'primary' && (
-                                        <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                            ★ Primary
-                                        </span>
-                                    )}
-                                </div>
-                                <span className="text-[10px] font-mono text-slate-400">
-                                    canonical #{(group.canonical.photo_index ?? 0) + 1}
-                                </span>
-                            </div>
-
-                            {/* Group strip */}
-                            <div className="px-4 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto bg-slate-50">
-                                {stripPhotos.map((p, pi) => (
-                                    <div key={pi} className="flex-shrink-0 relative">
-                                        <img
-                                            src={p.url}
-                                            alt={`Photo ${(p.photo_index ?? 0) + 1}`}
-                                            className={`h-24 w-24 object-cover rounded-lg cursor-zoom-in hover:opacity-90 transition-opacity ${pi === 0 ? 'ring-2 ring-indigo-500' : ''}`}
-                                            loading="lazy"
-                                            onClick={() => setEnlargedImage(p.url || null)}
-                                            onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
-                                        />
-                                        <span className="absolute top-1 left-1 text-[10px] font-bold text-white bg-black/60 rounded px-1.5 py-0.5">
-                                            #{(p.photo_index ?? 0) + 1}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Analysis text */}
-                            <div className="px-4 py-3">
-                                {group.canonical.analysis ? (
-                                    <pre className="text-xs whitespace-pre-wrap font-sans text-slate-800 leading-relaxed">
-                                        {group.canonical.analysis}
-                                    </pre>
-                                ) : (
-                                    <div className="text-xs text-red-600">No analysis — {group.canonical.error || 'unknown error'}</div>
-                                )}
-                            </div>
-
-                            {/* Similar photos (collapsed by default) */}
-                            {group.similar.length > 0 && (
-                                <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/60">
-                                    <button
-                                        onClick={() => setShowSimilarFor(s => ({ ...s, [gi]: !s[gi] }))}
-                                        className="text-xs text-slate-600 hover:text-slate-900 font-bold"
-                                    >
-                                        {showSimilar ? '▾' : '▸'} {group.similar.length} similar photo{group.similar.length === 1 ? '' : 's'} not sent to LLM
-                                    </button>
-                                    {showSimilar && (
-                                        <div className="mt-2 flex gap-2 flex-wrap">
-                                            {group.similar.map((p, pi) => (
-                                                <div key={pi} className="flex-shrink-0 relative">
-                                                    <img
-                                                        src={p.url}
-                                                        alt={`Photo ${(p.photo_index ?? 0) + 1}`}
-                                                        className="h-16 w-16 object-cover rounded opacity-70 hover:opacity-100 cursor-zoom-in transition-opacity"
-                                                        loading="lazy"
-                                                        onClick={() => setEnlargedImage(p.url || null)}
-                                                    />
-                                                    <span className="absolute top-0 left-0 text-[9px] font-bold text-white bg-black/50 rounded-br px-1">
-                                                        #{(p.photo_index ?? 0) + 1}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-
-                {/* Orphans (no analysis at all — unclassified or fetch-failed) */}
-                {docData && activeTab === 'rooms' && orphans.length > 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-6">
-                        <h3 className="text-sm font-black text-amber-900 mb-2">
-                            {orphans.length} photo{orphans.length === 1 ? '' : 's'} without analysis
-                        </h3>
-                        <p className="text-xs text-amber-700 mb-3">Photos that failed classification or image fetch.</p>
-                        <div className="flex gap-2 flex-wrap">
-                            {orphans.map((p, pi) => (
-                                <div key={pi} className="flex-shrink-0 relative">
-                                    {p.url && (
-                                        <img
-                                            src={p.url}
-                                            alt={`Photo ${(p.photo_index ?? 0) + 1}`}
-                                            className="h-16 w-16 object-cover rounded opacity-60 hover:opacity-100 cursor-zoom-in transition-opacity"
-                                            loading="lazy"
-                                            onClick={() => setEnlargedImage(p.url || null)}
-                                        />
-                                    )}
-                                    <span className="absolute top-0 left-0 text-[9px] font-bold text-white bg-black/50 rounded-br px-1">
-                                        #{(p.photo_index ?? 0) + 1}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                {/* Per-room detail tab — walkthrough layout */}
+                {docData && activeTab === 'rooms' && (
+                    <RoomsWalkthrough
+                        groups={groups}
+                        orphans={orphans}
+                        selectedIdx={selectedRoomIdx}
+                        onSelectIdx={setSelectedRoomIdx}
+                        onEnlargeImage={(url) => setEnlargedImage(url)}
+                    />
                 )}
 
                 <div className="h-12" />
@@ -670,6 +513,398 @@ function SynthesisIndoor({ synthesis: s, error, inputCount }: { synthesis: Inter
                         ))}
                     </div>
                 </section>
+            )}
+        </div>
+    );
+}
+
+// ─── Rooms Walkthrough ───────────────────────────────────────────────────────
+// "Spaces · LLM" walkthrough: horizontal nav (EXT/INT sections) + detail panel
+// with hero image, facet card grid, and AI narrative. Matches the design spec.
+
+interface AnalysisField {
+    key: string;
+    value: string;
+    fieldName?: string; // short label from "Section — FieldName" format
+}
+
+function parseAnalysisFields(text: string): AnalysisField[] {
+    const lines = text.split('\n');
+    const fields: AnalysisField[] = [];
+    let currentKey = '';
+    let currentValue = '';
+
+    const push = () => {
+        if (!currentKey) return;
+        const v = currentValue.trim();
+        if (!v) return;
+        const m = currentKey.match(/^(.+?)\s*(?:—|–|--)\s*(.+)$/);
+        fields.push({ key: currentKey, value: v, fieldName: m ? m[2].trim() : undefined });
+    };
+
+    for (const line of lines) {
+        const m = line.match(/^([^:\n]{1,80}):\s*(.*)$/);
+        if (m) {
+            push();
+            currentKey = m[1].trim();
+            currentValue = m[2];
+        } else if (currentKey) {
+            const t = line.trim();
+            if (t) currentValue += ' ' + t;
+        }
+    }
+    push();
+    return fields;
+}
+
+const EXTERIOR_KEYWORDS = ['front yard', 'backyard', 'back yard', 'aerial view', 'aerial', 'floor plan', 'garage', 'pool area', 'pool', 'exterior', 'side yard'];
+
+function isExteriorGroup(g: GroupView): boolean {
+    const lbl = (g.canonical.group_label || g.label || '').toLowerCase();
+    return EXTERIOR_KEYWORDS.some(k => lbl.includes(k));
+}
+
+// Cycling color palettes — exterior = green family, interior = violet family
+const EXT_PALETTES = [
+    { bg: 'bg-emerald-50', border: 'border-emerald-100', label: 'text-emerald-700' },
+    { bg: 'bg-teal-50',    border: 'border-teal-100',    label: 'text-teal-700' },
+    { bg: 'bg-green-50',   border: 'border-green-100',   label: 'text-green-700' },
+    { bg: 'bg-cyan-50',    border: 'border-cyan-100',    label: 'text-cyan-700' },
+];
+const INT_PALETTES = [
+    { bg: 'bg-violet-50',  border: 'border-violet-100',  label: 'text-violet-700' },
+    { bg: 'bg-indigo-50',  border: 'border-indigo-100',  label: 'text-indigo-700' },
+    { bg: 'bg-purple-50',  border: 'border-purple-100',  label: 'text-purple-700' },
+    { bg: 'bg-fuchsia-50', border: 'border-fuchsia-100', label: 'text-fuchsia-700' },
+];
+
+interface NavCardProps {
+    group: GroupView;
+    globalIdx: number;
+    isActive: boolean;
+    onSelect: (idx: number) => void;
+}
+
+const RoomNavCard: React.FC<NavCardProps> = ({ group: g, globalIdx, isActive, onSelect }) => {
+    const ext = isExteriorGroup(g);
+    const total = 1 + g.sent.length + g.similar.length;
+    const fieldCount = parseAnalysisFields(g.canonical.analysis || '')
+        .filter(f => f.key !== 'Space' && f.key !== 'Description').length;
+    const numLabel = String(globalIdx + 1).padStart(2, '0');
+    return (
+        <button
+            onClick={() => onSelect(globalIdx)}
+            className={`flex-shrink-0 w-[96px] text-left rounded-xl overflow-hidden transition-all border-2 ${
+                isActive
+                    ? (ext ? 'border-emerald-400 shadow-md ring-1 ring-emerald-200' : 'border-violet-400 shadow-md ring-1 ring-violet-200')
+                    : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+            }`}
+        >
+            <div className="relative h-[62px]">
+                {g.canonical.url ? (
+                    <img src={g.canonical.url} alt={g.label} className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                    <div className="w-full h-full bg-slate-200" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                <span className="absolute top-1 left-1 text-[9px] font-black text-white bg-black/60 rounded px-1 leading-tight">
+                    #{numLabel}
+                </span>
+                <span className={`absolute top-1 right-1 text-[9px] font-black px-1 rounded leading-tight ${
+                    ext ? 'bg-emerald-500 text-white' : 'bg-violet-500 text-white'
+                }`}>
+                    {ext ? 'EXT' : 'INT'}
+                </span>
+                {g.canonical.room_type === 'primary' && (
+                    <span className="absolute bottom-1 right-1 text-[8px] font-black text-amber-300">★</span>
+                )}
+            </div>
+            <div className={`px-2 py-1.5 ${isActive ? 'bg-white' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-bold text-slate-900 truncate leading-tight">{g.label}</div>
+                <div className="text-[9px] text-slate-400 mt-0.5">{total}p · {fieldCount}f</div>
+            </div>
+        </button>
+    );
+};
+
+function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlargeImage }: {
+    groups: GroupView[];
+    orphans: PhotoEntry[];
+    selectedIdx: number;
+    onSelectIdx: (idx: number) => void;
+    onEnlargeImage: (url: string) => void;
+}) {
+    const [showSimilar, setShowSimilar] = useState(false);
+
+    if (groups.length === 0) {
+        return <div className="text-center py-16 text-slate-500 text-sm">No room analyses available yet.</div>;
+    }
+
+    const safeIdx = Math.min(selectedIdx, groups.length - 1);
+    const group = groups[safeIdx];
+    const stripPhotos = [group.canonical, ...group.sent];
+    const allFields = parseAnalysisFields(group.canonical.analysis || '');
+    const facets = allFields.filter(f => f.key !== 'Space' && f.key !== 'Description');
+    const description = allFields.find(f => f.key === 'Description');
+    const ext = isExteriorGroup(group);
+    const palettes = ext ? EXT_PALETTES : INT_PALETTES;
+
+    const extGroups = groups.filter(g => isExteriorGroup(g));
+    const intGroups = groups.filter(g => !isExteriorGroup(g));
+    const totalPhotos = groups.reduce((s, g) => s + 1 + g.sent.length + g.similar.length, 0);
+    const totalFacets = groups.reduce((s, g) =>
+        s + parseAnalysisFields(g.canonical.analysis || '').filter(f => f.key !== 'Space' && f.key !== 'Description').length, 0);
+
+    const handleSelect = (idx: number) => { onSelectIdx(idx); setShowSimilar(false); };
+
+    // Accent tokens for the selected room
+    const accentText  = ext ? 'text-emerald-600'  : 'text-violet-600';
+    const badgeBg     = ext ? 'bg-emerald-100 text-emerald-800' : 'bg-violet-100 text-violet-800';
+    const narrativeBg = ext ? 'bg-emerald-50 border-emerald-200'  : 'bg-violet-50 border-violet-200';
+    const narrativeTx = ext ? 'text-emerald-700'  : 'text-violet-700';
+    const diamondBg   = ext ? 'bg-emerald-600'    : 'bg-violet-600';
+    const obsLabel    = ext ? 'text-emerald-600'  : 'text-violet-600';
+
+    return (
+        <div className="space-y-5">
+            {/* ── Page header ── */}
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">SPACES · LLM</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">COMPUTER-VISION WALKTHROUGH</span>
+                    </div>
+                    <h2 className="font-serif text-3xl text-slate-900 leading-tight">
+                        Every room, <em className="text-emerald-500 not-italic font-serif">seen and described.</em>
+                    </h2>
+                    <p className="text-sm text-slate-600 mt-2">
+                        Our vision model studied <strong className="text-slate-900">{totalPhotos} photos</strong> and grouped them into {groups.length} canonical spaces · <strong className="text-slate-900">{totalFacets}</strong> structured facets extracted.
+                    </p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                    {[
+                        { val: groups.length, lbl: 'SPACES' },
+                        { val: totalPhotos,   lbl: 'PHOTOS' },
+                        { val: extGroups.length, lbl: 'EXT.' },
+                        { val: intGroups.length, lbl: 'INT.' },
+                    ].map(s => (
+                        <div key={s.lbl} className="text-center bg-white border border-slate-200 rounded-xl px-3 py-2 min-w-[52px]">
+                            <div className="text-lg font-black text-slate-900">{s.val}</div>
+                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.lbl}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── Horizontal room nav ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 overflow-x-auto">
+                <div className="flex gap-8 min-w-max">
+                    {/* Exterior section */}
+                    {extGroups.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-2.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">EXTERIOR · {extGroups.length}</span>
+                            </div>
+                            <div className="flex gap-2">
+                                {extGroups.map(g => {
+                                    const gi = groups.indexOf(g);
+                                    return <RoomNavCard key={String(gi)} group={g} globalIdx={gi} isActive={gi === safeIdx} onSelect={handleSelect} />;
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {extGroups.length > 0 && intGroups.length > 0 && (
+                        <div className="w-px bg-slate-200 self-stretch my-1" />
+                    )}
+                    {/* Interior section */}
+                    {intGroups.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-2.5">
+                                <span className="w-2 h-2 rounded-full bg-violet-500" />
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">INTERIOR · {intGroups.length}</span>
+                            </div>
+                            <div className="flex gap-2">
+                                {intGroups.map(g => {
+                                    const gi = groups.indexOf(g);
+                                    return <RoomNavCard key={String(gi)} group={g} globalIdx={gi} isActive={gi === safeIdx} onSelect={handleSelect} />;
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Detail panel ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                {/* Detail header */}
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <span className={`text-4xl font-black leading-none tabular-nums ${accentText}`}>
+                            {String(safeIdx + 1).padStart(2, '0')}
+                        </span>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-xl font-black text-slate-900">{group.label}</h3>
+                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${badgeBg}`}>
+                                    {ext ? 'EXTERIOR' : 'INTERIOR'}
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                <span className="font-semibold text-slate-700">{stripPhotos.length}</span> photo{stripPhotos.length !== 1 ? 's' : ''} analyzed
+                                {facets.length > 0 && <> · <span className="font-semibold text-slate-700">{facets.length}</span> facets extracted</>}
+                            </p>
+                        </div>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
+                        canonical · #{(group.canonical.photo_index ?? 0) + 1}
+                    </span>
+                </div>
+
+                {/* Body: image column + analysis column */}
+                <div className="flex">
+                    {/* Left — image + photo strip */}
+                    <div className="w-[280px] flex-shrink-0 border-r border-slate-100">
+                        <div className="relative">
+                            {group.canonical.url ? (
+                                <img
+                                    src={group.canonical.url}
+                                    alt={group.label}
+                                    className="w-full h-[220px] object-cover cursor-zoom-in"
+                                    onClick={() => group.canonical.url && onEnlargeImage(group.canonical.url)}
+                                />
+                            ) : (
+                                <div className="w-full h-[220px] bg-slate-100 flex items-center justify-center text-slate-400 text-xs">No photo</div>
+                            )}
+                            <span className="absolute top-2 left-2 text-[10px] font-black text-white bg-black/70 rounded px-1.5 py-0.5">#1</span>
+                            <span className={`absolute bottom-2 right-2 text-[9px] font-black px-2 py-0.5 rounded-full ${ext ? 'bg-emerald-500/90 text-white' : 'bg-violet-500/90 text-white'}`}>
+                                ✦ VISION-ANALYZED
+                            </span>
+                        </div>
+                        {/* Strip */}
+                        {stripPhotos.length > 1 && (
+                            <div className="flex gap-1.5 flex-wrap p-2.5 border-t border-slate-100 bg-slate-50/50">
+                                {stripPhotos.map((p, pi) => (
+                                    <div key={pi} className="relative flex-shrink-0">
+                                        <img
+                                            src={p.url}
+                                            alt=""
+                                            className="w-[58px] h-[44px] object-cover rounded-lg cursor-zoom-in hover:opacity-90 transition-opacity"
+                                            loading="lazy"
+                                            onClick={() => p.url && onEnlargeImage(p.url)}
+                                            onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                                        />
+                                        <span className="absolute top-0.5 left-0.5 text-[8px] font-bold text-white bg-black/60 rounded px-0.5 leading-tight">
+                                            #{(p.photo_index ?? 0) + 1}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {/* Similar toggle */}
+                        {group.similar.length > 0 && (
+                            <div className="px-3 py-2 border-t border-slate-100">
+                                <button
+                                    onClick={() => setShowSimilar(v => !v)}
+                                    className="text-[10px] text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1"
+                                >
+                                    {showSimilar ? '▾' : '▸'} {group.similar.length} more not sent to LLM
+                                </button>
+                                {showSimilar && (
+                                    <div className="mt-2 flex gap-1.5 flex-wrap">
+                                        {group.similar.map((p, pi) => (
+                                            <div key={pi} className="relative flex-shrink-0">
+                                                <img
+                                                    src={p.url} alt=""
+                                                    className="w-[52px] h-[40px] object-cover rounded opacity-60 hover:opacity-100 cursor-zoom-in transition-opacity"
+                                                    loading="lazy"
+                                                    onClick={() => p.url && onEnlargeImage(p.url)}
+                                                />
+                                                <span className="absolute top-0 left-0 text-[8px] font-bold text-white bg-black/50 rounded-br px-0.5 leading-tight">
+                                                    #{(p.photo_index ?? 0) + 1}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right — facets + narrative */}
+                    <div className="flex-1 p-5 min-w-0">
+                        {group.canonical.analysis ? (
+                            <>
+                                {/* Facet grid header */}
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className={`text-[11px] font-black uppercase tracking-wider ${obsLabel}`}>
+                                        {facets.length} OBSERVATIONS
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">· VISION LLM · STRUCTURED FACETS</span>
+                                </div>
+
+                                {/* Facet cards — 3-col grid */}
+                                {facets.length > 0 && (
+                                    <div className="grid grid-cols-3 gap-2 mb-4">
+                                        {facets.map((f, i) => {
+                                            const p = palettes[i % palettes.length];
+                                            const lbl = f.fieldName || f.key;
+                                            return (
+                                                <div key={i} className={`${p.bg} border ${p.border} rounded-xl p-3`}>
+                                                    <div className={`text-[9px] font-black uppercase tracking-wider mb-1.5 leading-tight ${p.label}`}>
+                                                        {lbl}
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-800 leading-snug">
+                                                        {f.value === 'Not visible'
+                                                            ? <em className="text-slate-400 not-italic">Not visible</em>
+                                                            : f.value}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* AI Narrative */}
+                                {description && (
+                                    <div className={`${narrativeBg} border rounded-xl p-4`}>
+                                        <div className="flex items-center gap-2 mb-2.5">
+                                            <span className={`w-5 h-5 rounded-md ${diamondBg} text-white text-[10px] font-black flex items-center justify-center flex-shrink-0`}>1</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-wider ${narrativeTx}`}>AI NARRATIVE</span>
+                                        </div>
+                                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{description.value}</p>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="text-sm text-red-700 bg-red-50 border border-red-200 p-4 rounded-xl">
+                                No analysis — {group.canonical.error || 'unknown error'}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Orphans */}
+            {orphans.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <h3 className="text-sm font-black text-amber-900 mb-1">
+                        {orphans.length} photo{orphans.length === 1 ? '' : 's'} without analysis
+                    </h3>
+                    <p className="text-xs text-amber-700 mb-3">Failed classification or image fetch.</p>
+                    <div className="flex gap-2 flex-wrap">
+                        {orphans.map((p, pi) => (
+                            <div key={pi} className="flex-shrink-0 relative">
+                                {p.url && (
+                                    <img src={p.url} alt="" className="h-16 w-20 object-cover rounded-lg opacity-60 hover:opacity-100 cursor-zoom-in transition-opacity" loading="lazy" onClick={() => p.url && onEnlargeImage(p.url)} />
+                                )}
+                                <span className="absolute top-0 left-0 text-[9px] font-bold text-white bg-black/50 rounded-br px-1 leading-tight">
+                                    #{(p.photo_index ?? 0) + 1}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
     );
