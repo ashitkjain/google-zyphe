@@ -45,15 +45,18 @@ const FUNCTION_DEPLOYED_AT = new Date().toISOString();
 //   - Transitional spaces (Hallway, Staircase, Basement) — not worth their
 //     own analysis card; photos of these now collapse into the adjacent
 //     room they happen to show.
-// Laundry Room is kept in vocab so laundry photos get cleanly labeled and
-// don't pollute Bathroom analyses, but `SKIP_ANALYSIS_LABELS` below ensures
-// no analysis call is made for them.
+// This list also doubles as the analysis whitelist — every label here
+// has a dedicated prompt in promptFileForLabel and gets a phase-6 call.
+// Photos that the classifier can't fit get the "Unclassified" sentinel
+// (parseClassificationResponse) and are skipped automatically because
+// the sentinel isn't in this list.
 const ROOM_VOCABULARY = [
     "Bedroom", "Kitchen", "Living Room", "Dining Room", "Bathroom",
-    "Office", "Laundry Room", "Entryway",
+    "Office", "Entryway",
     "Front Yard", "Backyard",
     "Floor Plan", "Aerial View",
 ];
+const ANALYZE_LABELS = new Set(ROOM_VOCABULARY);
 
 // Aliases collapse model output like "Primary Bedroom" → "Bedroom" without
 // the model needing a disambiguation paragraph.
@@ -383,6 +386,238 @@ function enforceOnePrimary(rooms) {
     );
 }
 
+// Merge any "walk_in_closet" rooms (the prompt's fallback bucket for
+// standalone closet shots) into the primary bedroom — or, if no real
+// bedroom exists in this call, drop them so we don't render a "Bedroom"
+// card that's actually just a closet. The closet's photos are folded
+// into the host bedroom's photo_indices; its standalone analysis text
+// is discarded (the host bedroom's "Storage / Walk-in Closet" field
+// already covers it, and re-running the LLM to splice prose isn't worth
+// the cost). Dropped closet photos surface as orphans via the normal
+// unassigned-index path in the caller.
+function mergeStandaloneClosets(rooms) {
+    if (!Array.isArray(rooms) || rooms.length === 0) return rooms;
+    const closets = rooms.filter((r) => r.room_type === "walk_in_closet");
+    if (closets.length === 0) return rooms;
+    const bedrooms = rooms.filter((r) => r.room_type !== "walk_in_closet");
+    if (bedrooms.length === 0) {
+        // No actual bedroom in this call — drop the closet rooms entirely.
+        // Their indices become orphans via the buildResults coverage check.
+        return [];
+    }
+    const host = bedrooms.find((r) => r.room_type === "primary") ||
+        bedrooms.slice().sort((a, b) => b.photo_indices.length - a.photo_indices.length)[0];
+    const closetIndices = closets.flatMap((c) => c.photo_indices);
+    return bedrooms.map((r) => (
+        r.room_id === host.room_id ?
+            { ...r, photo_indices: [...r.photo_indices, ...closetIndices] } :
+            r
+    ));
+}
+
+// ─── Phase 7: property-level synthesis (interior + exterior) ──────────────
+// Two text-only Gemini calls that read the per-room analyses produced by
+// phase 6 and emit structured JSON matching the existing
+// CustomAIAnalysisResult.home_interior / .exterior_and_neighborhood shapes
+// in types/ai.ts. No photos are re-uploaded — the per-room analyses already
+// captured the visible details.
+
+const INTERIOR_LABELS = new Set([
+    "Bedroom", "Kitchen", "Living Room", "Dining Room", "Bathroom",
+    "Office", "Entryway", "Floor Plan",
+]);
+const EXTERIOR_LABELS = new Set([
+    "Front Yard", "Backyard", "Aerial View",
+]);
+
+// Collect the analyzed-room blocks from the phase-6 results, grouped by
+// the synthesis bucket they belong to. Each block is a short header plus
+// the analysis text — formatted so the synthesis call can scan it easily.
+function collectSynthesisInputs(results) {
+    const interior = [];
+    const exterior = [];
+    for (const r of results) {
+        if (!r.analysis) continue;
+        const label = r.group_label || "";
+        const heading = r.room_label && r.room_label !== label ?
+            `${label} — ${r.room_label}` : label;
+        const block = `### ${heading}\n${r.analysis.trim()}\n`;
+        if (INTERIOR_LABELS.has(label)) interior.push(block);
+        else if (EXTERIOR_LABELS.has(label)) exterior.push(block);
+    }
+    return { interior, exterior };
+}
+
+const INTERIOR_SYNTHESIS_SCHEMA = {
+    type: "object",
+    properties: {
+        overall_description: { type: "string" },
+        design_style: {
+            type: "object",
+            properties: {
+                style: { type: "string" },
+                reasoning: { type: "string" },
+            },
+            required: ["style", "reasoning"],
+        },
+        color_and_materials: { type: "string" },
+        lighting: { type: "string" },
+        spatial_flow: { type: "string" },
+        staging_and_furnishings: { type: "string" },
+        condition_and_finish: { type: "string" },
+        hero_headline: { type: "string" },
+        atmosphere_scores: {
+            type: "object",
+            properties: {
+                brightness: { type: "integer" },
+                warmth: { type: "integer" },
+                openness: { type: "integer" },
+            },
+            required: ["brightness", "warmth", "openness"],
+        },
+        finish_quality_score: { type: "integer" },
+        facet_tags: {
+            type: "object",
+            properties: {
+                colors_tag: { type: "string" },
+                lighting_tag: { type: "string" },
+                staging_tag: { type: "string" },
+            },
+            required: ["colors_tag", "lighting_tag", "staging_tag"],
+        },
+        spatial_tag: { type: "string" },
+        condition_tag: { type: "string" },
+        hero_tags: { type: "array", items: { type: "string" } },
+        objective_tags: { type: "array", items: { type: "string" } },
+        material_palette: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    name: { type: "string" },
+                    hex: { type: "string" },
+                    location: { type: "string" },
+                },
+                required: ["name", "hex", "location"],
+            },
+        },
+    },
+    required: [
+        "overall_description", "design_style", "color_and_materials",
+        "lighting", "spatial_flow", "staging_and_furnishings",
+        "condition_and_finish", "hero_headline", "atmosphere_scores",
+        "finish_quality_score", "facet_tags", "hero_tags", "objective_tags",
+        "material_palette",
+    ],
+};
+
+const EXTERIOR_SYNTHESIS_SCHEMA = {
+    type: "object",
+    properties: {
+        exterior_and_lot_appeal: {
+            type: "object",
+            properties: {
+                architecture_style: { type: "string" },
+                curb_appeal: { type: "string" },
+                backyard_and_patio: { type: "string" },
+            },
+            required: ["architecture_style", "curb_appeal", "backyard_and_patio"],
+        },
+        views_privacy_orientation: {
+            type: "object",
+            properties: {
+                views: { type: "string" },
+                privacy: { type: "string" },
+            },
+            required: ["views", "privacy"],
+        },
+        hero_headline: { type: "string" },
+        exterior_atmosphere_scores: {
+            type: "object",
+            properties: {
+                curb_appeal_score: { type: "integer" },
+                outdoor_living_score: { type: "integer" },
+                privacy_score: { type: "integer" },
+                view_score: { type: "integer" },
+            },
+            required: ["curb_appeal_score", "outdoor_living_score", "privacy_score", "view_score"],
+        },
+        facet_tags: {
+            type: "object",
+            properties: {
+                style_tag: { type: "string" },
+                lot_coverage_tag: { type: "string" },
+                privacy_tag: { type: "string" },
+                views_tag: { type: "string" },
+            },
+            required: ["style_tag", "lot_coverage_tag", "privacy_tag", "views_tag"],
+        },
+        objective_tags: { type: "array", items: { type: "string" } },
+    },
+    required: [
+        "exterior_and_lot_appeal", "views_privacy_orientation",
+        "hero_headline", "exterior_atmosphere_scores", "facet_tags",
+        "objective_tags",
+    ],
+};
+
+async function runSynthesisCall(model, promptText, schema, label) {
+    const t0 = Date.now();
+    try {
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: promptText }] }],
+            generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 8192,
+                thinkingConfig: { thinkingBudget: 0 },
+                responseMimeType: "application/json",
+                responseSchema: schema,
+            },
+        });
+        const raw = result.response.text();
+        const parsed = JSON.parse(raw);
+        return { ok: true, data: parsed, ms: Date.now() - t0 };
+    } catch (e) {
+        console.error(`[visionPipeline] synthesis ${label} failed:`, e.message);
+        return { ok: false, error: e.message, ms: Date.now() - t0 };
+    }
+}
+
+async function runSynthesis(model, results, property) {
+    const { interior, exterior } = collectSynthesisInputs(results);
+    const propertyCtx = property ?
+        JSON.stringify(
+            Object.fromEntries(Object.entries(property).filter(([, v]) => v !== null && v !== undefined)),
+            null, 2) :
+        "Not available";
+
+    const interiorPrompt = loadPrompt("synthesis.indoor.txt")
+        .replace("{{PROPERTY_CONTEXT}}", propertyCtx)
+        .replace("{{ROOM_ANALYSES}}", interior.join("\n") || "(no interior analyses available)");
+    const exteriorPrompt = loadPrompt("synthesis.outdoor.txt")
+        .replace("{{PROPERTY_CONTEXT}}", propertyCtx)
+        .replace("{{SPACE_ANALYSES}}", exterior.join("\n") || "(no exterior analyses available)");
+
+    // Run both calls in parallel — they're independent text-only calls.
+    const [interiorResult, exteriorResult] = await Promise.all([
+        interior.length > 0 ?
+            runSynthesisCall(model, interiorPrompt, INTERIOR_SYNTHESIS_SCHEMA, "interior") :
+            Promise.resolve({ ok: false, error: "no interior rooms analyzed", ms: 0 }),
+        exterior.length > 0 ?
+            runSynthesisCall(model, exteriorPrompt, EXTERIOR_SYNTHESIS_SCHEMA, "exterior") :
+            Promise.resolve({ ok: false, error: "no exterior spaces analyzed", ms: 0 }),
+    ]);
+
+    return {
+        interior_synthesis: interiorResult.ok ? interiorResult.data : null,
+        interior_synthesis_error: interiorResult.ok ? null : interiorResult.error,
+        exterior_synthesis: exteriorResult.ok ? exteriorResult.data : null,
+        exterior_synthesis_error: exteriorResult.ok ? null : exteriorResult.error,
+        synthesis_input_counts: { interior: interior.length, exterior: exterior.length },
+        synthesis_ms: { interior: interiorResult.ms, exterior: exteriorResult.ms },
+    };
+}
+
 function buildAnalysisPrompt(label, property, hasMultiple) {
     const filename = promptFileForLabel(label);
     const prompt = loadPrompt(filename);
@@ -469,7 +704,10 @@ async function analyzeBin(model, group, inlineParts, property) {
             if (warnings.length > 0) {
                 console.warn(`[visionPipeline] ${group.label} normalize warnings:`, warnings.join("; "));
             }
-            const rooms = enforceOnePrimary(normalized);
+            const withOnePrimary = enforceOnePrimary(normalized);
+            const rooms = group.label === "Bedroom" ?
+                mergeStandaloneClosets(withOnePrimary) :
+                withOnePrimary;
             return { sentIndices, rooms, error: null };
         }
 
@@ -675,14 +913,12 @@ async function runVisionPipeline(zpid, opts = {}) {
     const classifyMs = Date.now() - classifyStart;
 
     // ── Phase 5: group by label (only over photos with a real label) ──
-    // Photos with labels in SKIP_ANALYSIS_LABELS get classified and shown
-    // as orphans, but no analysis call is made for them — they're either
-    // failures ("Unclassified") or genuinely uninteresting utility rooms
-    // ("Laundry Room") that don't warrant a per-space prompt.
-    const SKIP_ANALYSIS_LABELS = new Set(["Unclassified", "Laundry Room"]);
+    // Whitelist: only labels in ROOM_VOCABULARY get a phase-6 analysis call.
+    // Anything else (the "Unclassified" sentinel, future labels added without
+    // a prompt) is shown in the UI as an orphan with no analysis.
     const groups = groupByLabel(
         spaceResults.map((r, i) => liveIndices.includes(i) ? r : { label: null, type: "INTERIOR" }),
-    ).filter((g) => g.label && !SKIP_ANALYSIS_LABELS.has(g.label));
+    ).filter((g) => g.label && ANALYZE_LABELS.has(g.label));
 
     // ── Phase 6: analyze each group ──
     const analyzeStart = Date.now();
@@ -713,7 +949,7 @@ async function runVisionPipeline(zpid, opts = {}) {
         let reason;
         if (r.error) reason = r.error;
         else if (r.label === "Unclassified") reason = "classifier returned no usable label";
-        else if (SKIP_ANALYSIS_LABELS.has(r.label)) reason = `${r.label} — not analyzed by design`;
+        else if (!ANALYZE_LABELS.has(r.label)) reason = `${r.label} — not in analysis whitelist`;
         else reason = "skipped";
         results.push({
             photo_index: i,
@@ -727,6 +963,12 @@ async function runVisionPipeline(zpid, opts = {}) {
     // Total distinct "rooms" (one analysis each) — typically equal to
     // group_count, but Bedroom/Bathroom groups may yield >1 room each.
     const roomCount = binOutputs.reduce((n, out) => n + (out.rooms ? out.rooms.length : 0), 0);
+
+    // ── Phase 7: property-level synthesis (no photos, text-only) ──
+    await writeStatus({ status: "synthesizing", phase: "Synthesizing property-level analysis" }, true);
+    const synthesisStart = Date.now();
+    const synthesis = await runSynthesis(model, results, property);
+    const synthesisMs = Date.now() - synthesisStart;
 
     const doc = {
         status: "done",
@@ -745,10 +987,16 @@ async function runVisionPipeline(zpid, opts = {}) {
         analyze_total: groups.length,
         analyze_done: groups.length,
         photos: results,
+        interior_synthesis: synthesis.interior_synthesis,
+        interior_synthesis_error: synthesis.interior_synthesis_error,
+        exterior_synthesis: synthesis.exterior_synthesis,
+        exterior_synthesis_error: synthesis.exterior_synthesis_error,
+        synthesis_input_counts: synthesis.synthesis_input_counts,
         timing_ms: {
             fetch: fetchMs,
             classify: classifyMs,
             analyze: analyzeMs,
+            synthesis: synthesisMs,
             total: Date.now() - t0,
         },
     };

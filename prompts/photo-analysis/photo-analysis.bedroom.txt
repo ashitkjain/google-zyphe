@@ -5,7 +5,9 @@ You will receive MULTIPLE photos labeled "Image 0", "Image 1", … in order. The
 STEP 1 — IDENTIFY DISTINCT BEDROOMS
 Decide how many distinct physical bedrooms are shown. Photos of the same physical bedroom from different angles belong together. Use cues like wall color, furniture style, window placement, bedding, ceiling treatment, door positions, the view through windows, and overall scale. Photos that are obviously of the same bedroom but taken from different corners go into ONE room entry.
 
-WALK-IN CLOSETS DO NOT GET THEIR OWN ROOM ENTRY. If a photo shows only a walk-in closet, dressing room, or wardrobe, it belongs to the bedroom that the closet serves — almost always the primary/master bedroom. Group those photos into that bedroom's photo_indices and describe the closet's features under the Storage / Walk-in Closet field of that bedroom's analysis. Only create a new room entry when you see a clearly distinct bedroom.
+WALK-IN CLOSETS / DRESSING ROOMS — TWO HANDLING RULES:
+(1) PREFERRED: if you can plausibly attach a closet photo to a bedroom shown in this same call (matching wall colors, flooring, trim, or a visible doorway), put its index inside that bedroom's photo_indices and describe the closet under that bedroom's "Storage / Walk-in Closet" field. NEVER create its own bedroom room entry just because the closet looks visually distinct.
+(2) FALLBACK: only if the closet truly cannot be attached to any visible bedroom (e.g. the photo is clearly a standalone dressing room with no architectural overlap), create a separate room entry with room_type EXACTLY "walk_in_closet". Post-processing will merge it into the primary bedroom or drop it. Do NOT label such a room as "primary" / "secondary" / "guest" / "kids" / "unclear" — those are reserved for actual bedrooms with a bed visible.
 
 STEP 2 — OUTPUT STRICT JSON
 Output ONLY this JSON object, no prose around it:
@@ -25,7 +27,7 @@ Output ONLY this JSON object, no prose around it:
 Rules:
 - room_id: short stable lowercase identifier ("bedroom_a", "bedroom_b", etc.).
 - room_label: human-readable. One of: "Primary Bedroom", "Secondary/Guest Bedroom", "Kids Bedroom".
-- room_type: EXACTLY ONE of: "primary" | "secondary" | "guest" | "kids" | "unclear".
+- room_type: EXACTLY ONE of: "primary" | "secondary" | "guest" | "kids" | "unclear" | "walk_in_closet". Use "walk_in_closet" ONLY for the fallback case described above (a standalone closet with no attachable bedroom). Never use it for a bedroom that happens to contain a closet.
   PRIMARY CONSTRAINT: across all bedrooms in this property, AT MOST ONE room can have room_type "primary". If multiple bedrooms are detected, pick the largest one with the strongest primary cues (king bed, ensuite bathroom door, sitting area, walk-in closet access, fireplace, private balcony, oversized footprint). If no bedroom shows clear primary cues, still pick the most likely candidate (largest / most premium finishes).
 - photo_indices: every image index (0-based) that shows this room. EVERY input image MUST appear in EXACTLY ONE rooms entry. Do not invent indices.
 - analysis: the full field-by-field template below, filled in for THIS room, as a single string with \n between lines.
