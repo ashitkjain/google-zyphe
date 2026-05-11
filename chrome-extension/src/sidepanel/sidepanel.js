@@ -792,8 +792,6 @@ function getTemplateTypeForSpace(spaceLabel) {
   if (label === 'Backyard') return 'BACKYARD';
   if (label === 'Aerial View') return 'AERIAL';
   if (label === 'Front Yard') return 'FRONT_YARD';
-  const exteriorSpaces = ['Pool Area'];
-  if (exteriorSpaces.includes(label)) return 'EXTERIOR';
   if (label === 'Kitchen') return 'KITCHEN';
   if (label === 'Living Room') return 'LIVING_ROOM';
   if (label === 'Dining Room') return 'DINING_ROOM';
@@ -914,7 +912,7 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
       '3. Describe only what is visible. Use "Not visible" when a field cannot be observed. Do not invent.',
       '4. If the photo is aerial/unrelated, output "NA" and nothing else.',
       '',
-      'SPACE DISAMBIGUATION: Front Yard = driveway/entrance/facade. Backyard = enclosed/rear area. Pool Area = photo centered on a private pool.',
+      'SPACE DISAMBIGUATION: Front Yard = driveway/entrance/facade. Backyard = enclosed/rear area, including any private pool, spa, or hot tub on the property.',
       '',
       'Space: [the specific exterior area]',
       'Architecture & Landscaping: [exterior style, facade, lawn, plants, hardscape]',
@@ -1392,7 +1390,6 @@ const ROOM_VOCABULARY = [
   'Basement',
   'Front Yard',
   'Backyard',
-  'Pool Area',
   'Sports Court',
   'Fitness Center',
   'Clubhouse',
@@ -1416,6 +1413,11 @@ const VOCABULARY_ALIASES = {
   'porch': 'Backyard',
   'balcony': 'Backyard',
   'garden': 'Backyard',
+  'pool area': 'Backyard',
+  'pool': 'Backyard',
+  'spa': 'Backyard',
+  'hot tub': 'Backyard',
+  'jacuzzi': 'Backyard',
   'walk in closet': 'Bedroom',
   'walk-in closet': 'Bedroom',
   'wardrobe': 'Bedroom',
@@ -1527,7 +1529,7 @@ function parseClassificationResponse(text, idx) {
 // and specific space label using a short, non-streaming LLM call.
 const CLASSIFY_PROMPT = `Look at this real estate photo. Reply in this exact format:
 Type: [Interior, Exterior, or Community]
-Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Entryway, Hallway, Staircase, Basement, Front Yard, Backyard, Pool Area, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View]
+Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Entryway, Hallway, Staircase, Basement, Front Yard, Backyard, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View]
 
 Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
 

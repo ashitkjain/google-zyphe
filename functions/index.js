@@ -1342,6 +1342,7 @@ Object.assign(exports, require('./assetBatch'));
 Object.assign(exports, require('./contextGraphBatch'));
 Object.assign(exports, require('./buyerDnaBatch'));
 Object.assign(exports, require('./purgeLogs'));
+Object.assign(exports, require('./visionAnalyze'));
 
 // ─── Pipeline Orchestrator (HTTP endpoints for Cloud Workflow) ──────────────
 const _pipelineOrch = require('./pipelineOrchestrator');

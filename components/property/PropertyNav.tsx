@@ -61,6 +61,7 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
                 { id: 'lifestyle-vastu', label: 'Lifestyle', icon: 'fa-people-roof', visible: vis.hasLifestyle || vis.hasSchools || vis.hasOrientation, isPageLink: true },
                 { id: 'indoor', label: 'Indoor', icon: 'fa-couch', visible: true, isPageLink: true },
                 { id: 'outdoor', label: 'Outdoor', icon: 'fa-house-chimney', visible: true, isPageLink: true },
+                { id: 'vision-analysis', label: 'Vision Analysis', icon: 'fa-eye', visible: true, isPageLink: true },
             ],
         },
         {

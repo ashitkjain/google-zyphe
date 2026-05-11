@@ -29,6 +29,7 @@ import { LifestyleSchoolsVastuSection } from './sections/LifestyleSchoolsVastuSe
 import { MLSSectionPage } from './sections/MLSSectionPage';
 import { IndoorSectionPage } from './sections/IndoorSectionPage';
 import { OutdoorSectionPage } from './sections/OutdoorSectionPage';
+import VisionAnalysisPage from './VisionAnalysisPage';
 import { ConnectivitySectionPage } from './sections/ConnectivitySectionPage';
 import { LocationOverviewSectionPage } from './sections/LocationOverviewSectionPage';
 
@@ -367,6 +368,16 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 description="Curb appeal, lot utility, street-view analysis, and satellite-based parcel characterization."
                                 color="text-emerald-500" {...headerProps} />
                             <OutdoorSectionPage data={data} customAnalysis={customAnalysis} />
+                        </div>
+                    );
+
+                    if (subId === 'vision-analysis') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-eye" title="Vision Analysis"
+                                label="Photo Pipeline"
+                                description="Classify each listing photo, group by space, then run a structured per-space analysis with Gemini."
+                                color="text-indigo-500" {...headerProps} />
+                            <VisionAnalysisPage propertyData={data} />
                         </div>
                     );
                 }
