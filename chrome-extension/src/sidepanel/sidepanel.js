@@ -2333,6 +2333,11 @@ async function downloadImageOffline(idx) {
   const url = imgEl.src;
   const filename = `property-photo-${idx + 1}.jpg`;
 
+  // Persist image to Firestore if it's a remote URL
+  if (url.startsWith('http')) {
+    await persistImageToFirestore(url);
+  }
+
   try {
     // 1. Try Canvas extraction (direct from GPU/RAM pixel memory, completely offline)
     const canvas = document.createElement('canvas');
@@ -2403,6 +2408,97 @@ async function downloadAllImages() {
     console.error(`[ZypheVision] Batch download failed:`, err);
     downloadAllBtn.disabled = false;
     downloadAllBtn.textContent = originalText;
+  }
+}
+
+// Persist an individual scraped image URL to the property's images list in Firestore if it doesn't already exist
+async function persistImageToFirestore(imageUrl) {
+  if (!currentZpid) {
+    console.warn('[ZypheVision] No property ID (currentZpid) detected, skipping Firestore image persistence.');
+    return;
+  }
+  if (!firebaseAuth?.token) {
+    console.warn('[ZypheVision] No Firestore auth token found, skipping Firestore image persistence.');
+    return;
+  }
+  if (!imageUrl || !imageUrl.startsWith('http')) {
+    console.warn('[ZypheVision] Invalid or local/data image URL, skipping Firestore persistence:', imageUrl);
+    return;
+  }
+
+  const url = `${FIRESTORE_BASE}/properties/${currentZpid}`;
+
+  try {
+    // 1. Fetch the existing property document
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${firebaseAuth.token}`,
+      },
+    });
+
+    let existingImages = [];
+    let fields = {};
+
+    if (resp.ok) {
+      const doc = await resp.json();
+      fields = doc.fields || {};
+      if (fields.images && fields.images.arrayValue && fields.images.arrayValue.values) {
+        existingImages = fields.images.arrayValue.values.map(v => v.stringValue || '').filter(Boolean);
+      }
+    } else if (resp.status === 404) {
+      console.log(`[ZypheVision] Property document for ${currentZpid} does not exist yet. Creating dynamic stub.`);
+    } else {
+      console.error(`[ZypheVision] Failed to fetch property ${currentZpid}:`, resp.statusText);
+      return;
+    }
+
+    // 2. Avoid duplicate entry
+    if (existingImages.includes(imageUrl)) {
+      console.log(`[ZypheVision] Image already exists in Firestore images array for ${currentZpid}.`);
+      return;
+    }
+
+    // 3. Append the new image
+    existingImages.push(imageUrl);
+
+    // Apply the converted images array to document fields
+    fields.images = toFirestoreValue(existingImages);
+
+    // Bootstrap basic metadata if document is new or lacks address/city info
+    if (!fields.address && currentProperty?.address) {
+      fields.address = toFirestoreValue(currentProperty.address);
+    }
+    if (!fields.city && currentProperty?.city) {
+      fields.city = toFirestoreValue(currentProperty.city);
+    }
+
+    // Determine updateMask paths to prevent overwriting other attributes on the document
+    const updateMasks = ['images'];
+    if (currentProperty?.address) updateMasks.push('address');
+    if (currentProperty?.city) updateMasks.push('city');
+
+    const updateQueryParams = updateMasks.map(field => `updateMask.fieldPaths=${field}`).join('&');
+    const updateUrl = `${url}?${updateQueryParams}`;
+
+    // 4. Update the Firestore record
+    const patchResp = await fetch(updateUrl, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${firebaseAuth.token}`,
+      },
+      body: JSON.stringify({ fields }),
+    });
+
+    if (patchResp.ok) {
+      console.log(`[ZypheVision] Successfully persisted image to Firestore for property ${currentZpid}.`);
+    } else {
+      const errText = await patchResp.text();
+      console.error(`[ZypheVision] Failed to update property document in Firestore:`, errText);
+    }
+  } catch (err) {
+    console.error(`[ZypheVision] Error persisting image to Firestore:`, err);
   }
 }
 
