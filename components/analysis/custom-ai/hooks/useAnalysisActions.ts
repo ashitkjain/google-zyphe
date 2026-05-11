@@ -26,7 +26,8 @@ import {
     saveContextGraphToCloud,
     saveThirdPartyDataToCloud,
     getCityContextGraphFromCloud,
-    saveCityContextGraphToCloud
+    saveCityContextGraphToCloud,
+    getVisionExtensionFromCloud
 } from '../../../../services/firebaseService';
 import { fetchNearbyPlaces } from '../../../../services/apiService';
 import {
@@ -377,6 +378,20 @@ export const useAnalysisActions = (
                 }
             }
 
+            // Fetch vision_extension from Firestore if not already on the analysis object
+            if (!enrichedAnalysis.vision_extension && zpid) {
+                try {
+                    const visionExtension = await getVisionExtensionFromCloud(zpid);
+                    if (visionExtension) {
+                        enrichedAnalysis.vision_extension = visionExtension;
+                        enrichedAny = true;
+                        console.log(`[Context Graph] Loaded vision_extension for property`);
+                    }
+                } catch (e) {
+                    console.warn('[Context Graph] vision_extension fetch failed:', e);
+                }
+            }
+
             // Fetch schools_intelligence from Firestore if not already on the analysis object
             if (!enrichedAnalysis.schools_intelligence && propertyData?.schools?.length) {
                 try {
@@ -445,7 +460,7 @@ export const useAnalysisActions = (
                 }
             }
 
-            const res = await aiExtractGraphFactors(propertyData, enrichedAnalysis, comprehensiveResult || null);
+            const res = await aiExtractGraphFactors(propertyData, enrichedAnalysis, comprehensiveResult || null, enrichedAnalysis.vision_extension || null);
 
             if (res.data) {
                 // Merge latest city factors after fresh extraction

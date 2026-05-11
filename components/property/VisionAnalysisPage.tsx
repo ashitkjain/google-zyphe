@@ -42,16 +42,21 @@ interface PhotoEntry {
     mirror_of?: number | null;
     mirror_of_url?: string | null;
     sent_to_llm?: boolean | null;
+    // Multi-room support (Bedroom / Bathroom split into N analyses each).
+    room_id?: string | null;
+    room_label?: string | null;
+    room_type?: string | null;     // 'primary' | 'secondary' | 'guest' | 'kids' | 'walk_in_closet' | 'full' | 'powder_half' | 'unclear' | 'n/a'
 }
 
 interface VisionDoc {
-    pipeline_version?: string;
+    function_deployed_at?: string;
     model?: string;
     analyzed_at_iso?: string;
     photo_count?: number;
     photo_count_total?: number;
     analyzed_photo_count?: number;
     group_count?: number;
+    room_count?: number;
     photos?: PhotoEntry[];
     timing_ms?: { fetch?: number; classify?: number; analyze?: number; total?: number };
     // Progress fields written incrementally as the pipeline runs.
@@ -85,8 +90,12 @@ function groupPhotos(photos: PhotoEntry[] | undefined): { groups: GroupView[]; o
         );
         const sent = groupMirrors.filter(m => m.sent_to_llm === true);
         const similar = groupMirrors.filter(m => m.sent_to_llm !== true);
+        // Prefer the room-specific label when present (e.g. "Primary Bedroom"
+        // instead of the generic group label "Bedroom"). Falls back to the
+        // group label for single-room categories like Kitchen.
+        const displayLabel = canonical.room_label || canonical.group_label || 'Unlabeled';
         return {
-            label: canonical.group_label || 'Unlabeled',
+            label: displayLabel,
             canonical,
             sent,
             similar,
@@ -107,6 +116,7 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
     // callable times out (the server keeps working, the page keeps timing).
     const [startedAt, setStartedAt] = useState<number | null>(null);
     const [elapsedMs, setElapsedMs] = useState(0);
+    const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
     useEffect(() => {
         if (!zpid) return;
@@ -262,8 +272,10 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                 {/* Status row */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                     <div>
-                        <div className="text-slate-500 uppercase font-bold tracking-wide">Pipeline</div>
-                        <div className="text-slate-900 font-mono mt-1">{docData?.pipeline_version || '—'}</div>
+                        <div className="text-slate-500 uppercase font-bold tracking-wide">Function deployed</div>
+                        <div className="text-slate-900 font-mono mt-1">
+                            {docData?.function_deployed_at ? new Date(docData.function_deployed_at).toLocaleString() : '—'}
+                        </div>
                     </div>
                     <div>
                         <div className="text-slate-500 uppercase font-bold tracking-wide">Model</div>
@@ -272,7 +284,18 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                     <div>
                         <div className="text-slate-500 uppercase font-bold tracking-wide">Photos</div>
                         <div className="text-slate-900 mt-1">
-                            {docData ? `${docData.analyzed_photo_count} analyses · ${docData.group_count} groups · ${docData.photo_count} total` : '—'}
+                            {docData ? (
+                                <>
+                                    {docData.analyzed_photo_count} analyses
+                                    {docData.room_count != null && docData.room_count !== docData.group_count && (
+                                        <> · {docData.room_count} rooms in {docData.group_count} groups</>
+                                    )}
+                                    {(docData.room_count == null || docData.room_count === docData.group_count) && (
+                                        <> · {docData.group_count} groups</>
+                                    )}
+                                    {' · '}{docData.photo_count} total
+                                </>
+                            ) : '—'}
                         </div>
                     </div>
                     <div>
@@ -302,12 +325,19 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                     return (
                         <div key={gi} className="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden">
                             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900">{group.label}</h3>
-                                    <p className="text-xs text-slate-500">
-                                        {stripPhotos.length} photo{stripPhotos.length === 1 ? '' : 's'} sent to LLM
-                                        {group.similar.length > 0 && <> · +{group.similar.length} similar</>}
-                                    </p>
+                                <div className="flex items-center gap-2">
+                                    <div>
+                                        <h3 className="text-sm font-black text-slate-900">{group.label}</h3>
+                                        <p className="text-xs text-slate-500">
+                                            {stripPhotos.length} photo{stripPhotos.length === 1 ? '' : 's'} sent to LLM
+                                            {group.similar.length > 0 && <> · +{group.similar.length} similar</>}
+                                        </p>
+                                    </div>
+                                    {group.canonical.room_type === 'primary' && (
+                                        <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                            ★ Primary
+                                        </span>
+                                    )}
                                 </div>
                                 <span className="text-[10px] font-mono text-slate-400">
                                     canonical #{(group.canonical.photo_index ?? 0) + 1}
@@ -321,8 +351,9 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                                         <img
                                             src={p.url}
                                             alt={`Photo ${(p.photo_index ?? 0) + 1}`}
-                                            className={`h-24 w-24 object-cover rounded-lg ${pi === 0 ? 'ring-2 ring-indigo-500' : ''}`}
+                                            className={`h-24 w-24 object-cover rounded-lg cursor-zoom-in hover:opacity-90 transition-opacity ${pi === 0 ? 'ring-2 ring-indigo-500' : ''}`}
                                             loading="lazy"
+                                            onClick={() => setEnlargedImage(p.url || null)}
                                             onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
                                         />
                                         <span className="absolute top-1 left-1 text-[10px] font-bold text-white bg-black/60 rounded px-1.5 py-0.5">
@@ -359,8 +390,9 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                                                     <img
                                                         src={p.url}
                                                         alt={`Photo ${(p.photo_index ?? 0) + 1}`}
-                                                        className="h-16 w-16 object-cover rounded opacity-70"
+                                                        className="h-16 w-16 object-cover rounded opacity-70 hover:opacity-100 cursor-zoom-in transition-opacity"
                                                         loading="lazy"
+                                                        onClick={() => setEnlargedImage(p.url || null)}
                                                     />
                                                     <span className="absolute top-0 left-0 text-[9px] font-bold text-white bg-black/50 rounded-br px-1">
                                                         #{(p.photo_index ?? 0) + 1}
@@ -389,8 +421,9 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
                                         <img
                                             src={p.url}
                                             alt={`Photo ${(p.photo_index ?? 0) + 1}`}
-                                            className="h-16 w-16 object-cover rounded opacity-60"
+                                            className="h-16 w-16 object-cover rounded opacity-60 hover:opacity-100 cursor-zoom-in transition-opacity"
                                             loading="lazy"
+                                            onClick={() => setEnlargedImage(p.url || null)}
                                         />
                                     )}
                                     <span className="absolute top-0 left-0 text-[9px] font-bold text-white bg-black/50 rounded-br px-1">
@@ -404,6 +437,23 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose }) => {
 
                 <div className="h-12" />
             </div>
+
+            {/* Enlarged Image Modal */}
+            {enlargedImage && (
+                <div 
+                    className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+                    onClick={() => setEnlargedImage(null)}
+                >
+                    <img 
+                        src={enlargedImage} 
+                        alt="Enlarged view" 
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                    />
+                    <div className="absolute top-4 right-4 text-white/50 text-sm font-bold bg-black/50 px-3 py-1 rounded-full">
+                        Click anywhere to close
+                    </div>
+                </div>
+            )}
         </Wrapper>
     );
 };

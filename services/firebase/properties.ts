@@ -543,6 +543,19 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
     }
 };
 
+export const getVisionExtensionFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db) return null;
+    try {
+        const nestedRef = doc(db, "properties", zpid, "analysis", "vision_extension");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'vision_extension' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? nestedSnap.data() : null;
+    } catch (error) {
+        handleFirestoreError(error, "getVisionExtensionFromCloud");
+        return null;
+    }
+};
+
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {
     if (!db || !zpid) return false;
     try {

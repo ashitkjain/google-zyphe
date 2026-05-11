@@ -767,6 +767,7 @@ export const extractContextGraphFactors = async (
   property: PropertyData,
   visual: CustomAIAnalysisResult | null,
   comprehensive: ComprehensiveAnalysisResult | null,
+  visionExtension: any | null = null,
   userId: string = "unknown"
 ): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
   // 1. Pre-compute the 35 pure-data factors client-side (no AI tokens)
@@ -780,7 +781,7 @@ export const extractContextGraphFactors = async (
   console.log(`[Context Graph] Pre-computed ${precomputed.size} factors. Skipping ${successfulSkipIds.length} successful factors in AI prompt.`);
 
   // 3. Build context and prompt, telling AI to skip only successfully pre-computed IDs
-  const context = buildGraphExtractionContext(property, visual, comprehensive);
+  const context = buildGraphExtractionContext(property, visual, comprehensive, visionExtension);
   const prompt = getContextGraphExtractionPrompt(context, successfulSkipIds);
 
   console.log(`[Context Graph] Requesting AI for remaining ${111 - successfulSkipIds.length} factors for ${property.address}...`);

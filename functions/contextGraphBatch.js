@@ -47,6 +47,7 @@ function buildContextForGemini(prop, visual, investment) {
         exteriorCondition: visual?.exterior_and_neighborhood?.condition_assessment,
         streetCharacter: visual?.exterior_and_neighborhood?.street_character,
         interiorHighlights: visual?.interior_analysis?.highlights,
+        visionExtensionHighlights: visionExtension && visionExtension.photos ? visionExtension.photos.filter(p => p.analysis && p.group_label).map(p => ({ space: p.group_label, analysis: p.analysis })) : null,
         // From investment
         investmentSummary: investment?.executive_summary || investment?.summary,
     };
@@ -57,10 +58,11 @@ function buildContextForGemini(prop, visual, investment) {
 async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
     // 1. Read property data and analysis subcollections in parallel
     const propRef = db.collection('properties').doc(zpid);
-    const [propSnap, visualSnap, investmentSnap] = await Promise.all([
+    const [propSnap, visualSnap, investmentSnap, visionExtSnap] = await Promise.all([
         propRef.get(),
         propRef.collection('analysis').doc('visual').get(),
         propRef.collection('analysis').doc('investment').get(),
+        propRef.collection('analysis').doc('vision_extension').get(),
     ]);
 
     if (!propSnap.exists) {
@@ -70,6 +72,7 @@ async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
     const prop = propSnap.data();
     const visual = visualSnap.exists ? visualSnap.data() : null;
     const investment = investmentSnap.exists ? investmentSnap.data() : null;
+    const visionExtension = visionExtSnap.exists ? visionExtSnap.data() : null;
 
     // 2. Skip check: if context_graph/{zpid} already exists with recent data
     const cgRef = db.collection('context_graph').doc(zpid);
@@ -89,7 +92,7 @@ async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
     }
 
     // 3. Build prompt context
-    const context = buildContextForGemini(prop, visual, investment);
+    const context = buildContextForGemini(prop, visual, investment, visionExtension);
 
     // 4. Call Gemini 2.5 Flash
     const genAI = new GoogleGenerativeAI(geminiKey);

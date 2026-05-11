@@ -30,14 +30,28 @@ const admin = require("firebase-admin");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const GEMINI_MODEL = "gemini-2.5-flash";
-const PIPELINE_VERSION = "v1";
+
+// Module-load time. On Cloud Functions this is set on cold start, which
+// happens shortly after each deploy — close enough to "last deployed at"
+// without needing a version constant. (We can't use file mtime: deployed
+// source is unpacked from a zip with mtime reset to the 1980 zip epoch.)
+const FUNCTION_DEPLOYED_AT = new Date().toISOString();
 
 // ─── Vocabulary (mirrors extension's ROOM_VOCABULARY) ─────────────────────
+// Slimmed to the "main spaces" only. Removed:
+//   - Community amenities (Sports Court, Fitness Center, Clubhouse, Community
+//     Park) — caused false positives in single-family homes (e.g. a treadmill
+//     in a living room was getting classified as Fitness Center).
+//   - Transitional spaces (Hallway, Staircase, Basement) — not worth their
+//     own analysis card; photos of these now collapse into the adjacent
+//     room they happen to show.
+// Laundry Room is kept in vocab so laundry photos get cleanly labeled and
+// don't pollute Bathroom analyses, but `SKIP_ANALYSIS_LABELS` below ensures
+// no analysis call is made for them.
 const ROOM_VOCABULARY = [
     "Bedroom", "Kitchen", "Living Room", "Dining Room", "Bathroom",
-    "Office", "Laundry Room", "Entryway", "Hallway", "Staircase", "Basement",
+    "Office", "Laundry Room", "Entryway",
     "Front Yard", "Backyard",
-    "Sports Court", "Fitness Center", "Clubhouse", "Community Park",
     "Floor Plan", "Aerial View",
 ];
 
@@ -45,9 +59,15 @@ const ROOM_VOCABULARY = [
 // the model needing a disambiguation paragraph.
 const VOCABULARY_ALIASES = {
     "garage": "Front Yard", "driveway": "Front Yard", "curb": "Front Yard",
-    "facade": "Front Yard", "exterior": "Front Yard",
+    "facade": "Front Yard",
+    // NOTE: "exterior" intentionally NOT aliased to Front Yard. It used to be,
+    // but that funneled every ambiguous outdoor shot (side paths, garden gates,
+    // hillside trails) into Front Yard. Now generic exteriors fall through to
+    // the classifier's explicit Backyard/Front Yard rules in CLASSIFY_PROMPT.
     "patio": "Backyard", "deck": "Backyard", "porch": "Backyard",
     "balcony": "Backyard", "garden": "Backyard",
+    "side yard": "Backyard", "garden path": "Backyard",
+    "pergola": "Backyard", "gazebo": "Backyard", "trail": "Backyard",
     "pool area": "Backyard", "pool": "Backyard", "spa": "Backyard",
     "hot tub": "Backyard", "jacuzzi": "Backyard",
     "walk in closet": "Bedroom", "walk-in closet": "Bedroom",
@@ -62,10 +82,18 @@ const VOCABULARY_ALIASES = {
 };
 
 const CLASSIFY_PROMPT = `Look at this real estate photo. Reply in this exact format:
-Type: [Interior, Exterior, or Community]
+Type: [Interior or Exterior]
 Space: [EXACTLY ONE label from this list: ${ROOM_VOCABULARY.join(", ")}]
 
-Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
+Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.
+
+CRITICAL — "Front Yard" vs "Backyard" disambiguation:
+- "Front Yard" REQUIRES at least one of: (a) the front facade of the house with the main entry door visible, (b) a street-facing approach, walkway, or driveway leading TO that entry, or (c) a curb-side view of the property from the street. Garage doors and motor courts count.
+- DEFAULT TO "Backyard" for any other outdoor shot of the property: side yards, garden paths, standalone pergolas/gazebos/arbors, pool areas, decks, patios, hillside trails, landscaped paths, fire pits, lawns without a visible house front, garden gates, retaining walls.
+- If you can't see the house front AND can't see a clear street-facing driveway/walkway, it is NOT Front Yard.
+- A photo of just landscaping, a path, or a decorative gate without the house facade is "Backyard", not "Front Yard".
+
+If the photo doesn't fit any label well (hallway, staircase, basement, gym/exercise space, etc.), still pick the BEST single match from the list — never invent a new label.`;
 
 // ─── Label → prompt-file routing (mirrors extension's getTemplateTypeForSpace) ─
 function promptFileForLabel(label) {
@@ -81,11 +109,6 @@ function promptFileForLabel(label) {
     case "Backyard": return "photo-analysis.backyard.txt";
     case "Aerial View": return "photo-analysis.aerial.txt";
     case "Floor Plan": return "photo-analysis.floorplan.txt";
-    case "Sports Court":
-    case "Fitness Center":
-    case "Clubhouse":
-    case "Community Park":
-        return "photo-analysis.community.txt";
     default:
         return "photo-analysis.interior.txt";
     }
@@ -217,11 +240,147 @@ function groupByLabel(spaceResults) {
 }
 
 // ─── Phase 6: per-bin analysis ────────────────────────────────────────────
+// Labels that can legitimately contain multiple distinct rooms in the same
+// property. For these, we send ALL photos in one call and Gemini returns a
+// `rooms[]` array so the same group can yield multiple analyses.
+const MULTI_ROOM_LABELS = new Set(["Bedroom", "Bathroom"]);
+
+// Cap on photos sent per group call. Gemini 2.5-flash handles much more
+// token-wise, but multi-image attention degrades past ~20. Above this we
+// stride-sample down — rare in practice (only kitchen/backyard hit it on
+// luxury listings).
+const MAX_PHOTOS_PER_CALL = 20;
+
 function strideSampleExtras(memberIndices, canonicalIdx, maxExtras = 5) {
     const candidates = memberIndices.filter((m) => m !== canonicalIdx);
     if (candidates.length <= maxExtras) return candidates;
     const step = candidates.length / maxExtras;
     return Array.from({ length: maxExtras }, (_, k) => candidates[Math.floor(k * step)]);
+}
+
+function pickSentIndices(group) {
+    // Send the whole group, capped at MAX_PHOTOS_PER_CALL. When capped,
+    // keep the canonical first and stride-sample the rest.
+    if (group.memberIndices.length <= MAX_PHOTOS_PER_CALL) {
+        return group.memberIndices.slice();
+    }
+    const extras = strideSampleExtras(group.memberIndices, group.canonicalIdx, MAX_PHOTOS_PER_CALL - 1);
+    return [group.canonicalIdx, ...extras];
+}
+
+// JSON schema for multi-room calls. The structured-output mode enforces
+// this shape, so we don't have to parse free-form text.
+const MULTI_ROOM_RESPONSE_SCHEMA = {
+    type: "object",
+    properties: {
+        rooms: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    room_id: { type: "string" },
+                    room_label: { type: "string" },
+                    // Allowed values vary by category and are documented in
+                    // each prompt; we don't enum here because Gemini's schema
+                    // enforcement breaks more often than it helps on enums.
+                    // Bedroom:  primary | secondary | guest | kids | walk_in_closet | unclear
+                    // Bathroom: primary | full     | guest | powder_half       | unclear
+                    room_type: { type: "string" },
+                    photo_indices: {
+                        type: "array",
+                        items: { type: "integer" },
+                    },
+                    analysis: { type: "string" },
+                },
+                required: ["room_id", "room_type", "photo_indices", "analysis"],
+            },
+        },
+    },
+    required: ["rooms"],
+};
+
+// Sanity-check the rooms[] returned by Gemini. Returns a normalized array
+// plus a list of human-readable warnings. If a photo is missing from every
+// room, we tack it onto the smallest room (Gemini sometimes drops one).
+// If indices are out of range we discard the bogus entries.
+function normalizeRoomsResponse(rooms, sentIndices) {
+    const warnings = [];
+    const sentSet = new Set(sentIndices);
+    const seen = new Set();
+    const cleaned = [];
+
+    rooms.forEach((r, ri) => {
+        if (!Array.isArray(r.photo_indices) || r.photo_indices.length === 0) {
+            warnings.push(`room ${ri} (${r.room_id || "?"}) has no photo_indices`);
+            return;
+        }
+        const validIndices = [];
+        for (const idx of r.photo_indices) {
+            if (!Number.isInteger(idx)) continue;
+            if (!sentSet.has(idx)) {
+                warnings.push(`room ${r.room_id || ri} referenced invalid index ${idx}`);
+                continue;
+            }
+            if (seen.has(idx)) {
+                warnings.push(`index ${idx} duplicated across rooms — keeping first`);
+                continue;
+            }
+            seen.add(idx);
+            validIndices.push(idx);
+        }
+        if (validIndices.length === 0) return;
+        cleaned.push({
+            room_id: r.room_id || `room_${ri}`,
+            room_label: r.room_label || "",
+            room_type: typeof r.room_type === "string" ? r.room_type : "unclear",
+            photo_indices: validIndices,
+            analysis: typeof r.analysis === "string" ? r.analysis : "",
+        });
+    });
+
+    // Coverage check: any sent index not assigned to a room?
+    const orphanIndices = sentIndices.filter((i) => !seen.has(i));
+    if (orphanIndices.length > 0) {
+        warnings.push(`indices [${orphanIndices.join(",")}] unassigned; attaching to first room`);
+        if (cleaned.length > 0) {
+            cleaned[0].photo_indices.push(...orphanIndices);
+        } else {
+            // Pathological: Gemini returned no usable rooms. Synthesize one.
+            cleaned.push({
+                room_id: "room_unknown",
+                room_label: "",
+                photo_indices: orphanIndices.slice(),
+                analysis: "",
+            });
+        }
+    }
+    return { rooms: cleaned, warnings };
+}
+
+// Enforce "at most one primary" across the rooms returned for a single
+// multi-room call. We DON'T force one when Gemini returns zero — the
+// bathroom prompt explicitly allows zero primaries (some homes have no
+// master bath). We only demote duplicates when Gemini returns multiple.
+//   - 0 or 1 primary: pass through unchanged.
+//   - 2+ primaries: keep the one with the most photos (proxy for most
+//     thoroughly documented), demote the rest to "secondary".
+function enforceOnePrimary(rooms) {
+    if (!Array.isArray(rooms) || rooms.length <= 1) return rooms;
+    const primaries = rooms.filter((r) => r.room_type === "primary");
+    if (primaries.length <= 1) return rooms;
+
+    const scored = primaries.slice().sort((a, b) => {
+        if (b.photo_indices.length !== a.photo_indices.length) {
+            return b.photo_indices.length - a.photo_indices.length;
+        }
+        return (a.photo_indices[0] || 0) - (b.photo_indices[0] || 0);
+    });
+    const keepId = scored[0].room_id;
+    return rooms.map((r) =>
+        r.room_type === "primary" && r.room_id !== keepId ?
+            { ...r, room_type: "secondary" } :
+            r,
+    );
 }
 
 function buildAnalysisPrompt(label, property, hasMultiple) {
@@ -248,36 +407,118 @@ function buildAnalysisPrompt(label, property, hasMultiple) {
         .replace("{{VIEWS_CONTEXT}}", viewsContext);
 }
 
+// Build the parts array. For multi-room calls, prefix each image with a
+// text label "Image N:" so Gemini has an unambiguous index to reference
+// when returning photo_indices.
+function buildParts(sentIndices, inlineParts, labelImages) {
+    if (!labelImages) {
+        return sentIndices.map((i) => inlineParts[i]);
+    }
+    const parts = [];
+    sentIndices.forEach((origIdx, localIdx) => {
+        parts.push({ text: `Image ${localIdx}:` });
+        parts.push(inlineParts[origIdx]);
+    });
+    return parts;
+}
+
 async function analyzeBin(model, group, inlineParts, property) {
-    const canonicalIdx = group.canonicalIdx;
-    const extras = strideSampleExtras(group.memberIndices, canonicalIdx);
-    const sentIndices = [canonicalIdx, ...extras];
-    const parts = sentIndices.map((i) => inlineParts[i]);
+    const sentIndices = pickSentIndices(group);
+    const isMultiRoom = MULTI_ROOM_LABELS.has(group.label);
     const promptText = buildAnalysisPrompt(group.label, property, sentIndices.length > 1);
 
     try {
+        if (isMultiRoom) {
+            // Multi-room JSON path: prefix images with "Image N:" labels and
+            // request structured output. Gemini returns rooms[] which may
+            // contain 1..K entries.
+            const parts = buildParts(sentIndices, inlineParts, /* labelImages */ true);
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [...parts, { text: promptText }] }],
+                generationConfig: {
+                    temperature: 0,
+                    // Generous cap because multi-room responses contain
+                    // multiple full analyses, one per detected room.
+                    maxOutputTokens: 16384,
+                    // 2.5-flash defaults to consuming "thinking" tokens from
+                    // the output budget; disable so the budget all goes to
+                    // visible output. Silently ignored if the SDK doesn't
+                    // know the flag.
+                    thinkingConfig: { thinkingBudget: 0 },
+                    responseMimeType: "application/json",
+                    responseSchema: MULTI_ROOM_RESPONSE_SCHEMA,
+                },
+            });
+            const raw = result.response.text();
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                throw new Error(`JSON parse failed: ${e.message}; got: ${raw.slice(0, 200)}`);
+            }
+            // The schema gives us photo_indices in the LOCAL (0..N-1) space
+            // we labeled. Map back to the original imageUrl indices.
+            const localToOrig = sentIndices;
+            const localRooms = Array.isArray(parsed.rooms) ? parsed.rooms : [];
+            const remappedRooms = localRooms.map((r) => ({
+                ...r,
+                photo_indices: (r.photo_indices || []).map((li) => localToOrig[li]).filter((v) => v !== undefined),
+            }));
+            const localSentSet = sentIndices;
+            const { rooms: normalized, warnings } = normalizeRoomsResponse(remappedRooms, localSentSet);
+            if (warnings.length > 0) {
+                console.warn(`[visionPipeline] ${group.label} normalize warnings:`, warnings.join("; "));
+            }
+            const rooms = enforceOnePrimary(normalized);
+            return { sentIndices, rooms, error: null };
+        }
+
+        // Single-room text path (Kitchen/Backyard/etc). Cap raised from
+        // 2048 → 4096 because long single-space analyses on properties
+        // with many photos were getting truncated mid-output. Thinking
+        // budget disabled so the cap all goes to visible output.
+        const parts = buildParts(sentIndices, inlineParts, false);
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [...parts, { text: promptText }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 4096,
+                thinkingConfig: { thinkingBudget: 0 },
+            },
         });
         let analysis = result.response.text().trim();
         if (!/^space\s*:/i.test(analysis) && analysis !== "NA") {
             analysis = `Space: ${group.label}\n\n${analysis}`;
         }
-        return { sentIndices, analysis, error: null };
+        return {
+            sentIndices,
+            rooms: [{
+                room_id: "main",
+                room_label: group.label,
+                room_type: "n/a",
+                photo_indices: sentIndices.slice(),
+                analysis,
+            }],
+            error: null,
+        };
     } catch (e) {
         console.error(`[visionPipeline] analyze failed label="${group.label}":`, e.message);
-        return { sentIndices, analysis: null, error: e.message };
+        return { sentIndices, rooms: [], error: e.message };
     }
 }
 
 // ─── Output assembly (mirrors extension's results[] shape) ────────────────
+// Each room within a group becomes its own canonical entry. The canonical
+// is the first photo_index in that room. Other photos in the room (whether
+// sent to the LLM or not) become mirrors pointing at the canonical.
+//
+// For groups that produced no rooms (analysis error), emit a single
+// error-canonical at the group's canonical index so the UI surfaces it.
 function buildResults(groups, binOutputs, imageUrls) {
-    // For each group: 1 canonical entry + N-1 mirror entries that reference it.
     const results = [];
     groups.forEach((group, gi) => {
         const out = binOutputs[gi];
-        if (!out.analysis) {
+        if (!out.rooms || out.rooms.length === 0) {
             results.push({
                 photo_index: group.canonicalIdx,
                 url: imageUrls[group.canonicalIdx],
@@ -290,26 +531,62 @@ function buildResults(groups, binOutputs, imageUrls) {
             });
             return;
         }
-        results.push({
-            photo_index: group.canonicalIdx,
-            url: imageUrls[group.canonicalIdx],
-            analysis: out.analysis,
-            score: null,
-            error: null,
-            group_label: group.label,
-            group_member_indices: group.memberIndices.slice(),
-            group_sent_indices: out.sentIndices.slice(),
-        });
+
         const sentSet = new Set(out.sentIndices);
+        // Track which group members landed in a room so we can attach the
+        // unsent ("+N similar") members to the closest room afterwards.
+        const memberToRoom = new Map(); // origIdx → room object
+
+        out.rooms.forEach((room) => {
+            const indicesInRoom = room.photo_indices.slice();
+            // Canonical = first photo in the room.
+            const roomCanonicalIdx = indicesInRoom[0];
+            results.push({
+                photo_index: roomCanonicalIdx,
+                url: imageUrls[roomCanonicalIdx],
+                analysis: room.analysis,
+                score: null,
+                error: null,
+                group_label: group.label,
+                room_id: room.room_id,
+                room_label: room.room_label || null,
+                room_type: room.room_type || null,
+                group_member_indices: indicesInRoom.slice(),
+                group_sent_indices: indicesInRoom.filter((i) => sentSet.has(i)),
+            });
+            for (const idx of indicesInRoom) memberToRoom.set(idx, { canonicalIdx: roomCanonicalIdx, room });
+            // Same-room "extras" sent to the LLM that aren't the canonical
+            // become mirrors of the room's canonical.
+            for (let k = 1; k < indicesInRoom.length; k++) {
+                const mIdx = indicesInRoom[k];
+                results.push({
+                    photo_index: mIdx,
+                    url: imageUrls[mIdx],
+                    mirror_of: roomCanonicalIdx,
+                    mirror_of_url: imageUrls[roomCanonicalIdx],
+                    group_label: group.label,
+                    room_id: room.room_id,
+                    sent_to_llm: sentSet.has(mIdx),
+                });
+            }
+        });
+
+        // Members that weren't sent to the LLM (the "+N similar" bucket).
+        // Attach each one to the canonical of the FIRST room since we don't
+        // have a per-photo similarity signal to do better. They render as
+        // "+N similar photos not sent to LLM" under that room in the UI.
+        const firstRoomCanonical = out.rooms[0].photo_indices[0];
+        const firstRoomId = out.rooms[0].room_id;
         for (const mIdx of group.memberIndices) {
-            if (mIdx === group.canonicalIdx) continue;
+            if (memberToRoom.has(mIdx)) continue; // already placed
             results.push({
                 photo_index: mIdx,
                 url: imageUrls[mIdx],
-                mirror_of: group.canonicalIdx,
-                mirror_of_url: imageUrls[group.canonicalIdx],
+                mirror_of: firstRoomCanonical,
+                mirror_of_url: imageUrls[firstRoomCanonical],
                 group_label: group.label,
-                sent_to_llm: sentSet.has(mIdx),
+                room_id: firstRoomId,
+                sent_to_llm: false,
             });
         }
     });
@@ -345,7 +622,7 @@ async function runVisionPipeline(zpid, opts = {}) {
         try {
             await statusRef.set({
                 ...patch,
-                pipeline_version: PIPELINE_VERSION,
+                function_deployed_at: FUNCTION_DEPLOYED_AT,
                 model: GEMINI_MODEL,
                 photo_count_total: imageUrls.length,
                 analyzed_at_iso: new Date().toISOString(),
@@ -398,12 +675,14 @@ async function runVisionPipeline(zpid, opts = {}) {
     const classifyMs = Date.now() - classifyStart;
 
     // ── Phase 5: group by label (only over photos with a real label) ──
-    // "Unclassified" photos are bucketed into a single group but we will
-    // NOT run an analysis call on them (handled below); they fall through
-    // to the orphans bucket in the UI.
+    // Photos with labels in SKIP_ANALYSIS_LABELS get classified and shown
+    // as orphans, but no analysis call is made for them — they're either
+    // failures ("Unclassified") or genuinely uninteresting utility rooms
+    // ("Laundry Room") that don't warrant a per-space prompt.
+    const SKIP_ANALYSIS_LABELS = new Set(["Unclassified", "Laundry Room"]);
     const groups = groupByLabel(
         spaceResults.map((r, i) => liveIndices.includes(i) ? r : { label: null, type: "INTERIOR" }),
-    ).filter((g) => g.label && g.label !== "Unclassified");
+    ).filter((g) => g.label && !SKIP_ANALYSIS_LABELS.has(g.label));
 
     // ── Phase 6: analyze each group ──
     const analyzeStart = Date.now();
@@ -431,19 +710,28 @@ async function runVisionPipeline(zpid, opts = {}) {
     spaceResults.forEach((r, i) => {
         if (groupedIndices.has(i)) return;
         if (!imageUrls[i]) return;
+        let reason;
+        if (r.error) reason = r.error;
+        else if (r.label === "Unclassified") reason = "classifier returned no usable label";
+        else if (SKIP_ANALYSIS_LABELS.has(r.label)) reason = `${r.label} — not analyzed by design`;
+        else reason = "skipped";
         results.push({
             photo_index: i,
             url: imageUrls[i],
             analysis: null,
-            error: r.error || (r.label === "Unclassified" ? "classifier returned no usable label" : "skipped"),
+            error: reason,
             group_label: r.label || null,
         });
     });
 
+    // Total distinct "rooms" (one analysis each) — typically equal to
+    // group_count, but Bedroom/Bathroom groups may yield >1 room each.
+    const roomCount = binOutputs.reduce((n, out) => n + (out.rooms ? out.rooms.length : 0), 0);
+
     const doc = {
         status: "done",
         phase: "Done",
-        pipeline_version: PIPELINE_VERSION,
+        function_deployed_at: FUNCTION_DEPLOYED_AT,
         model: GEMINI_MODEL,
         analyzed_at: admin.firestore.FieldValue.serverTimestamp(),
         analyzed_at_iso: new Date().toISOString(),
@@ -451,6 +739,7 @@ async function runVisionPipeline(zpid, opts = {}) {
         photo_count_total: imageUrls.length,
         analyzed_photo_count: results.filter((r) => r.analysis).length,
         group_count: groups.length,
+        room_count: roomCount,
         classify_total: classifyInputs.length,
         classify_done: classifyInputs.length,
         analyze_total: groups.length,
@@ -490,5 +779,7 @@ module.exports = {
         groupByLabel,
         strideSampleExtras,
         buildResults,
+        enforceOnePrimary,
+        normalizeRoomsResponse,
     },
 };

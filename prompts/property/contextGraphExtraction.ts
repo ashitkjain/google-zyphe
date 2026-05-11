@@ -21,7 +21,8 @@ import { DISTRESS_MARKERS } from "./distressAnalysis";
 export const buildGraphExtractionContext = (
     property: PropertyData,
     visual: CustomAIAnalysisResult | null,
-    comprehensive: ComprehensiveAnalysisResult | null
+    comprehensive: ComprehensiveAnalysisResult | null,
+    visionExtension: any | null = null
 ) => {
     const optimizedProperty = optimizePropertyForAi(property);
 
@@ -76,11 +77,22 @@ export const buildGraphExtractionContext = (
     // Tax sqft (from ArcGIS or Gemini lookup)
     const taxSqft = (property as any).taxSqft ?? null;
 
+    let optimizedVisionExtension: any = null;
+    if (visionExtension && visionExtension.photos) {
+        optimizedVisionExtension = visionExtension.photos
+            .filter((p: any) => p.analysis && p.group_label)
+            .map((p: any) => ({
+                space: p.group_label,
+                analysis: p.analysis
+            }));
+    }
+
     const result = {
         listingDescription: property.description,
         property: optimizedProperty,
         schools: property.schools?.map(s => ({ name: s.name, rating: s.rating, distance: s.distance, level: s.level })),
         visualAnalysis: optimizedVisual,
+        visionExtension: optimizedVisionExtension,
         narrativeReport: narrative,
         parcelValidation,
         parcelData,
@@ -315,8 +327,8 @@ Given the property data below, extract structured decision factors. For each fac
    - If none are found, tags MUST be ["None"].
    - Value = "true" if any distress signals are present, "false" if none are found.
 
-### Interior Room Intelligence (113-116) — From visualAnalysis room_highlights. Tags are the primary output.
-113. **Room-by-Room Character**: For EACH room found in room_highlights, generate 2-3 descriptive concept tags prefixed with the room name (e.g. "Kitchen: Updated Cabinets", "Living Room: Brick Fireplace", "Primary Bed: Walk-In Closet", "Laundry: Full-Size W/D"). Scan ALL rooms — do not skip any. Do NOT repeat the same feature across multiple rooms (e.g. if "Vinyl Flooring" appears in every room, tag it once under the first room or under factor 115 instead). Focus on features that matter to buyers: storage, natural light, updates vs dated, special fixtures, layout flow, outdoor access, and standout details. Value = number of rooms detected + overall impression (e.g. "9 rooms — cohesive modern updates"). Generate 8-20 tags total depending on how many rooms exist.
+### Interior Room Intelligence (113-116) — From 'visionExtension' and 'visualAnalysis'. Tags are the primary output.
+113. **Room-by-Room Character & Luxury Signals**: Scan the 'visionExtension' and 'room_highlights' data. For EACH room, generate 2-3 descriptive concept tags prefixed with the room name (e.g. "Kitchen: Sub-Zero Appliances", "Living Room: Floor-to-Ceiling Windows", "Primary Bed: Spa-Style Ensuite", "Backyard: Infinity Pool & Outdoor Kitchen"). Explicitly look for high-value premium features (waterfall islands, professional appliances, custom millwork, indoor-outdoor flow, retractable glass walls, luxury hardware, smart tech, architectural lighting, mature landscaping). Do NOT repeat the same feature across multiple rooms. Value = overall impression of home's luxury/feature level. Generate 8-20 tags total.
 114. **Interior Vibe & Quality**: Synthesize across ALL room_highlights + condition_and_finish + design overview. Value = a single-sentence interior vibe statement (e.g. "Clean transitional style with neutral tones and modern updates throughout" or "Classic suburban home with original finishes showing their age"). Tags = quality + style concepts like "Turn-Key", "Recently Updated", "Neutral Palette", "Cohesive Design", "Mixed Quality", "Transitional Style", "Modern Finishes", "Move-In Ready". Generate 5-10 tags.
 115. **Flooring & Materials Palette**: From room_highlights + condition_and_finish. Tags = material concepts found across the home like "Vinyl Plank", "Hardwood", "Tile", "Carpet", "Granite Counters", "Wood Cabinets", "Stainless Steel", "Marble". Value = dominant flooring type. Generate 4-8 tags.
 116. **Spatial Flow & Layout**: From room_highlights + spatial descriptions. Tags = layout concepts like "Open Floor Plan", "Split Bedrooms", "Indoor-Outdoor Flow", "Single Story", "Two-Story", "Formal Dining Separate", "Kitchen Open to Living", "Jack-and-Jill Bath", "En-Suite Primary". Value = layout summary. Generate 4-8 tags.
