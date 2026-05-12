@@ -14,60 +14,60 @@ export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-12 border-t border-gray-100">
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-palette text-lg"></i>
+                    <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-palette"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Design Philosophy</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Design Philosophy</h4>
                         </div>
                         <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2 self-start">{data.design_style?.style}</div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.design_style?.reasoning}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.design_style?.reasoning}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-swatchbook text-lg"></i>
+                    <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-swatchbook"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Colors & Materials</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Colors & Materials</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.color_and_materials}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.color_and_materials}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-lightbulb text-lg"></i>
+                    <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-lightbulb"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Lighting Environment</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Lighting Environment</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.lighting}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.lighting}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-arrows-up-down-left-right text-lg"></i>
+                    <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-arrows-up-down-left-right"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Spatial Architecture</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Spatial Architecture</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.spatial_flow}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.spatial_flow}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-chair text-lg"></i>
+                    <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-chair"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Storage & Cabinetry</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Storage & Cabinetry</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.storage_and_cabinetry || (data as any).staging_and_furnishings}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.storage_and_cabinetry || (data as any).staging_and_furnishings}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
+                    <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-screwdriver-wrench"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Condition & Finish</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Condition & Finish</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.condition_and_finish}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.condition_and_finish}</p>
                     </div>
                 </div>
             </div>
@@ -158,23 +158,23 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
         <section>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {sorted.map((room, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className={`fa-solid ${roomIcon(room.room_name)} text-lg`}></i>
+                    <div key={idx} className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                <i className={`fa-solid ${roomIcon(room.room_name)}`}></i>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h4 className="font-black text-gray-900 text-lg tracking-tight truncate">{room.room_name}</h4>
+                                <h4 className="font-serif text-lg text-slate-900 leading-tight truncate">{room.room_name}</h4>
                             </div>
                             {room.floor && (
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100 shrink-0">{room.floor}</span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shrink-0">{room.floor}</span>
                             )}
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed mb-4">{room.description}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed mb-4">{room.description}</p>
                         {room.potential_improvements && (
-                            <div className="pt-4 border-t border-gray-100 bg-gray-50 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl mt-auto">
+                            <div className="pt-4 border-t border-indigo-100/40 bg-indigo-50/30 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl mt-auto">
                                 <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2">Strategic Enhancement</div>
-                                <p className="text-gray-500 text-[13px] font-sans font-normal italic leading-relaxed">"{room.potential_improvements}"</p>
+                                <p className="text-slate-600 text-xs italic leading-relaxed">"{room.potential_improvements}"</p>
                             </div>
                         )}
                     </div>
@@ -334,34 +334,33 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                     {isTarget && satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = satellitaryOrientation;
                         return (<>
-
                             {sat.privacy_insight && (
-                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                <i className="fa-solid fa-eye-slash text-lg"></i>
-                                            </div>
-                                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Privacy</h4>
+                                <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-700 group-hover:text-white transition-colors shrink-0">
+                                            <i className="fa-solid fa-eye-slash"></i>
                                         </div>
-                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{sat.privacy_insight}</p>
+                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Privacy</h4>
+                                    </div>
+                                    <p className="text-xs text-slate-600 leading-relaxed">{sat.privacy_insight}</p>
                                 </div>
                             )}
                             {sat.lot_coverage_hardscape != null && (
-                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                            <i className="fa-solid fa-layer-group text-lg"></i>
+                                <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-700 group-hover:text-white transition-colors shrink-0">
+                                            <i className="fa-solid fa-layer-group"></i>
                                         </div>
-                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Lot Coverage</h4>
+                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Lot Coverage</h4>
                                     </div>
-                                    <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
-                                        <div className="h-full bg-gray-400 rounded-full" style={{ width: `${Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}%` }} />
+                                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mb-2">
+                                        <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}%` }} />
                                     </div>
-                                    <div className="flex justify-between text-[11px] font-black text-gray-500 mb-3">
+                                    <div className="flex justify-between text-[11px] font-black text-slate-500 mb-3">
                                         <span>{Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}% hardscape</span>
                                         <span className="text-emerald-600">{Math.round((sat.lot_coverage_pervious > 0 && sat.lot_coverage_pervious <= 1) ? sat.lot_coverage_pervious * 100 : (sat.lot_coverage_pervious ?? (100 - ((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0)))))}% green</span>
                                     </div>
-                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
+                                    <p className="text-xs text-slate-600 leading-relaxed">
                                         ~{Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}% of the lot is hardscape (roof, driveway, patio) and ~{Math.round((sat.lot_coverage_pervious > 0 && sat.lot_coverage_pervious <= 1) ? sat.lot_coverage_pervious * 100 : (sat.lot_coverage_pervious ?? (100 - ((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0)))))}% is pervious green space.
                                     </p>
                                 </div>
@@ -370,42 +369,42 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                     })()}
 
                     {/* Architecture & lot cards — always shown */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-building-columns text-lg"></i>
+                    <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-building-columns"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Style</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Style</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.architecture_style}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.exterior_and_lot_appeal.architecture_style}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-house text-lg"></i>
+                    <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-house"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Curb Appeal</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Curb Appeal</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.curb_appeal}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.exterior_and_lot_appeal.curb_appeal}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                <i className="fa-solid fa-tree text-lg"></i>
+                    <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-700 group-hover:text-white transition-colors shrink-0">
+                                <i className="fa-solid fa-tree"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Backyard & Patio</h4>
+                            <h4 className="font-serif text-lg text-slate-900 leading-tight">Backyard & Patio</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
                     </div>
                     {data.views_privacy_orientation?.views && (
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                    <i className="fa-solid fa-mountain-sun text-lg"></i>
+                        <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-700 group-hover:text-white transition-colors shrink-0">
+                                    <i className="fa-solid fa-mountain-sun"></i>
                                 </div>
-                                <h4 className="font-black text-gray-900 text-lg tracking-tight">Views</h4>
+                                <h4 className="font-serif text-lg text-slate-900 leading-tight">Views</h4>
                             </div>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.views_privacy_orientation.views}</p>
+                            <p className="text-xs text-slate-600 leading-relaxed">{data.views_privacy_orientation.views}</p>
                         </div>
                     )}
                 </div>

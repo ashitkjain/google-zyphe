@@ -714,16 +714,16 @@ function isExteriorGroup(g: GroupView): boolean {
 
 // Cycling color palettes — exterior = green family, interior = violet family
 const EXT_PALETTES = [
-    { bg: 'bg-emerald-50', border: 'border-emerald-100', label: 'text-emerald-700' },
-    { bg: 'bg-teal-50', border: 'border-teal-100', label: 'text-teal-700' },
-    { bg: 'bg-green-50', border: 'border-green-100', label: 'text-green-700' },
-    { bg: 'bg-cyan-50', border: 'border-cyan-100', label: 'text-cyan-700' },
+    { bg: 'bg-gradient-to-b from-emerald-50/60 to-white', border: 'border-emerald-100/60', label: 'text-emerald-700' },
+    { bg: 'bg-gradient-to-b from-teal-50/60 to-white', border: 'border-teal-100/60', label: 'text-teal-700' },
+    { bg: 'bg-gradient-to-b from-green-50/60 to-white', border: 'border-green-100/60', label: 'text-green-700' },
+    { bg: 'bg-gradient-to-b from-cyan-50/60 to-white', border: 'border-cyan-100/60', label: 'text-cyan-700' },
 ];
 const INT_PALETTES = [
-    { bg: 'bg-violet-50', border: 'border-violet-100', label: 'text-violet-700' },
-    { bg: 'bg-indigo-50', border: 'border-indigo-100', label: 'text-indigo-700' },
-    { bg: 'bg-purple-50', border: 'border-purple-100', label: 'text-purple-700' },
-    { bg: 'bg-fuchsia-50', border: 'border-fuchsia-100', label: 'text-fuchsia-700' },
+    { bg: 'bg-gradient-to-b from-violet-50/60 to-white', border: 'border-violet-100/60', label: 'text-violet-700' },
+    { bg: 'bg-gradient-to-b from-indigo-50/60 to-white', border: 'border-indigo-100/60', label: 'text-indigo-700' },
+    { bg: 'bg-gradient-to-b from-purple-50/60 to-white', border: 'border-purple-100/60', label: 'text-purple-700' },
+    { bg: 'bg-gradient-to-b from-fuchsia-50/60 to-white', border: 'border-fuchsia-100/60', label: 'text-fuchsia-700' },
 ];
 
 interface NavCardProps {
@@ -864,10 +864,6 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                     {/* Exterior section */}
                     {extGroups.length > 0 && (
                         <div>
-                            <div className="flex items-center gap-1.5 mb-2.5">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">EXTERIOR · {extGroups.length}</span>
-                            </div>
                             <div className="flex gap-2">
                                 {extGroups.map(g => {
                                     const gi = groups.indexOf(g);
@@ -882,10 +878,6 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                     {/* Interior section */}
                     {intGroups.length > 0 && (
                         <div>
-                            <div className="flex items-center gap-1.5 mb-2.5">
-                                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">INTERIOR · {intGroups.length}</span>
-                            </div>
                             <div className="flex gap-2">
                                 {intGroups.map(g => {
                                     const gi = groups.indexOf(g);
@@ -902,16 +894,8 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                 {/* Detail header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <span className={`text-4xl font-black leading-none tabular-nums ${accentText}`}>
-                            {String(safeIdx + 1).padStart(2, '0')}
-                        </span>
                         <div>
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-xl font-black text-slate-900">{group.label}</h3>
-                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${badgeBg}`}>
-                                    {ext ? 'EXTERIOR' : 'INTERIOR'}
-                                </span>
-                            </div>
+                            <h3 className="font-serif text-2xl text-slate-900">{group.label}</h3>
                         </div>
                     </div>
 
@@ -923,10 +907,6 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                         ? 'bg-gradient-to-b from-emerald-50/70 to-white border-emerald-100'
                         : 'bg-gradient-to-b from-violet-50/70 to-white border-violet-100'
                     }`}>
-                        <div className="flex items-center gap-2 mb-2.5">
-                            <span className={`w-5 h-5 rounded-md ${diamondBg} text-white text-[10px] font-black flex items-center justify-center flex-shrink-0`}>1</span>
-                            <span className={`text-[10px] font-black uppercase tracking-wider ${narrativeTx}`}>AI NARRATIVE</span>
-                        </div>
                         <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{description.value}</p>
                     </div>
                 )}
@@ -1014,11 +994,11 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                                             const p = palettes[i % palettes.length];
                                             const lbl = f.fieldName || f.key;
                                             return (
-                                                <div key={i} className={`bg-white border ${p.border} rounded-xl p-3`}>
-                                                    <div className={`text-[9px] font-black uppercase tracking-wider mb-1.5 leading-tight ${p.label}`}>
-                                                        {lbl}
-                                                    </div>
-                                                    <p className="text-[11px] text-slate-800 leading-snug">{f.value}</p>
+                                                <div key={i} className={`${p.bg} border ${p.border} rounded-xl p-3.5`}>
+                                                    <h4 className="font-serif text-lg text-slate-900 mb-2 leading-tight">
+                                                        {lbl.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                                                    </h4>
+                                                    <p className="text-xs text-slate-600 leading-relaxed">{f.value}</p>
                                                 </div>
                                             );
                                         })}

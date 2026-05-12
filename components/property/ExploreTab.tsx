@@ -374,7 +374,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                         )}
 
                         {/* ── Property Header (left) + Search Bar (right) in one row ── */}
-                        <div className="bg-white px-5 py-3 md:px-6 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm">
+                        <div className="bg-gradient-to-r from-indigo-50/60 via-white to-slate-50/40 px-5 py-3 md:px-6 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm">
                             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                                 <div className="flex-1 min-w-0">
                                     <PropertyHeader

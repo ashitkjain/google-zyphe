@@ -275,13 +275,15 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               rel="noopener noreferrer"
               className="group/address"
             >
-              <h2 className="text-lg font-black text-slate-900 tracking-tight group-hover/address:text-indigo-600 transition-colors leading-none">
+              <h2 className="text-lg text-slate-900 tracking-tight group-hover/address:text-indigo-600 transition-colors leading-none"
+                style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontWeight: 400, fontSize: 20 }}>
                 {data.address || 'Property Details'}
                 <i className="fa-solid fa-arrow-up-right-from-square text-[12px] ml-2 opacity-0 group-hover/address:opacity-100 transition-all"></i>
               </h2>
             </a>
             {(data.listPrice ?? data.price) && (
-              <span className="text-lg font-black text-emerald-600 tracking-tight leading-none">
+              <span className="text-emerald-600 tracking-tight leading-none"
+                style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontWeight: 400, fontSize: 20 }}>
                 {formatCurrency(data.listPrice ?? data.price)}
               </span>
             )}

@@ -78,60 +78,60 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                                         </div>
                                                                         {customAnalysisHomeInterior && (
                                                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-8 mt-6 border-t border-slate-200/60">
-                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                                                            <i className="fa-solid fa-palette text-lg"></i>
+                                                                                <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                                        <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                                                            <i className="fa-solid fa-palette"></i>
                                                                                         </div>
-                                                                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Design Philosophy</h4>
+                                                                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Design Philosophy</h4>
                                                                                     </div>
                                                                                     <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2 self-start">{customAnalysisHomeInterior.design_style?.style}</div>
-                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.design_style?.reasoning}</p>
+                                                                                    <p className="text-xs text-slate-600 leading-relaxed">{customAnalysisHomeInterior.design_style?.reasoning}</p>
                                                                                 </div>
-                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                                                            <i className="fa-solid fa-swatchbook text-lg"></i>
+                                                                                <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                                        <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                                                            <i className="fa-solid fa-swatchbook"></i>
                                                                                         </div>
-                                                                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Colors & Materials</h4>
+                                                                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Colors & Materials</h4>
                                                                                     </div>
-                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.color_and_materials}</p>
+                                                                                    <p className="text-xs text-slate-600 leading-relaxed">{customAnalysisHomeInterior.color_and_materials}</p>
                                                                                 </div>
-                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                                                            <i className="fa-solid fa-lightbulb text-lg"></i>
+                                                                                <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                                        <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                                                            <i className="fa-solid fa-lightbulb"></i>
                                                                                         </div>
-                                                                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Lighting Environment</h4>
+                                                                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Lighting Environment</h4>
                                                                                     </div>
-                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.lighting}</p>
+                                                                                    <p className="text-xs text-slate-600 leading-relaxed">{customAnalysisHomeInterior.lighting}</p>
                                                                                 </div>
-                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                                                            <i className="fa-solid fa-arrows-up-down-left-right text-lg"></i>
+                                                                                <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                                        <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                                                            <i className="fa-solid fa-arrows-up-down-left-right"></i>
                                                                                         </div>
-                                                                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Spatial Architecture</h4>
+                                                                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Spatial Architecture</h4>
                                                                                     </div>
-                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.spatial_flow}</p>
+                                                                                    <p className="text-xs text-slate-600 leading-relaxed">{customAnalysisHomeInterior.spatial_flow}</p>
                                                                                 </div>
-                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                                                            <i className="fa-solid fa-chair text-lg"></i>
+                                                                                <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                                        <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                                                            <i className="fa-solid fa-chair"></i>
                                                                                         </div>
-                                                                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Storage & Cabinetry</h4>
+                                                                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Storage & Cabinetry</h4>
                                                                                     </div>
-                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.storage_and_cabinetry || (customAnalysisHomeInterior as any).staging_and_furnishings}</p>
+                                                                                    <p className="text-xs text-slate-600 leading-relaxed">{customAnalysisHomeInterior.storage_and_cabinetry || (customAnalysisHomeInterior as any).staging_and_furnishings}</p>
                                                                                 </div>
-                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
-                                                                                            <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
+                                                                                <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                                        <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                                                            <i className="fa-solid fa-screwdriver-wrench"></i>
                                                                                         </div>
-                                                                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Condition & Finish</h4>
+                                                                                        <h4 className="font-serif text-lg text-slate-900 leading-tight">Condition & Finish</h4>
                                                                                     </div>
-                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.condition_and_finish}</p>
+                                                                                    <p className="text-xs text-slate-600 leading-relaxed">{customAnalysisHomeInterior.condition_and_finish}</p>
                                                                                 </div>
                                                                             </div>
                                                                         )}
