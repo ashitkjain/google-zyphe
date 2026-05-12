@@ -21,6 +21,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { PropertyData } from '../../types';
+import { PageHeader } from './PropertySectionView';
 
 interface Props {
     propertyData: PropertyData;
@@ -29,6 +30,8 @@ interface Props {
     // renders as a normal section page inside the property nav.
     onClose?: () => void;
     userRole?: string;
+    mode?: 'indoor' | 'outdoor';
+    renderPalette?: () => React.ReactNode;
 }
 
 interface PhotoEntry {
@@ -143,7 +146,7 @@ function groupPhotos(photos: PhotoEntry[] | undefined): { groups: GroupView[]; o
     return { groups, orphans };
 }
 
-const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }) => {
+const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, mode, renderPalette }) => {
     const zpid = propertyData?.zpid ? String(propertyData.zpid) : '';
     const [running, setRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -160,6 +163,12 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
     // would otherwise remount RoomsWalkthrough and reset its state).
     const [selectedIndoorRoomIdx, setSelectedIndoorRoomIdx] = useState(0);
     const [selectedOutdoorRoomIdx, setSelectedOutdoorRoomIdx] = useState(0);
+
+    useEffect(() => {
+        if (mode) {
+            setActiveTab(mode);
+        }
+    }, [mode]);
 
     useEffect(() => {
         if (!zpid) return;
@@ -232,7 +241,36 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
     return (
         <Wrapper>
             <div className="pb-6">
-                {userRole === 'admin' && (
+                {mode && (
+                    <PageHeader
+                        icon={mode === 'indoor' ? 'fa-couch' : 'fa-house-chimney'}
+                        title={mode === 'indoor' ? 'Indoor atmosphere (AI)' : 'Outdoor & curb appeal (AI)'}
+                        label="Photo Pipeline"
+                        description={mode === 'indoor' ? 'Granular indoor visual analysis using multi-space visual classification' : 'Granular outdoor visual analysis using multi-space visual classification'}
+                        color={mode === 'indoor' ? 'text-teal-600' : 'text-emerald-500'}
+                        renderPalette={renderPalette}
+                        titleSuffix={userRole === 'admin' && (
+                            <div className="inline-flex items-center gap-2 ml-2">
+                                {inProgress && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 rounded">
+                                        <span className="w-1 h-1 bg-indigo-500 rounded-full animate-pulse" />
+                                        {formatElapsed(elapsedMs)}
+                                    </span>
+                                )}
+                                <button
+                                    onClick={handleRun}
+                                    disabled={!zpid || inProgress}
+                                    className="text-slate-400 hover:text-indigo-600 transition-colors flex items-center justify-center h-6 w-6 rounded-full hover:bg-slate-100"
+                                    title={inProgress ? 'Running…' : (docData ? 'Re-run Analysis' : 'Run Analysis')}
+                                >
+                                    <i className={`fa-solid fa-arrows-rotate text-sm ${inProgress ? 'animate-spin text-indigo-600' : ''}`} />
+                                </button>
+                            </div>
+                        )}
+                    />
+                )}
+
+                {userRole === 'admin' && !mode && (
                     <div className="flex justify-end mb-3">
                         {inProgress && (
                             <span className="inline-flex items-center gap-2 px-3 py-1 mr-2 text-xs font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -309,7 +347,7 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
                 )}
 
                 {/* Tab bar */}
-                {docData && (
+                {docData && !mode && (
                     <div className="flex items-center gap-1 border-b border-slate-200 mb-4">
                         {([
                             { id: 'indoor' as const, label: 'Indoor Visual AI', count: docData.synthesis_input_counts?.interior },
@@ -318,11 +356,10 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`px-4 py-2 text-sm font-bold border-b-2 -mb-px transition-colors ${
-                                    activeTab === tab.id
+                                className={`px-4 py-2 text-sm font-bold border-b-2 -mb-px transition-colors ${activeTab === tab.id
                                         ? 'border-indigo-600 text-indigo-700'
                                         : 'border-transparent text-slate-500 hover:text-slate-800'
-                                }`}
+                                    }`}
                             >
                                 {tab.label}
                                 {tab.count != null && <span className="ml-1.5 text-xs font-mono text-slate-400">({tab.count})</span>}
@@ -382,13 +419,13 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
 
             {/* Enlarged Image Modal */}
             {enlargedImage && (
-                <div 
+                <div
                     className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
                     onClick={() => setEnlargedImage(null)}
                 >
-                    <img 
-                        src={enlargedImage} 
-                        alt="Enlarged view" 
+                    <img
+                        src={enlargedImage}
+                        alt="Enlarged view"
                         className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                     />
                     <div className="absolute top-4 right-4 text-white/50 text-sm font-bold bg-black/50 px-3 py-1 rounded-full">
@@ -408,7 +445,7 @@ export default VisionAnalysisPage;
 // shapes defined in InteriorSynthesis / ExteriorSynthesis above.
 
 const _serif = "'Instrument Serif', Georgia, serif";
-const _mono  = "'JetBrains Mono', ui-monospace, monospace";
+const _mono = "'JetBrains Mono', ui-monospace, monospace";
 
 function SectionTitleBar({ num, kicker, title, italicWord, accent }: {
     num: string; kicker: string; title: string; italicWord?: string; accent: string;
@@ -595,14 +632,14 @@ function isExteriorGroup(g: GroupView): boolean {
 // Cycling color palettes — exterior = green family, interior = violet family
 const EXT_PALETTES = [
     { bg: 'bg-emerald-50', border: 'border-emerald-100', label: 'text-emerald-700' },
-    { bg: 'bg-teal-50',    border: 'border-teal-100',    label: 'text-teal-700' },
-    { bg: 'bg-green-50',   border: 'border-green-100',   label: 'text-green-700' },
-    { bg: 'bg-cyan-50',    border: 'border-cyan-100',    label: 'text-cyan-700' },
+    { bg: 'bg-teal-50', border: 'border-teal-100', label: 'text-teal-700' },
+    { bg: 'bg-green-50', border: 'border-green-100', label: 'text-green-700' },
+    { bg: 'bg-cyan-50', border: 'border-cyan-100', label: 'text-cyan-700' },
 ];
 const INT_PALETTES = [
-    { bg: 'bg-violet-50',  border: 'border-violet-100',  label: 'text-violet-700' },
-    { bg: 'bg-indigo-50',  border: 'border-indigo-100',  label: 'text-indigo-700' },
-    { bg: 'bg-purple-50',  border: 'border-purple-100',  label: 'text-purple-700' },
+    { bg: 'bg-violet-50', border: 'border-violet-100', label: 'text-violet-700' },
+    { bg: 'bg-indigo-50', border: 'border-indigo-100', label: 'text-indigo-700' },
+    { bg: 'bg-purple-50', border: 'border-purple-100', label: 'text-purple-700' },
     { bg: 'bg-fuchsia-50', border: 'border-fuchsia-100', label: 'text-fuchsia-700' },
 ];
 
@@ -622,11 +659,10 @@ const RoomNavCard: React.FC<NavCardProps> = ({ group: g, globalIdx, isActive, on
     return (
         <button
             onClick={() => onSelect(globalIdx)}
-            className={`flex-shrink-0 w-[96px] text-left rounded-xl overflow-hidden transition-all border-2 ${
-                isActive
+            className={`flex-shrink-0 w-[96px] text-left rounded-xl overflow-hidden transition-all border-2 ${isActive
                     ? (ext ? 'border-emerald-400 shadow-md ring-1 ring-emerald-200' : 'border-violet-400 shadow-md ring-1 ring-violet-200')
                     : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
-            }`}
+                }`}
         >
             <div className="relative h-[62px]">
                 {g.canonical.url ? (
@@ -638,9 +674,8 @@ const RoomNavCard: React.FC<NavCardProps> = ({ group: g, globalIdx, isActive, on
                 <span className="absolute top-1 left-1 text-[9px] font-black text-white bg-black/60 rounded px-1 leading-tight">
                     #{numLabel}
                 </span>
-                <span className={`absolute top-1 right-1 text-[9px] font-black px-1 rounded leading-tight ${
-                    ext ? 'bg-emerald-500 text-white' : 'bg-violet-500 text-white'
-                }`}>
+                <span className={`absolute top-1 right-1 text-[9px] font-black px-1 rounded leading-tight ${ext ? 'bg-emerald-500 text-white' : 'bg-violet-500 text-white'
+                    }`}>
                     {ext ? 'EXT' : 'INT'}
                 </span>
                 {g.canonical.room_type === 'primary' && (
@@ -689,12 +724,12 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
     const handleSelect = (idx: number) => { onSelectIdx(idx); setShowSimilar(false); };
 
     // Accent tokens for the selected room
-    const accentText  = ext ? 'text-emerald-600'  : 'text-violet-600';
-    const badgeBg     = ext ? 'bg-emerald-100 text-emerald-800' : 'bg-violet-100 text-violet-800';
-    const narrativeBg = ext ? 'bg-emerald-50 border-emerald-200'  : 'bg-violet-50 border-violet-200';
-    const narrativeTx = ext ? 'text-emerald-700'  : 'text-violet-700';
-    const diamondBg   = ext ? 'bg-emerald-600'    : 'bg-violet-600';
-    const obsLabel    = ext ? 'text-emerald-600'  : 'text-violet-600';
+    const accentText = ext ? 'text-emerald-600' : 'text-violet-600';
+    const badgeBg = ext ? 'bg-emerald-100 text-emerald-800' : 'bg-violet-100 text-violet-800';
+    const narrativeBg = ext ? 'bg-emerald-50 border-emerald-200' : 'bg-violet-50 border-violet-200';
+    const narrativeTx = ext ? 'text-emerald-700' : 'text-violet-700';
+    const diamondBg = ext ? 'bg-emerald-600' : 'bg-violet-600';
+    const obsLabel = ext ? 'text-emerald-600' : 'text-violet-600';
 
     return (
         <div className="space-y-5">
@@ -716,7 +751,7 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                     <div className="flex gap-2 flex-shrink-0">
                         {[
                             { val: groups.length, lbl: 'SPACES' },
-                            { val: totalPhotos,   lbl: 'PHOTOS' },
+                            { val: totalPhotos, lbl: 'PHOTOS' },
                             { val: extGroups.length, lbl: 'EXT.' },
                             { val: intGroups.length, lbl: 'INT.' },
                         ].map(s => (
@@ -800,9 +835,7 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                             </p>
                         </div>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
-                        canonical · #{(group.canonical.photo_index ?? 0) + 1}
-                    </span>
+
                 </div>
 
                 {/* Body: image column + analysis column */}

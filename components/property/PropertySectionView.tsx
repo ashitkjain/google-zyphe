@@ -117,7 +117,7 @@ const TAILWIND_TO_HEX: Record<string, string> = {
 
 const _serif = "'Instrument Serif', Georgia, serif";
 
-const PageHeader: React.FC<{
+export const PageHeader: React.FC<{
     icon: string;
     label?: string;
     title: string;
@@ -126,8 +126,9 @@ const PageHeader: React.FC<{
     color?: string;
     attribution?: string;
     renderPalette?: () => React.ReactNode;
+    titleSuffix?: React.ReactNode;
 }> = ({
-    icon, label, title, description, subtitle, color = 'text-indigo-500', attribution, renderPalette,
+    icon, label, title, description, subtitle, color = 'text-indigo-500', attribution, renderPalette, titleSuffix,
 }) => {
     const accentHex = TAILWIND_TO_HEX[color] || '#4f46e5';
     return (
@@ -158,7 +159,11 @@ const PageHeader: React.FC<{
                 <h1 style={{
                     fontFamily: _serif, fontSize: 26, lineHeight: 1.05, margin: 0,
                     fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a',
-                }}>{title}</h1>
+                    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'
+                }}>
+                    <span>{title}</span>
+                    {titleSuffix}
+                </h1>
                 {(description || subtitle) && (
                     <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.45, margin: '2px 0 0', maxWidth: 640 }}>
                         {description || subtitle}
@@ -371,13 +376,15 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                         </div>
                     );
 
-                    if (subId === 'vision-analysis') return (
+                    if (subId === 'indoor-ai') return (
                         <div className="animate-in fade-in duration-200">
-                            <PageHeader icon="fa-eye" title="Vision Analysis"
-                                label="Photo Pipeline"
-                                description="Classify each listing photo, group by space, then run a structured per-space analysis with Gemini."
-                                color="text-indigo-500" {...headerProps} />
-                            <VisionAnalysisPage propertyData={data} userRole={userRole} />
+                            <VisionAnalysisPage propertyData={data} userRole={userRole} mode="indoor" renderPalette={renderPalette} />
+                        </div>
+                    );
+
+                    if (subId === 'outdoor-ai') return (
+                        <div className="animate-in fade-in duration-200">
+                            <VisionAnalysisPage propertyData={data} userRole={userRole} mode="outdoor" renderPalette={renderPalette} />
                         </div>
                     );
                 }
