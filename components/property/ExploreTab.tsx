@@ -402,7 +402,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             </div>
                         </div>
 
-                        <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab={stickyNoteActiveTab}>
+                        <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab={
+                            (activeNavSub === 'indoor-ai' || activeNavSub === 'outdoor-ai')
+                                ? activeNavSub
+                                : stickyNoteActiveTab
+                        }>
                             {(renderPalette) => (<>
                                 <div className="flex gap-4 min-h-screen">
                                     <PropertyNav

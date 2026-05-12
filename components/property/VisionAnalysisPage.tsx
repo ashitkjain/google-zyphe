@@ -58,12 +58,12 @@ interface InteriorSynthesis {
     color_and_materials: string;
     lighting: string;
     spatial_flow: string;
-    staging_and_furnishings: string;
+    storage_and_cabinetry: string;
     condition_and_finish: string;
     hero_headline: string;
     atmosphere_scores: { brightness: number; warmth: number; openness: number };
     finish_quality_score: number;
-    facet_tags: { colors_tag: string; lighting_tag: string; staging_tag: string };
+    facet_tags: { colors_tag: string; lighting_tag: string; storage_tag: string };
     spatial_tag?: string;
     condition_tag?: string;
     hero_tags: string[];
@@ -640,7 +640,7 @@ function SynthesisIndoor({
                     <FacetCard num={2} title="Colors & Materials" chip={s.facet_tags.colors_tag} body={s.color_and_materials} theme="indoor" />
                     <FacetCard num={3} title="Lighting Environment" chip={s.facet_tags.lighting_tag} body={s.lighting} theme="indoor" />
                     <FacetCard num={4} title="Spatial Architecture" chip={s.spatial_tag} body={s.spatial_flow} theme="indoor" />
-                    <FacetCard num={5} title="Staging & Furnishings" chip={s.facet_tags.staging_tag} body={s.staging_and_furnishings} theme="indoor" />
+                    <FacetCard num={5} title="Storage & Cabinetry" chip={s.facet_tags?.storage_tag} body={(s as any).storage_and_cabinetry || (s as any).staging_and_furnishings} theme="indoor" />
                     <FacetCard num={6} title="Condition & Finish" chip={s.condition_tag} body={s.condition_and_finish} theme="indoor" />
                 </div>
             </section>
@@ -656,7 +656,6 @@ function SynthesisIndoor({
                                 <div className="min-w-0">
                                     <div className="text-sm font-bold text-slate-900 truncate">{m.name}</div>
                                     <div className="text-[11px] text-slate-500 truncate">{m.location}</div>
-                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">{m.hex}</div>
                                 </div>
                             </div>
                         ))}
@@ -913,20 +912,30 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                                     {ext ? 'EXTERIOR' : 'INTERIOR'}
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                <span className="font-semibold text-slate-700">{stripPhotos.length}</span> photo{stripPhotos.length !== 1 ? 's' : ''} analyzed
-                                {facets.length > 0 && <> · <span className="font-semibold text-slate-700">{facets.length}</span> facets extracted</>}
-                            </p>
                         </div>
                     </div>
 
                 </div>
 
+                {/* AI Narrative — full width, right below header border */}
+                {group.canonical.analysis && description && (
+                    <div className={`mx-5 mt-4 mb-0 border rounded-xl p-4 ${ext
+                        ? 'bg-gradient-to-b from-emerald-50/70 to-white border-emerald-100'
+                        : 'bg-gradient-to-b from-violet-50/70 to-white border-violet-100'
+                    }`}>
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <span className={`w-5 h-5 rounded-md ${diamondBg} text-white text-[10px] font-black flex items-center justify-center flex-shrink-0`}>1</span>
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${narrativeTx}`}>AI NARRATIVE</span>
+                        </div>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{description.value}</p>
+                    </div>
+                )}
+
                 {/* Body: image column + analysis column */}
                 <div className="flex">
                     {/* Left — image + photo strip */}
                     <div className="w-[280px] flex-shrink-0 border-r border-slate-100">
-                        <div className="relative">
+                        <div className="relative m-2 rounded-lg overflow-hidden">
                             {group.canonical.url ? (
                                 <img
                                     src={group.canonical.url}
@@ -992,47 +1001,27 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                         )}
                     </div>
 
-                    {/* Right — facets + narrative */}
-                    <div className="flex-1 p-5 min-w-0">
+                    {/* Right — facets */}
+                    <div className="flex-1 px-5 pb-5 pt-4 min-w-0">
                         {group.canonical.analysis ? (
                             <>
-                                {/* Facet grid header */}
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className={`text-[11px] font-black uppercase tracking-wider ${obsLabel}`}>
-                                        {facets.length} OBSERVATIONS
-                                    </span>
-                                </div>
+
 
                                 {/* Facet cards — 3-col grid */}
-                                {facets.length > 0 && (
-                                    <div className="grid grid-cols-3 gap-2 mb-4">
-                                        {facets.map((f, i) => {
+                                {facets.filter(f => f.value !== 'Not visible').length > 0 && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {facets.filter(f => f.value !== 'Not visible').map((f, i) => {
                                             const p = palettes[i % palettes.length];
                                             const lbl = f.fieldName || f.key;
                                             return (
-                                                <div key={i} className={`${p.bg} border ${p.border} rounded-xl p-3`}>
+                                                <div key={i} className={`bg-white border ${p.border} rounded-xl p-3`}>
                                                     <div className={`text-[9px] font-black uppercase tracking-wider mb-1.5 leading-tight ${p.label}`}>
                                                         {lbl}
                                                     </div>
-                                                    <p className="text-[11px] text-slate-800 leading-snug">
-                                                        {f.value === 'Not visible'
-                                                            ? <em className="text-slate-400 not-italic">Not visible</em>
-                                                            : f.value}
-                                                    </p>
+                                                    <p className="text-[11px] text-slate-800 leading-snug">{f.value}</p>
                                                 </div>
                                             );
                                         })}
-                                    </div>
-                                )}
-
-                                {/* AI Narrative */}
-                                {description && (
-                                    <div className={`${narrativeBg} border rounded-xl p-4`}>
-                                        <div className="flex items-center gap-2 mb-2.5">
-                                            <span className={`w-5 h-5 rounded-md ${diamondBg} text-white text-[10px] font-black flex items-center justify-center flex-shrink-0`}>1</span>
-                                            <span className={`text-[10px] font-black uppercase tracking-wider ${narrativeTx}`}>AI NARRATIVE</span>
-                                        </div>
-                                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{description.value}</p>
                                     </div>
                                 )}
                             </>
@@ -1177,7 +1166,7 @@ function SynthesisOutdoor({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <FacetCard num={1} title="Style" chip={s.facet_tags.style_tag} body={s.exterior_and_lot_appeal.architecture_style} theme="outdoor" />
                     <FacetCard num={2} title="Curb Appeal" body={s.exterior_and_lot_appeal.curb_appeal} theme="outdoor" />
-                    <FacetCard num={3} title="Backyard & Patio" body={s.exterior_and_lot_appeal.backyard_and_patio} theme="outdoor" />
+                    <FacetCard num={3} title="Backyard" body={s.exterior_and_lot_appeal.backyard_and_patio} theme="outdoor" />
                     <FacetCard num={4} title="Privacy" chip={s.facet_tags.privacy_tag} body={s.views_privacy_orientation.privacy} theme="outdoor" />
                     <FacetCard num={5} title="Views" chip={s.facet_tags.views_tag} body={s.views_privacy_orientation.views} theme="outdoor" />
                     <FacetCard num={6} title="Lot Coverage" chip={s.facet_tags.lot_coverage_tag} body={`Inferred coverage: ${s.facet_tags.lot_coverage_tag}. ${s.objective_tags.length > 0 ? 'Notable lot features: ' + s.objective_tags.slice(0, 6).join(', ') + '.' : ''}`} theme="outdoor" />

@@ -23,7 +23,7 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     "color_and_materials": "Description of the color palette, flooring, countertops, and other material choices.",
     "lighting": "Analysis of natural and artificial lighting quality and placement.",
     "spatial_flow": "Description of the layout (open concept, defined spaces) and how it affects the home's flow.",
-    "staging_and_furnishings": "How the furnishings support the scale, function, and appeal of the space.",
+    "storage_and_cabinetry": "The quality, style, and abundance of visible storage solutions, cabinetry, pantries, and built-ins.",
     "condition_and_finish": "Expert opinion on the home's overall condition and finish quality (e.g., turnkey, dated, high-end).",
     "hero_headline": "A punchy 4–7 word phrase capturing the interior's dominant character (e.g., 'Bright, open and move-in ready').",
     "atmosphere_scores": {
@@ -34,7 +34,7 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     "facet_tags": {
       "colors_tag": "2–4 word tag describing the color palette (e.g., 'Warm neutrals', 'Cool minimalist', 'Bold & eclectic').",
       "lighting_tag": "2–4 word tag for lighting character (e.g., 'Sun-drenched', 'Soft & ambient', 'Bright · Natural').",
-      "staging_tag": "2–4 word tag for staging style (e.g., 'Tasteful & curated', 'Minimal staging', 'Fully furnished')."
+      "storage_tag": "2–4 word tag for storage abundance and style (e.g., 'Ample built-ins', 'Custom cabinetry', 'Generous closets')."
     },
     "material_palette": [
       {
@@ -200,7 +200,7 @@ export const propertyImagesSchema = {
         color_and_materials: { type: Type.STRING, description: "Details on palette, flooring, countertops, and finishes." },
         lighting: { type: Type.STRING, description: "Analysis of natural light quality and artificial fixture placement." },
         spatial_flow: { type: Type.STRING, description: "Layout description (open vs defined) and how it affects movement." },
-        staging_and_furnishings: { type: Type.STRING, description: "How furnishings support scale and functional appeal." },
+        storage_and_cabinetry: { type: Type.STRING, description: "The quality, style, and abundance of visible storage solutions, cabinetry, pantries, and built-ins." },
         condition_and_finish: { type: Type.STRING, description: "Turnkey vs dated assessment and finish quality." },
         hero_headline: { type: Type.STRING, description: "4–7 word punchy headline capturing the interior's dominant character." },
         atmosphere_scores: {
@@ -219,9 +219,9 @@ export const propertyImagesSchema = {
           properties: {
             colors_tag: { type: Type.STRING, description: "2–4 word color palette descriptor." },
             lighting_tag: { type: Type.STRING, description: "2–4 word lighting character descriptor." },
-            staging_tag: { type: Type.STRING, description: "2–4 word staging style descriptor." },
+            storage_tag: { type: Type.STRING, description: "2–4 word storage abundance and style descriptor." },
           },
-          required: ["colors_tag", "lighting_tag", "staging_tag"],
+          required: ["colors_tag", "lighting_tag", "storage_tag"],
         },
         material_palette: {
           type: Type.ARRAY,
@@ -237,7 +237,7 @@ export const propertyImagesSchema = {
           },
         },
       },
-      required: ["overall_description", "design_style", "color_and_materials", "lighting", "spatial_flow", "staging_and_furnishings", "condition_and_finish", "hero_headline", "atmosphere_scores", "facet_tags", "material_palette"]
+      required: ["overall_description", "design_style", "color_and_materials", "lighting", "spatial_flow", "storage_and_cabinetry", "condition_and_finish", "hero_headline", "atmosphere_scores", "facet_tags", "material_palette"]
     },
     room_highlights: {
       type: Type.ARRAY,

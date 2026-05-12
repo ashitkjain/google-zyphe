@@ -15,7 +15,7 @@ OUTPUT — STRICT JSON, no prose around it. Match this exact shape (used by down
   "color_and_materials": "1 paragraph (4-6 sentences) describing the dominant palette and material story across the home — flooring, counters, cabinetry, wall colors, accents. Reference where specific materials appear.",
   "lighting": "1 paragraph (4-6 sentences) on the home's lighting story — natural light quality and orientation, statement fixtures, recessed/ambient strategy, and how lighting varies by room.",
   "spatial_flow": "1 paragraph (4-6 sentences) on layout and circulation — open-plan vs. defined zones, how rooms connect, indoor-outdoor transitions, ceiling heights, and any architectural moves (foyer drama, sightlines, transitions).",
-  "staging_and_furnishings": "1 paragraph (4-6 sentences) on staging quality, furniture style, scale, and how it supports or detracts from the architecture.",
+  "storage_and_cabinetry": "1 paragraph (4-6 sentences) on the quality, style, and abundance of visible storage solutions, cabinetry, pantries, and built-ins.",
   "condition_and_finish": "1 paragraph (4-6 sentences) on overall condition, finish quality, signs of recent updates vs. dated areas, and turnkey-readiness.",
   "hero_headline": "Punchy 4-7 word phrase capturing the dominant interior character (e.g. 'Light-filled transitional with seamless flow').",
   "atmosphere_scores": {
@@ -27,7 +27,7 @@ OUTPUT — STRICT JSON, no prose around it. Match this exact shape (used by down
   "facet_tags": {
     "colors_tag": "2-4 word palette tag (e.g. 'Warm neutrals', 'Cool minimalist', 'Bold & eclectic').",
     "lighting_tag": "2-4 word lighting character (e.g. 'Sun-drenched', 'Soft & ambient').",
-    "staging_tag": "2-4 word staging style (e.g. 'Tasteful & curated', 'Minimal staging', 'Fully furnished')."
+    "storage_tag": "2-4 word storage abundance and style (e.g. 'Ample built-ins', 'Custom cabinetry', 'Generous closets')."
   },
   "spatial_tag": "2-4 word layout descriptor for the spatial-architecture card chip (e.g. 'Open-concept main', 'Two-story layout', 'Single-level living').",
   "condition_tag": "1-2 word condition descriptor (e.g. 'Turnkey', 'Recently updated', 'Existing', 'Dated').",

@@ -440,7 +440,7 @@ const INTERIOR_SYNTHESIS_SCHEMA = {
         color_and_materials: { type: "string" },
         lighting: { type: "string" },
         spatial_flow: { type: "string" },
-        staging_and_furnishings: { type: "string" },
+        storage_and_cabinetry: { type: "string" },
         condition_and_finish: { type: "string" },
         hero_headline: { type: "string" },
         atmosphere_scores: {
@@ -458,9 +458,9 @@ const INTERIOR_SYNTHESIS_SCHEMA = {
             properties: {
                 colors_tag: { type: "string" },
                 lighting_tag: { type: "string" },
-                staging_tag: { type: "string" },
+                storage_tag: { type: "string" },
             },
-            required: ["colors_tag", "lighting_tag", "staging_tag"],
+            required: ["colors_tag", "lighting_tag", "storage_tag"],
         },
         spatial_tag: { type: "string" },
         condition_tag: { type: "string" },
@@ -481,7 +481,7 @@ const INTERIOR_SYNTHESIS_SCHEMA = {
     },
     required: [
         "overall_description", "design_style", "color_and_materials",
-        "lighting", "spatial_flow", "staging_and_furnishings",
+        "lighting", "spatial_flow", "storage_and_cabinetry",
         "condition_and_finish", "hero_headline", "atmosphere_scores",
         "finish_quality_score", "facet_tags", "hero_tags", "objective_tags",
         "material_palette",

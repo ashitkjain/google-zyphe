@@ -237,9 +237,9 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
             body: interior?.spatial_flow || 'Spatial flow analysis not yet available.',
         },
         {
-            icon: '⎈', title: 'Staging & Furnishings',
-            tag: facetTags?.staging_tag || (interior ? '' : '—'),
-            body: interior?.staging_and_furnishings || 'Staging analysis not yet available.',
+            icon: '⎈', title: 'Storage & Cabinetry',
+            tag: facetTags?.storage_tag || (facetTags as any)?.staging_tag || (interior ? '' : '—'),
+            body: interior?.storage_and_cabinetry || (interior as any)?.staging_and_furnishings || 'Storage analysis not yet available.',
         },
         {
             icon: '✓', title: 'Condition & Finish',

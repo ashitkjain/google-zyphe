@@ -56,9 +56,9 @@ export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
                             <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-chair text-lg"></i>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Staging & Furnishings</h4>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Storage & Cabinetry</h4>
                         </div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.staging_and_furnishings}</p>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.storage_and_cabinetry || (data as any).staging_and_furnishings}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
                         <div className="flex items-center gap-3 mb-4">

@@ -331,7 +331,7 @@ export interface CustomAIAnalysisResult {
         color_and_materials: string;
         lighting: string;
         spatial_flow: string;
-        staging_and_furnishings: string;
+        storage_and_cabinetry: string;
         condition_and_finish: string;
         // Image-analysis fields (from prompt)
         hero_headline?: string;
@@ -343,7 +343,7 @@ export interface CustomAIAnalysisResult {
         facet_tags?: {
             colors_tag: string;     // from image analysis
             lighting_tag: string;   // from image analysis
-            staging_tag: string;    // from image analysis
+            storage_tag: string;    // from image analysis
         };
         material_palette?: Array<{
             name: string;

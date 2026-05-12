@@ -491,7 +491,7 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
                         },
                         {
                             icon: 'fa-tree',
-                            title: 'Backyard & Patio',
+                            title: 'Backyard',
                             body: ext?.exterior_and_lot_appeal?.backyard_and_patio
                                 || 'Backyard analysis will appear after running the exterior analysis.',
                         },
