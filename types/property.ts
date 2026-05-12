@@ -399,6 +399,7 @@ export interface Tour {
 export interface PropertyAssets {
     zpid: string;
     images: string[];
+    photo_source?: string;       // Source site photos were downloaded from (e.g. 'zillow', 'redfin')
     imageMetadata?: Record<string, { originalUrl: string }>; // Maps storageUrl -> metadata
     mapZoomIn?: string;          // Radar close-up road map (Firebase Storage)
     mapZoomOut?: string;         // Radar wider-area road map (Firebase Storage)

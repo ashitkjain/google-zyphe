@@ -11,9 +11,13 @@ import * as firestore from 'firebase/firestore';
 vi.mock('firebase/firestore', () => {
     return {
         collection: vi.fn((db, path) => ({ path, type: 'collection' })),
-        doc: vi.fn((db, path, id) => ({ path, id: id || 'mock-msg-id', type: 'doc' })),
+        doc: vi.fn((...args) => {
+            const segs = args.slice(1);
+            return { path: segs.length >= 2 ? segs[segs.length - 2] : segs[0], id: segs[segs.length - 1] || 'mock-msg-id', type: 'doc' };
+        }),
         setDoc: vi.fn(() => Promise.resolve()),
         addDoc: vi.fn(() => Promise.resolve({ id: 'new-doc-id' })),
+        getDoc: vi.fn(),
         getDocs: vi.fn(),
         query: vi.fn(),
         where: vi.fn(),
@@ -26,7 +30,8 @@ vi.mock('firebase/firestore', () => {
 
 vi.mock('../services/firebase/config', () => ({
     db: { type: 'db' },
-    logFirestoreQuery: vi.fn()
+    auth: { currentUser: { uid: 'test-user-id' } },
+    logFirestoreQuery: vi.fn(),
 }));
 
 describe('Communications Service Unit Tests', () => {

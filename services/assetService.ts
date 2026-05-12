@@ -35,13 +35,14 @@ export const securePropertyAssets = async (
     zpid: string,
     providedImageUrls?: string[],
     maps?: { zoomIn?: string; zoomOut?: string; streetView?: string; satelliteImageUrl?: string },
-    onProgress?: (p: AssetProgress) => void
+    onProgress?: (p: AssetProgress) => void,
+    address?: string
 ): Promise<PropertyAssets> => {
 
     // 1. Fetch Ground Truth: Always reconcile against the live list from the source.
     // This ensures we never have a shallow ingestion, even if the caller only provided 1 photo.
     onProgress?.({ total: 100, completed: 0, message: "Fetching source image list..." });
-    const imageUrls = await fetchPropertyImages(zpid);
+    const { images: imageUrls, photo_source } = await fetchPropertyImages(zpid, address);
 
     const cached = await getPropertyAssetsFromCloud(zpid);
 
@@ -172,6 +173,7 @@ export const securePropertyAssets = async (
     const assets: PropertyAssets = {
         zpid,
         images: persistentImages,
+        photo_source,
         imageMetadata: newMetadata,
         mapZoomIn: persistentMapZoomIn || null,
         mapZoomOut: persistentMapZoomOut || null,

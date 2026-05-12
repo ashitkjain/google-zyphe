@@ -10,20 +10,26 @@ import * as firestore from 'firebase/firestore';
 vi.mock('firebase/firestore', () => {
     return {
         collection: vi.fn((db, path) => ({ path, type: 'collection' })),
-        doc: vi.fn((db, path, id) => ({ path, id: id || 'mock-summary-id', type: 'doc' })),
+        doc: vi.fn((...args) => {
+            const segs = args.slice(1);
+            return { path: segs.length >= 2 ? segs[segs.length - 2] : segs[0], id: segs[segs.length - 1] || 'mock-id', type: 'doc' };
+        }),
         setDoc: vi.fn(() => Promise.resolve()),
         addDoc: vi.fn(() => Promise.resolve({ id: 'new-doc-id' })),
+        getDoc: vi.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),
         getDocs: vi.fn(),
         query: vi.fn(),
         where: vi.fn(),
         orderBy: vi.fn(),
         limit: vi.fn(),
+        updateDoc: vi.fn(() => Promise.resolve()),
         serverTimestamp: vi.fn(() => 'mock-timestamp')
     };
 });
 
 vi.mock('../services/firebase/config', () => ({
-    db: { type: 'db' }
+    db: { type: 'db' },
+    auth: { currentUser: { uid: 'test-user-id' } },
 }));
 
 describe('Reactivation Service Unit Tests', () => {
@@ -70,35 +76,31 @@ describe('Reactivation Service Unit Tests', () => {
             );
 
             expect(firestore.setDoc).toHaveBeenCalled();
-            expect(firestore.addDoc).toHaveBeenCalledTimes(2); // 1 market context + 1 lead plan
-            expect(result).toBe('mock-summary-id');
+            expect(firestore.addDoc).toHaveBeenCalledTimes(3); // 1 market context + 2 per lead plan (legacy + nested)
+            expect(result).toBe('current_summary');
         });
     });
 
     describe('getExistingReactivationAnalysis', () => {
         it('should return null if no summary found', async () => {
-            vi.mocked(firestore.getDocs).mockResolvedValueOnce({ empty: true } as any);
-
+            // getDoc returns { exists: () => false } by default — function returns null without calling getDocs
             const result = await getExistingReactivationAnalysis('doc789', 'user123');
             expect(result).toBeNull();
         });
 
         it('should return combined data if summary and related records exist', async () => {
-            // 1. Mock Summary response
-            vi.mocked(firestore.getDocs).mockResolvedValueOnce({
-                empty: false,
-                docs: [{
-                    id: 'summary123',
-                    data: () => ({
-                        summary: 'Test Summary',
-                        global_settings: { focus: 'growth' },
-                        leads_documents: 'doc789',
-                        userId: 'user123'
-                    })
-                }]
+            // 1. Mock getDoc for the nested summary
+            vi.mocked(firestore.getDoc).mockResolvedValueOnce({
+                exists: () => true,
+                data: () => ({
+                    summary: 'Test Summary',
+                    global_settings: { focus: 'growth' },
+                    leads_documents: 'doc789',
+                    userId: 'user123'
+                })
             } as any);
 
-            // 2. Mock Market Context response
+            // 2. Mock Market Context response (getDocs)
             vi.mocked(firestore.getDocs).mockResolvedValueOnce({
                 docs: [{
                     data: () => ({
@@ -108,7 +110,7 @@ describe('Reactivation Service Unit Tests', () => {
                 }]
             } as any);
 
-            // 3. Mock Lead Plans response
+            // 3. Mock Lead Plans response (getDocs)
             vi.mocked(firestore.getDocs).mockResolvedValueOnce({
                 docs: [{
                     id: 'plan456',

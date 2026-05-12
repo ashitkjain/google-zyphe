@@ -6,8 +6,11 @@ import * as transactions from '../services/firebase/transactions';
 // Mock Firestore
 vi.mock('firebase/firestore', () => {
     return {
-        collection: vi.fn((db, path) => ({ path, type: 'collection' })),
-        doc: vi.fn((db, path, id) => ({ path, id, type: 'doc' })),
+        collection: vi.fn((...args) => ({ path: args[args.length - 1], type: 'collection' })),
+        doc: vi.fn((...args) => {
+            const segs = args.slice(1);
+            return { path: segs.length >= 2 ? segs[segs.length - 2] : segs[0], id: segs[segs.length - 1], type: 'doc' };
+        }),
         setDoc: vi.fn(() => Promise.resolve()),
         addDoc: vi.fn(() => Promise.resolve({ id: 'new-event-id' })),
         getDoc: vi.fn(),
@@ -45,7 +48,7 @@ vi.mock('../services/transactionService', () => ({
     getInitialCategories: vi.fn(() => [])
 }));
 
-vi.mock('./audit', () => ({
+vi.mock('../services/firebase/audit', () => ({
     logAuditEvent: vi.fn()
 }));
 

@@ -103,7 +103,7 @@ interface VisionDoc {
     synthesis_input_counts?: { interior: number; exterior: number };
 }
 
-type ActiveTab = 'indoor' | 'outdoor' | 'rooms';
+type ActiveTab = 'indoor' | 'outdoor';
 
 interface GroupView {
     label: string;
@@ -158,7 +158,8 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
     // Lifted out of RoomsWalkthrough so it survives parent re-renders caused
     // by setEnlargedImage (Wrapper is defined inside this component which
     // would otherwise remount RoomsWalkthrough and reset its state).
-    const [selectedRoomIdx, setSelectedRoomIdx] = useState(0);
+    const [selectedIndoorRoomIdx, setSelectedIndoorRoomIdx] = useState(0);
+    const [selectedOutdoorRoomIdx, setSelectedOutdoorRoomIdx] = useState(0);
 
     useEffect(() => {
         if (!zpid) return;
@@ -170,6 +171,8 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
     }, [zpid]);
 
     const { groups, orphans } = useMemo(() => groupPhotos(docData?.photos), [docData]);
+    const intGroups = useMemo(() => groups.filter(g => !isExteriorGroup(g)), [groups]);
+    const extGroups = useMemo(() => groups.filter(g => isExteriorGroup(g)), [groups]);
 
     // True while either the local callable is in-flight OR the saved doc
     // is reporting an in-progress status (covers the case where the client
@@ -228,9 +231,9 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
 
     return (
         <Wrapper>
-            <div className="max-w-6xl mx-auto px-6 py-6">
+            <div className="pb-6">
                 {userRole === 'admin' && (
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-end mb-3">
                         {inProgress && (
                             <span className="inline-flex items-center gap-2 px-3 py-1 mr-2 text-xs font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg">
                                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
@@ -305,13 +308,12 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
                     </div>
                 )}
 
-                {/* Tab bar — switches between synthesized views and per-room detail */}
+                {/* Tab bar */}
                 {docData && (
                     <div className="flex items-center gap-1 border-b border-slate-200 mb-4">
                         {([
                             { id: 'indoor' as const, label: 'Indoor Visual AI', count: docData.synthesis_input_counts?.interior },
                             { id: 'outdoor' as const, label: 'Outdoor Visual AI', count: docData.synthesis_input_counts?.exterior },
-                            { id: 'rooms' as const, label: 'Per-Room Detail', count: groups.length },
                         ]).map(tab => (
                             <button
                                 key={tab.id}
@@ -329,33 +331,50 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole }
                     </div>
                 )}
 
-                {/* Indoor Visual AI tab */}
+                {/* Indoor Visual AI tab — synthesis + per-room interior detail */}
                 {docData && activeTab === 'indoor' && (
-                    <SynthesisIndoor
-                        synthesis={docData.interior_synthesis ?? null}
-                        error={docData.interior_synthesis_error ?? null}
-                        inputCount={docData.synthesis_input_counts?.interior ?? 0}
-                    />
+                    <div className="space-y-8">
+                        <SynthesisIndoor
+                            synthesis={docData.interior_synthesis ?? null}
+                            error={docData.interior_synthesis_error ?? null}
+                            inputCount={docData.synthesis_input_counts?.interior ?? 0}
+                        />
+                        {intGroups.length > 0 && (
+                            <RoomsWalkthrough
+                                groups={intGroups}
+                                orphans={orphans}
+                                selectedIdx={selectedIndoorRoomIdx}
+                                onSelectIdx={setSelectedIndoorRoomIdx}
+                                onEnlargeImage={(url) => setEnlargedImage(url)}
+                                embedded
+                                sectionNum="03"
+                                accent="#4f46e5"
+                            />
+                        )}
+                    </div>
                 )}
 
-                {/* Outdoor Visual AI tab */}
+                {/* Outdoor Visual AI tab — synthesis + per-room exterior detail */}
                 {docData && activeTab === 'outdoor' && (
-                    <SynthesisOutdoor
-                        synthesis={docData.exterior_synthesis ?? null}
-                        error={docData.exterior_synthesis_error ?? null}
-                        inputCount={docData.synthesis_input_counts?.exterior ?? 0}
-                    />
-                )}
-
-                {/* Per-room detail tab — walkthrough layout */}
-                {docData && activeTab === 'rooms' && (
-                    <RoomsWalkthrough
-                        groups={groups}
-                        orphans={orphans}
-                        selectedIdx={selectedRoomIdx}
-                        onSelectIdx={setSelectedRoomIdx}
-                        onEnlargeImage={(url) => setEnlargedImage(url)}
-                    />
+                    <div className="space-y-8">
+                        <SynthesisOutdoor
+                            synthesis={docData.exterior_synthesis ?? null}
+                            error={docData.exterior_synthesis_error ?? null}
+                            inputCount={docData.synthesis_input_counts?.exterior ?? 0}
+                        />
+                        {extGroups.length > 0 && (
+                            <RoomsWalkthrough
+                                groups={extGroups}
+                                orphans={[]}
+                                selectedIdx={selectedOutdoorRoomIdx}
+                                onSelectIdx={setSelectedOutdoorRoomIdx}
+                                onEnlargeImage={(url) => setEnlargedImage(url)}
+                                embedded
+                                sectionNum="03"
+                                accent="#059669"
+                            />
+                        )}
+                    </div>
                 )}
 
                 <div className="h-12" />
@@ -387,6 +406,27 @@ export default VisionAnalysisPage;
 // Both tabs render the property-level synthesis produced by phase 7 of the
 // vision pipeline (functions/visionPipeline.js). They expect the JSON
 // shapes defined in InteriorSynthesis / ExteriorSynthesis above.
+
+const _serif = "'Instrument Serif', Georgia, serif";
+const _mono  = "'JetBrains Mono', ui-monospace, monospace";
+
+function SectionTitleBar({ num, kicker, title, italicWord, accent }: {
+    num: string; kicker: string; title: string; italicWord?: string; accent: string;
+}) {
+    const parts = italicWord && title.includes(italicWord) ? title.split(italicWord) : null;
+    return (
+        <div style={{ marginBottom: 22, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontFamily: _mono, fontSize: 11, color: accent, padding: '2px 7px', borderRadius: 4, background: `${accent}1a`, fontWeight: 700 }}>{num}</span>
+                <span style={{ width: 24, height: 1, background: accent, display: 'inline-block' }} />
+                <span style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, color: accent, textTransform: 'uppercase' }}>{kicker}</span>
+            </div>
+            <h2 style={{ fontFamily: _serif, fontSize: 30, lineHeight: 1.05, margin: 0, fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                {parts ? <>{parts[0]}<em style={{ color: accent, fontStyle: 'italic' }}>{italicWord}</em>{parts[1]}</> : title}
+            </h2>
+        </div>
+    );
+}
 
 function SynthesisEmpty({ kind, error, inputCount }: { kind: 'indoor' | 'outdoor'; error: string | null; inputCount: number }) {
     return (
@@ -462,11 +502,7 @@ function SynthesisIndoor({ synthesis: s, error, inputCount }: { synthesis: Inter
 
             {/* Atmosphere Dials */}
             <section>
-                <div className="flex items-center gap-3 mb-3">
-                    <span className="text-[11px] font-mono text-slate-400 font-bold">01</span>
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-indigo-700">Atmosphere Dials</span>
-                </div>
-                <h3 className="font-serif text-xl text-slate-900 mb-4">How it <em className="text-indigo-600">feels</em> inside</h3>
+                <SectionTitleBar num="01" kicker="Atmosphere Dials" title="How it feels inside" italicWord="feels" accent="#4f46e5" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <ScoreDial label="Brightness" value={s.atmosphere_scores.brightness} hint={s.facet_tags.lighting_tag} color="#4f46e5" />
                     <ScoreDial label="Warmth" value={s.atmosphere_scores.warmth} hint={s.facet_tags.colors_tag} color="#d97706" />
@@ -477,11 +513,7 @@ function SynthesisIndoor({ synthesis: s, error, inputCount }: { synthesis: Inter
 
             {/* Six Dimensions */}
             <section>
-                <div className="flex items-center gap-3 mb-3">
-                    <span className="text-[11px] font-mono text-slate-400 font-bold">02</span>
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-indigo-700">Interior Facets</span>
-                </div>
-                <h3 className="font-serif text-xl text-slate-900 mb-4">Six <em className="text-indigo-600">dimensions</em> of the interior</h3>
+                <SectionTitleBar num="02" kicker="Interior Facets" title="Six dimensions of the interior" italicWord="dimensions" accent="#4f46e5" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <FacetCard num={1} title="Design Philosophy" chip={s.design_style.style} body={s.design_style.reasoning} />
                     <FacetCard num={2} title="Colors & Materials" chip={s.facet_tags.colors_tag} body={s.color_and_materials} />
@@ -495,11 +527,7 @@ function SynthesisIndoor({ synthesis: s, error, inputCount }: { synthesis: Inter
             {/* Material palette */}
             {s.material_palette.length > 0 && (
                 <section>
-                    <div className="flex items-center gap-3 mb-3">
-                        <span className="text-[11px] font-mono text-slate-400 font-bold">03</span>
-                        <span className="text-[11px] uppercase tracking-wider font-bold text-indigo-700">Material Palette</span>
-                    </div>
-                    <h3 className="font-serif text-xl text-slate-900 mb-4">The home's <em className="text-indigo-600">material story</em></h3>
+                    <SectionTitleBar num="03" kicker="Material Palette" title="The home's material story" italicWord="material story" accent="#4f46e5" />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {s.material_palette.map((m, i) => (
                             <div key={i} className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
@@ -627,12 +655,15 @@ const RoomNavCard: React.FC<NavCardProps> = ({ group: g, globalIdx, isActive, on
     );
 };
 
-function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlargeImage }: {
+function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlargeImage, embedded, sectionNum, accent }: {
     groups: GroupView[];
     orphans: PhotoEntry[];
     selectedIdx: number;
     onSelectIdx: (idx: number) => void;
     onEnlargeImage: (url: string) => void;
+    embedded?: boolean;
+    sectionNum?: string;
+    accent?: string;
 }) {
     const [showSimilar, setShowSimilar] = useState(false);
 
@@ -667,34 +698,47 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
 
     return (
         <div className="space-y-5">
-            {/* ── Page header ── */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">SPACES · LLM</span>
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">COMPUTER-VISION WALKTHROUGH</span>
-                    </div>
-                    <h2 className="font-serif text-3xl text-slate-900 leading-tight">
-                        Every room, <em className="text-emerald-500 not-italic font-serif">seen and described.</em>
-                    </h2>
-                    <p className="text-sm text-slate-600 mt-2">
-                        Our vision model studied <strong className="text-slate-900">{totalPhotos} photos</strong> and grouped them into {groups.length} canonical spaces · <strong className="text-slate-900">{totalFacets}</strong> structured facets extracted.
-                    </p>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                    {[
-                        { val: groups.length, lbl: 'SPACES' },
-                        { val: totalPhotos,   lbl: 'PHOTOS' },
-                        { val: extGroups.length, lbl: 'EXT.' },
-                        { val: intGroups.length, lbl: 'INT.' },
-                    ].map(s => (
-                        <div key={s.lbl} className="text-center bg-white border border-slate-200 rounded-xl px-3 py-2 min-w-[52px]">
-                            <div className="text-lg font-black text-slate-900">{s.val}</div>
-                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.lbl}</div>
+            {/* ── Page header — shown only in standalone mode ── */}
+            {!embedded && (
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">SPACES · LLM</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">COMPUTER-VISION WALKTHROUGH</span>
                         </div>
-                    ))}
+                        <h2 className="font-serif text-3xl text-slate-900 leading-tight">
+                            Every room, <em className="text-emerald-500 not-italic font-serif">seen and described.</em>
+                        </h2>
+                        <p className="text-sm text-slate-600 mt-2">
+                            Our vision model studied <strong className="text-slate-900">{totalPhotos} photos</strong> and grouped them into {groups.length} canonical spaces · <strong className="text-slate-900">{totalFacets}</strong> structured facets extracted.
+                        </p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                        {[
+                            { val: groups.length, lbl: 'SPACES' },
+                            { val: totalPhotos,   lbl: 'PHOTOS' },
+                            { val: extGroups.length, lbl: 'EXT.' },
+                            { val: intGroups.length, lbl: 'INT.' },
+                        ].map(s => (
+                            <div key={s.lbl} className="text-center bg-white border border-slate-200 rounded-xl px-3 py-2 min-w-[52px]">
+                                <div className="text-lg font-black text-slate-900">{s.val}</div>
+                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.lbl}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* ── Embedded section heading ── */}
+            {embedded && (
+                <SectionTitleBar
+                    num={sectionNum ?? '03'}
+                    kicker="Room by Room"
+                    title={`${groups.length} spaces explored`}
+                    italicWord="spaces"
+                    accent={accent ?? '#4f46e5'}
+                />
+            )}
 
             {/* ── Horizontal room nav ── */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 overflow-x-auto">
@@ -931,11 +975,7 @@ function SynthesisOutdoor({ synthesis: s, error, inputCount }: { synthesis: Exte
 
             {/* Atmosphere dials */}
             <section>
-                <div className="flex items-center gap-3 mb-3">
-                    <span className="text-[11px] font-mono text-slate-400 font-bold">01</span>
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-700">Outdoor Dials</span>
-                </div>
-                <h3 className="font-serif text-xl text-slate-900 mb-4">How the <em className="text-emerald-600">outside</em> reads</h3>
+                <SectionTitleBar num="01" kicker="Outdoor Dials" title="How the outside reads" italicWord="outside" accent="#059669" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <ScoreDial label="Curb Appeal" value={s.exterior_atmosphere_scores.curb_appeal_score} hint={s.facet_tags.style_tag} color="#059669" />
                     <ScoreDial label="Outdoor Living" value={s.exterior_atmosphere_scores.outdoor_living_score} hint="Backyard & patio" color="#0891b2" />
@@ -946,11 +986,7 @@ function SynthesisOutdoor({ synthesis: s, error, inputCount }: { synthesis: Exte
 
             {/* Six Dimensions of plot */}
             <section>
-                <div className="flex items-center gap-3 mb-3">
-                    <span className="text-[11px] font-mono text-slate-400 font-bold">02</span>
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-700">Plot Facets</span>
-                </div>
-                <h3 className="font-serif text-xl text-slate-900 mb-4">Six <em className="text-emerald-600">dimensions</em> of the plot</h3>
+                <SectionTitleBar num="02" kicker="Plot Facets" title="Six dimensions of the plot" italicWord="dimensions" accent="#059669" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <FacetCard num={1} title="Style" chip={s.facet_tags.style_tag} body={s.exterior_and_lot_appeal.architecture_style} />
                     <FacetCard num={2} title="Curb Appeal" body={s.exterior_and_lot_appeal.curb_appeal} />

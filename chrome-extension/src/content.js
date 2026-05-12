@@ -13,8 +13,12 @@ function isPropertyPhotoUrl(url) {
   if (!url) return false;
   const lower = url.toLowerCase();
   const photoCdns = [
-    'zillowstatic.com', 'photos.zillowstatic.com', 'ssl.cdn-redfin.com',
-    'ap.rdcpix.com', 'rdcpix.com', 'cloudfront.net', 'amazonaws.com',
+    'zillowstatic.com', 'photos.zillowstatic.com',
+    'ssl.cdn-redfin.com', 'ssl.redfin.com',
+    'ap.rdcpix.com', 'rdcpix.com', 'nad.realtor.com',
+    'photos.homes.com', 'static.homes.com',
+    'trulia-cdn.com',
+    'cloudfront.net', 'amazonaws.com',
     'imgix.net', 'firebasestorage.googleapis.com',
   ];
   const excludePatterns = [
@@ -261,3 +265,7 @@ const observer = new MutationObserver(() => {
 observer.observe(document.body, { childList: true, subtree: true });
 
 chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' }).catch(() => {});
+
+// Announce extension ID to the zyphe.ai web app so it can send
+// DOWNLOAD_PROPERTY_PHOTOS messages via chrome.runtime.sendMessage(extensionId, ...).
+window.postMessage({ type: 'ZYPHE_EXTENSION_READY', extensionId: chrome.runtime.id }, '*');

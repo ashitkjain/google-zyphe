@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import firebaseFunctionsTest from 'firebase-functions-test';
 
-const test = firebaseFunctionsTest();
+const test = firebaseFunctionsTest({ projectId: 'demo-project' });
 
 describe('proxyStreetViewImage', () => {
     let myFunctions: any;

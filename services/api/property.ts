@@ -99,7 +99,7 @@ export const fetchScores = async (zpid: string, retries = 3): Promise<{
 
 // ─── Property Images ──────────────────────────────────────────────────────────
 
-export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<string[]> => {
+export const fetchPropertyImages = async (zpid: string, address?: string, retries = 3): Promise<{ images: string[]; photo_source: string }> => {
     const cacheKey = `images-${zpid}`;
     if (ongoingRequests.has(cacheKey)) return ongoingRequests.get(cacheKey)!;
 
@@ -116,12 +116,26 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
                     const resoData = await fetchResoPropertyData(resoConfig, zpid, true);
                     if (resoData && resoData.images && resoData.images.length > 0) {
                         console.log('[fetchPropertyImages] RESO Image Success:', zpid);
-                        return resoData.images;
+                        return { images: resoData.images, photo_source: 'reso' };
                     }
                 } catch (e) {
                     console.warn('[RESO] Image fetch failed, falling back:', e);
                 }
             }
+        }
+
+        // Try extension-based multi-source download (Zillow direct + Realtor/Redfin/Homes via tab nav)
+        try {
+            const { fetchPhotosViaExtension, isExtensionAvailable } = await import('../photoDownloadService');
+            if (isExtensionAvailable()) {
+                const result = await fetchPhotosViaExtension(zpid, address);
+                if (result.photos.length > 0) {
+                    console.log(`[fetchPropertyImages] Extension (${result.source}): ${result.photos.length} photos for ${zpid}`);
+                    return { images: result.photos, photo_source: result.source ?? 'zillow' };
+                }
+            }
+        } catch (e) {
+            console.warn('[fetchPropertyImages] Extension download skipped:', e);
         }
 
         const url = `https://${RAPID_API_HOST}/images?zpid=${zpid}`;
@@ -174,23 +188,24 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
                 else if (data.props?.photos && Array.isArray(data.props.photos)) images = data.props.photos;
                 else if (data.property?.photos && Array.isArray(data.property.photos)) images = data.property.photos;
 
-                return images.map((img: any) => {
+                const urls = images.map((img: any) => {
                     if (typeof img === 'string') return img;
                     if (typeof img === 'object' && img !== null) {
                         return img.url || img.uri || img.src || img.href || JSON.stringify(img);
                     }
                     return String(img);
                 }).filter((img: string) => typeof img === 'string' && img.startsWith('http'));
+                return { images: urls, photo_source: 'zillow' };
 
             } catch (e) {
                 if (attempt === retries) {
                     console.error(`Final attempt to fetch images failed for ZPID ${zpid}:`, e);
-                    return [];
+                    return { images: [], photo_source: 'zillow' };
                 }
                 await new Promise(resolve => setTimeout(resolve, 500 * attempt));
             }
         }
-        return [];
+        return { images: [], photo_source: 'zillow' };
     })();
 
     ongoingRequests.set(cacheKey, promise);

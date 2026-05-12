@@ -15,15 +15,17 @@ const mockBatch = {
 vi.mock('firebase/firestore', () => {
     return {
         collection: vi.fn((db, path) => ({ path, type: 'collection' })),
-        doc: vi.fn((db, path, id) => {
-            // Handle both doc(db, col, id) and doc(col, id)
-            const docId = id || (typeof db === 'object' && db.type === 'collection' ? path : undefined);
-            return { path: typeof db === 'object' && db.type === 'collection' ? db.path : path, id: docId || 'mock-id', type: 'doc' };
+        doc: vi.fn((...args) => {
+            const segs = args.slice(1);
+            return { path: segs.length >= 2 ? segs[segs.length - 2] : segs[0], id: segs[segs.length - 1] || 'mock-id', type: 'doc' };
         }),
         setDoc: vi.fn(() => Promise.resolve()),
+        getDoc: vi.fn(),
         getDocs: vi.fn(),
         query: vi.fn(),
         where: vi.fn(),
+        updateDoc: vi.fn(() => Promise.resolve()),
+        addDoc: vi.fn(() => Promise.resolve({ id: 'new-doc-id' })),
         writeBatch: vi.fn(() => mockBatch),
         serverTimestamp: vi.fn(() => 'mock-timestamp')
     };
@@ -31,6 +33,8 @@ vi.mock('firebase/firestore', () => {
 
 vi.mock('../services/firebase/config', () => ({
     db: { type: 'db' },
+    auth: { currentUser: { uid: 'test-user-id' } },
+    sanitizeForFirestore: vi.fn((x: any) => x),
     logFirestoreQuery: vi.fn(),
     handleFirestoreError: vi.fn()
 }));

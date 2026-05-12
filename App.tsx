@@ -78,6 +78,14 @@ const App: React.FC = () => {
     initClarity('vj30ntkkl1');
   }, []);
 
+  // Listen for the Chrome extension's postMessage so fetchPhotosViaExtension
+  // can route DOWNLOAD_PROPERTY_PHOTOS requests to it.
+  useEffect(() => {
+    import('./services/photoDownloadService').then(({ initExtensionBridge }) => {
+      initExtensionBridge();
+    });
+  }, []);
+
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [addClientModalOpen, setAddClientModalOpen] = useState(false);

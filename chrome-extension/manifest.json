@@ -7,7 +7,8 @@
     "sidePanel",
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
     "https://zyphe.ai/*",
@@ -16,8 +17,20 @@
     "https://*.zillowstatic.com/*",
     "https://*.cloudfront.net/*",
     "https://*.amazonaws.com/*",
-    "https://*.googleapis.com/*"
+    "https://*.googleapis.com/*",
+    "https://www.zillow.com/*",
+    "https://www.realtor.com/*",
+    "https://www.redfin.com/*",
+    "https://www.homes.com/*",
+    "https://www.trulia.com/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://zyphe.ai/*",
+      "http://localhost:3000/*",
+      "http://localhost/*"
+    ]
+  },
   "background": {
     "service_worker": "background.js"
   },

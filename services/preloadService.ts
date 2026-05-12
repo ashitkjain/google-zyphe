@@ -302,13 +302,14 @@ export const runFullIntelligencePipeline = async (
       onProgress({ step: 'Cloud Storage', status: 'running', message: 'Securing imagery and maps...' });
       const assets = await securePropertyAssets(
         zpid,
-        propData.images || [], // provide existing images as a hint
-        { 
-          zoomIn: radar.mapZoomIn, 
+        propData.images || [],
+        {
+          zoomIn: radar.mapZoomIn,
           zoomOut: radar.mapZoomOut,
           streetView: propData.streetView || null
         },
-        (p) => onLog?.(`[Assets] ${p.message}`)
+        (p) => onLog?.(`[Assets] ${p.message}`),
+        address
       );
 
       const alternate_ids = [...(propData.alternate_ids || [])];
@@ -1304,7 +1305,7 @@ export const runImageOnlyPipeline = async (
     onProgress({ step: 'Gallery', status: 'running', message: 'Fetching listing photos...' });
     let imageUrls = propData.images || [];
     try {
-      const fullImages = await fetchPropertyImages(zpid);
+      const { images: fullImages } = await fetchPropertyImages(zpid, radar.formattedAddress);
       if (fullImages?.length > imageUrls.length) {
         imageUrls = fullImages;
         onLog?.(`[Gallery] Found ${fullImages.length} images.`);
@@ -1344,7 +1345,8 @@ export const runImageOnlyPipeline = async (
         streetView: streetViewUrl,
         satelliteImageUrl: satelliteImageUrl
       },
-      (p) => onLog?.(`[Cloud] ${p.message}`)
+      (p) => onLog?.(`[Cloud] ${p.message}`),
+      radar.formattedAddress
     );
 
     // 5. Update Property Record with Persistent URLs

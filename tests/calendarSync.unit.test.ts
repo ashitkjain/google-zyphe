@@ -11,8 +11,11 @@ const mockBatch = {
 
 vi.mock('firebase/firestore', () => {
     return {
-        collection: vi.fn((db, path) => ({ path, type: 'collection' })),
-        doc: vi.fn((db, path, id) => ({ path, id: id || 'mock-id', type: 'doc' })),
+        collection: vi.fn((...args) => ({ path: args[args.length - 1], type: 'collection' })),
+        doc: vi.fn((...args) => {
+            const segs = args.slice(1);
+            return { path: segs.length >= 2 ? segs[segs.length - 2] : segs[0], id: segs[segs.length - 1] || 'mock-id', type: 'doc' };
+        }),
         setDoc: vi.fn(() => Promise.resolve()),
         getDocs: vi.fn(),
         query: vi.fn(),
@@ -30,15 +33,15 @@ vi.mock('../services/firebase/config', () => ({
     handleFirestoreError: vi.fn()
 }));
 
-vi.mock('./parties', () => ({
+vi.mock('../services/firebase/parties', () => ({
     seedPartiesForTransaction: vi.fn()
 }));
 
-vi.mock('./documents', () => ({
+vi.mock('../services/firebase/documents', () => ({
     seedDocumentsForTransaction: vi.fn()
 }));
 
-vi.mock('./audit', () => ({
+vi.mock('../services/firebase/audit', () => ({
     logAuditEvent: vi.fn()
 }));
 
