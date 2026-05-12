@@ -514,7 +514,7 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
                             {/* 3-col grid of dimension cards */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                                 {dims.map((d) => (
-                                    <div key={d.title} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 16px' }}>
+                                    <div key={d.title} style={{ background: 'linear-gradient(180deg, rgba(22, 163, 74, 0.05) 0%, #ffffff 100%)', borderRadius: 12, border: '1px solid rgba(22, 163, 74, 0.15)', padding: '14px 16px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                                             <div style={{ width: 24, height: 24, borderRadius: '50%', background: ACCENT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <i className={`fa-solid ${d.icon}`} style={{ fontSize: 10, color: ACCENT }} />

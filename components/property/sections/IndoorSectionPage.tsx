@@ -392,7 +392,7 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                 <SectionTitleBar num={nextSec()} kicker="Interior Facets" title="Six dimensions of the interior" italicWord="dimensions" />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                     {facets.map((f, i) => (
-                        <div key={f.title} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 18, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
+                        <div key={f.title} style={{ background: 'linear-gradient(180deg, rgba(13, 148, 136, 0.05) 0%, #ffffff 100%)', borderRadius: 12, border: '1px solid rgba(13, 148, 136, 0.15)', padding: 18, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
                             <div style={{ position: 'absolute', top: 14, right: 16, fontFamily: mono, fontSize: 10, color: '#cbd5e1', fontWeight: 700 }}>0{i + 1}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <div style={{ width: 32, height: 32, borderRadius: 8, background: `${ACCENT}18`, color: ACCENT, display: 'grid', placeItems: 'center', fontSize: 15 }}>{f.icon}</div>

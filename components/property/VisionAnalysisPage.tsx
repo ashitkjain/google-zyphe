@@ -245,7 +245,6 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, 
                     <PageHeader
                         icon={mode === 'indoor' ? 'fa-couch' : 'fa-house-chimney'}
                         title={mode === 'indoor' ? 'Indoor atmosphere (AI)' : 'Outdoor & curb appeal (AI)'}
-                        label="Photo Pipeline"
                         description={mode === 'indoor' ? 'Granular indoor visual analysis using multi-space visual classification' : 'Granular outdoor visual analysis using multi-space visual classification'}
                         color={mode === 'indoor' ? 'text-teal-600' : 'text-emerald-500'}
                         renderPalette={renderPalette}
@@ -357,8 +356,8 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, 
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`px-4 py-2 text-sm font-bold border-b-2 -mb-px transition-colors ${activeTab === tab.id
-                                        ? 'border-indigo-600 text-indigo-700'
-                                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                                    ? 'border-indigo-600 text-indigo-700'
+                                    : 'border-transparent text-slate-500 hover:text-slate-800'
                                     }`}
                             >
                                 {tab.label}
@@ -375,6 +374,9 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, 
                             synthesis={docData.interior_synthesis ?? null}
                             error={docData.interior_synthesis_error ?? null}
                             inputCount={docData.synthesis_input_counts?.interior ?? 0}
+                            groups={intGroups}
+                            propertyImages={propertyData?.images}
+                            onEnlargeImage={(url) => setEnlargedImage(url)}
                         />
                         {intGroups.length > 0 && (
                             <RoomsWalkthrough
@@ -398,6 +400,9 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, 
                             synthesis={docData.exterior_synthesis ?? null}
                             error={docData.exterior_synthesis_error ?? null}
                             inputCount={docData.synthesis_input_counts?.exterior ?? 0}
+                            groups={extGroups}
+                            propertyImages={propertyData?.images}
+                            onEnlargeImage={(url) => setEnlargedImage(url)}
                         />
                         {extGroups.length > 0 && (
                             <RoomsWalkthrough
@@ -501,40 +506,119 @@ function ScoreDial({ label, value, hint, color }: { label: string; value: number
     );
 }
 
-function FacetCard({ num, title, chip, body }: { num: number; title: string; chip?: string; body: string }) {
+function FacetCard({ num, title, chip, body, theme = 'indoor' }: { num: number; title: string; chip?: string; body: string; theme?: 'indoor' | 'outdoor' }) {
+    const bgClass = theme === 'outdoor'
+        ? 'bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60'
+        : 'bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60';
+    const chipBg = theme === 'outdoor'
+        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+        : 'bg-indigo-50 text-indigo-800 border-indigo-200';
     return (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 relative">
+        <div className={`${bgClass} rounded-xl p-5 relative`}>
             <div className="absolute top-3 right-4 text-[10px] font-mono text-slate-300 font-bold">0{num}</div>
             <h4 className="font-serif text-lg text-slate-900 mb-2 leading-tight">{title}</h4>
             {chip && chip !== '—' && (
-                <span className="inline-flex items-center bg-indigo-50 text-indigo-800 px-2 py-0.5 rounded-full text-[11px] font-bold border border-indigo-200 mb-2">{chip}</span>
+                <span className={`inline-flex items-center ${chipBg} px-2 py-0.5 rounded-full text-[11px] font-bold border mb-2`}>{chip}</span>
             )}
             <p className="text-xs text-slate-600 leading-relaxed">{body}</p>
         </div>
     );
 }
 
-function SynthesisIndoor({ synthesis: s, error, inputCount }: { synthesis: InteriorSynthesis | null; error: string | null; inputCount: number }) {
+function SynthesisIndoor({
+    synthesis: s, error, inputCount, groups, propertyImages, onEnlargeImage
+}: {
+    synthesis: InteriorSynthesis | null;
+    error: string | null;
+    inputCount: number;
+    groups: GroupView[];
+    propertyImages?: string[];
+    onEnlargeImage: (url: string) => void;
+}) {
     if (!s) return <SynthesisEmpty kind="indoor" error={error} inputCount={inputCount} />;
     return (
         <div className="space-y-8">
             {/* Hero */}
-            <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100 rounded-2xl p-6">
-                <div className="flex flex-wrap gap-2 mb-3">
-                    <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-[11px] font-bold">◈ {s.design_style.style}</span>
-                    {s.hero_tags.map(t => (
-                        <span key={t} className="bg-white text-slate-600 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-slate-200">{t}</span>
-                    ))}
-                </div>
-                <h2 className="font-serif text-2xl text-slate-900 mb-3 leading-tight">{s.hero_headline || <>Interior &amp; <em className="text-indigo-600">atmosphere</em></>}</h2>
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{s.overall_description}</p>
-                {s.objective_tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-4">
-                        {s.objective_tags.map(t => (
-                            <span key={t} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-indigo-200">{t}</span>
+            <div className="bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100 rounded-2xl p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-[11px] font-bold">◈ {s.design_style.style}</span>
+                        {s.hero_tags.map(t => (
+                            <span key={t} className="bg-white text-slate-600 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-slate-200">{t}</span>
                         ))}
                     </div>
-                )}
+                    <h2 className="font-serif text-2xl text-slate-900 mb-3 leading-tight">{s.hero_headline || <>Interior &amp; <em className="text-indigo-600">atmosphere</em></>}</h2>
+                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{s.overall_description}</p>
+                    {s.objective_tags.length > 0 && (() => {
+                        const styleVal = s.design_style.style?.trim().toLowerCase();
+                        const seen = new Set<string>();
+                        if (styleVal) seen.add(styleVal);
+                        
+                        const uniqueObjectiveTags = s.objective_tags.filter(t => {
+                            const val = t?.trim().toLowerCase();
+                            if (!val || seen.has(val)) return false;
+                            seen.add(val);
+                            return true;
+                        });
+
+                        if (uniqueObjectiveTags.length === 0) return null;
+
+                        return (
+                            <div className="flex flex-wrap gap-1.5 mt-4">
+                                {uniqueObjectiveTags.map(t => (
+                                    <span key={t} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-indigo-200">{t}</span>
+                                ))}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Photo grid - Mosaic of top 3 photos */}
+                {(() => {
+                    let items: Array<{ url: string; label: string }> = [];
+                    const used = new Set<string>();
+
+                    for (const g of groups) {
+                        const url = g.canonical?.url;
+                        if (url && !used.has(url)) {
+                            items.push({ url, label: g.label || '' });
+                            used.add(url);
+                            if (items.length >= 3) break;
+                        }
+                    }
+
+                    if (items.length < 3 && propertyImages) {
+                        for (const url of propertyImages) {
+                            if (url && !used.has(url)) {
+                                items.push({ url, label: '' });
+                                used.add(url);
+                                if (items.length >= 3) break;
+                            }
+                        }
+                    }
+
+                    if (items.length === 0) return null;
+
+                    return (
+                        <div className="grid grid-cols-2 gap-3">
+                            {items.map((img, i) => (
+                                <div
+                                    key={i}
+                                    className={`rounded-xl overflow-hidden relative border border-slate-200 cursor-zoom-in bg-slate-50 ${i === 0 ? 'col-span-2 h-[260px]' : 'h-[160px]'
+                                        }`}
+                                    onClick={() => onEnlargeImage(img.url)}
+                                >
+                                    <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+                                    {img.label && (
+                                        <div className="absolute bottom-3 left-3 bg-slate-900/75 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                                            {img.label}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Atmosphere Dials */}
@@ -552,12 +636,12 @@ function SynthesisIndoor({ synthesis: s, error, inputCount }: { synthesis: Inter
             <section>
                 <SectionTitleBar num="02" kicker="Interior Facets" title="Six dimensions of the interior" italicWord="dimensions" accent="#4f46e5" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <FacetCard num={1} title="Design Philosophy" chip={s.design_style.style} body={s.design_style.reasoning} />
-                    <FacetCard num={2} title="Colors & Materials" chip={s.facet_tags.colors_tag} body={s.color_and_materials} />
-                    <FacetCard num={3} title="Lighting Environment" chip={s.facet_tags.lighting_tag} body={s.lighting} />
-                    <FacetCard num={4} title="Spatial Architecture" chip={s.spatial_tag} body={s.spatial_flow} />
-                    <FacetCard num={5} title="Staging & Furnishings" chip={s.facet_tags.staging_tag} body={s.staging_and_furnishings} />
-                    <FacetCard num={6} title="Condition & Finish" chip={s.condition_tag} body={s.condition_and_finish} />
+                    <FacetCard num={1} title="Design Philosophy" chip={s.design_style.style} body={s.design_style.reasoning} theme="indoor" />
+                    <FacetCard num={2} title="Colors & Materials" chip={s.facet_tags.colors_tag} body={s.color_and_materials} theme="indoor" />
+                    <FacetCard num={3} title="Lighting Environment" chip={s.facet_tags.lighting_tag} body={s.lighting} theme="indoor" />
+                    <FacetCard num={4} title="Spatial Architecture" chip={s.spatial_tag} body={s.spatial_flow} theme="indoor" />
+                    <FacetCard num={5} title="Staging & Furnishings" chip={s.facet_tags.staging_tag} body={s.staging_and_furnishings} theme="indoor" />
+                    <FacetCard num={6} title="Condition & Finish" chip={s.condition_tag} body={s.condition_and_finish} theme="indoor" />
                 </div>
             </section>
 
@@ -660,8 +744,8 @@ const RoomNavCard: React.FC<NavCardProps> = ({ group: g, globalIdx, isActive, on
         <button
             onClick={() => onSelect(globalIdx)}
             className={`flex-shrink-0 w-[96px] text-left rounded-xl overflow-hidden transition-all border-2 ${isActive
-                    ? (ext ? 'border-emerald-400 shadow-md ring-1 ring-emerald-200' : 'border-violet-400 shadow-md ring-1 ring-violet-200')
-                    : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                ? (ext ? 'border-emerald-400 shadow-md ring-1 ring-emerald-200' : 'border-violet-400 shadow-md ring-1 ring-violet-200')
+                : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
                 }`}
         >
             <div className="relative h-[62px]">
@@ -917,7 +1001,6 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                                     <span className={`text-[11px] font-black uppercase tracking-wider ${obsLabel}`}>
                                         {facets.length} OBSERVATIONS
                                     </span>
-                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">· VISION LLM · STRUCTURED FACETS</span>
                                 </div>
 
                                 {/* Facet cards — 3-col grid */}
@@ -987,23 +1070,94 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
     );
 }
 
-function SynthesisOutdoor({ synthesis: s, error, inputCount }: { synthesis: ExteriorSynthesis | null; error: string | null; inputCount: number }) {
+function SynthesisOutdoor({
+    synthesis: s, error, inputCount, groups, propertyImages, onEnlargeImage
+}: {
+    synthesis: ExteriorSynthesis | null;
+    error: string | null;
+    inputCount: number;
+    groups: GroupView[];
+    propertyImages?: string[];
+    onEnlargeImage: (url: string) => void;
+}) {
     if (!s) return <SynthesisEmpty kind="outdoor" error={error} inputCount={inputCount} />;
     return (
         <div className="space-y-8">
             {/* Hero */}
-            <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100 rounded-2xl p-6">
-                <div className="flex flex-wrap gap-2 mb-3">
-                    <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[11px] font-bold">◈ {s.facet_tags.style_tag}</span>
-                    {s.objective_tags.slice(0, 6).map(t => (
-                        <span key={t} className="bg-white text-slate-600 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-slate-200">{t}</span>
-                    ))}
+            <div className="bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100 rounded-2xl p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[11px] font-bold">◈ {s.facet_tags.style_tag}</span>
+                        {(() => {
+                            const styleVal = s.facet_tags.style_tag?.trim().toLowerCase();
+                            const seen = new Set<string>();
+                            if (styleVal) seen.add(styleVal);
+
+                            const uniqueObjectiveTags = s.objective_tags.filter(t => {
+                                const val = t?.trim().toLowerCase();
+                                if (!val || seen.has(val)) return false;
+                                seen.add(val);
+                                return true;
+                            });
+
+                            return uniqueObjectiveTags.slice(0, 6).map(t => (
+                                <span key={t} className="bg-white text-slate-600 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-slate-200">{t}</span>
+                            ));
+                        })()}
+                    </div>
+                    <h2 className="font-serif text-2xl text-slate-900 mb-3 leading-tight">{s.hero_headline || <>Outdoor &amp; <em className="text-emerald-600">curb appeal</em></>}</h2>
+                    <div className="space-y-3 text-sm text-slate-600 leading-relaxed">
+                        <p className="whitespace-pre-line">{s.exterior_and_lot_appeal.curb_appeal}</p>
+                        <p className="whitespace-pre-line">{s.exterior_and_lot_appeal.backyard_and_patio}</p>
+                    </div>
                 </div>
-                <h2 className="font-serif text-2xl text-slate-900 mb-3 leading-tight">{s.hero_headline || <>Outdoor &amp; <em className="text-emerald-600">curb appeal</em></>}</h2>
-                <div className="space-y-3 text-sm text-slate-600 leading-relaxed">
-                    <p className="whitespace-pre-line">{s.exterior_and_lot_appeal.curb_appeal}</p>
-                    <p className="whitespace-pre-line">{s.exterior_and_lot_appeal.backyard_and_patio}</p>
-                </div>
+
+                {/* Photo grid - Mosaic of top 3 photos */}
+                {(() => {
+                    let items: Array<{ url: string; label: string }> = [];
+                    const used = new Set<string>();
+
+                    for (const g of groups) {
+                        const url = g.canonical?.url;
+                        if (url && !used.has(url)) {
+                            items.push({ url, label: g.label || '' });
+                            used.add(url);
+                            if (items.length >= 3) break;
+                        }
+                    }
+
+                    if (items.length < 3 && propertyImages) {
+                        for (const url of propertyImages) {
+                            if (url && !used.has(url)) {
+                                items.push({ url, label: '' });
+                                used.add(url);
+                                if (items.length >= 3) break;
+                            }
+                        }
+                    }
+
+                    if (items.length === 0) return null;
+
+                    return (
+                        <div className="grid grid-cols-2 gap-3">
+                            {items.map((img, i) => (
+                                <div
+                                    key={i}
+                                    className={`rounded-xl overflow-hidden relative border border-slate-200 cursor-zoom-in bg-slate-50 ${i === 0 ? 'col-span-2 h-[260px]' : 'h-[160px]'
+                                        }`}
+                                    onClick={() => onEnlargeImage(img.url)}
+                                >
+                                    <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+                                    {img.label && (
+                                        <div className="absolute bottom-3 left-3 bg-slate-900/75 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                                            {img.label}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Atmosphere dials */}
@@ -1019,14 +1173,14 @@ function SynthesisOutdoor({ synthesis: s, error, inputCount }: { synthesis: Exte
 
             {/* Six Dimensions of plot */}
             <section>
-                <SectionTitleBar num="02" kicker="Plot Facets" title="Six dimensions of the plot" italicWord="dimensions" accent="#059669" />
+                <SectionTitleBar num="02" kicker="Outdoor Facets" title="Six dimensions of the outdoor" italicWord="dimensions" accent="#059669" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <FacetCard num={1} title="Style" chip={s.facet_tags.style_tag} body={s.exterior_and_lot_appeal.architecture_style} />
-                    <FacetCard num={2} title="Curb Appeal" body={s.exterior_and_lot_appeal.curb_appeal} />
-                    <FacetCard num={3} title="Backyard & Patio" body={s.exterior_and_lot_appeal.backyard_and_patio} />
-                    <FacetCard num={4} title="Privacy" chip={s.facet_tags.privacy_tag} body={s.views_privacy_orientation.privacy} />
-                    <FacetCard num={5} title="Views" chip={s.facet_tags.views_tag} body={s.views_privacy_orientation.views} />
-                    <FacetCard num={6} title="Lot Coverage" chip={s.facet_tags.lot_coverage_tag} body={`Inferred coverage: ${s.facet_tags.lot_coverage_tag}. ${s.objective_tags.length > 0 ? 'Notable lot features: ' + s.objective_tags.slice(0, 6).join(', ') + '.' : ''}`} />
+                    <FacetCard num={1} title="Style" chip={s.facet_tags.style_tag} body={s.exterior_and_lot_appeal.architecture_style} theme="outdoor" />
+                    <FacetCard num={2} title="Curb Appeal" body={s.exterior_and_lot_appeal.curb_appeal} theme="outdoor" />
+                    <FacetCard num={3} title="Backyard & Patio" body={s.exterior_and_lot_appeal.backyard_and_patio} theme="outdoor" />
+                    <FacetCard num={4} title="Privacy" chip={s.facet_tags.privacy_tag} body={s.views_privacy_orientation.privacy} theme="outdoor" />
+                    <FacetCard num={5} title="Views" chip={s.facet_tags.views_tag} body={s.views_privacy_orientation.views} theme="outdoor" />
+                    <FacetCard num={6} title="Lot Coverage" chip={s.facet_tags.lot_coverage_tag} body={`Inferred coverage: ${s.facet_tags.lot_coverage_tag}. ${s.objective_tags.length > 0 ? 'Notable lot features: ' + s.objective_tags.slice(0, 6).join(', ') + '.' : ''}`} theme="outdoor" />
                 </div>
             </section>
         </div>
