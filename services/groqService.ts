@@ -1,6 +1,6 @@
 // Obfuscated to bypass GitHub push protection secret scanner while maintaining exact runtime key
 export const GROQ_API_KEY = ["gsk_jyviNvfLGFMliIZ", "ogDIsWGdyb3FYzTMeRO5SlB7Yk27qyc8q8RL9"].join("");
-export const GROQ_CHAT_MODEL = "llama-3.3-70b-versatile";
+export const GROQ_CHAT_MODEL = "llama-3.1-8b-instant";
 
 export interface GroqMessage {
   role: 'system' | 'user' | 'assistant';
