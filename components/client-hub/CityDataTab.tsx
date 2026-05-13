@@ -5325,12 +5325,21 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                                             <p className="text-[10px] text-slate-600 mt-0.5">{n.infrastructure_quality}</p>
                                                         </div>
                                                     )}
-                                                    {n.upcoming_changes && n.upcoming_changes !== 'None known' && (
-                                                        <div>
-                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Upcoming Changes</span>
-                                                            <p className="text-[10px] text-amber-700 mt-0.5">{n.upcoming_changes}</p>
-                                                        </div>
-                                                    )}
+                                                    {n.upcoming_changes && (() => {
+                                                        const val = typeof n.upcoming_changes === 'object'
+                                                            ? Object.entries(n.upcoming_changes)
+                                                                .filter(([_, v]) => v && typeof v === 'string' && v !== 'None known')
+                                                                .map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}: ${v}`)
+                                                                .join(' | ')
+                                                            : n.upcoming_changes;
+                                                        if (!val || val === 'None known') return null;
+                                                        return (
+                                                            <div>
+                                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Upcoming Changes</span>
+                                                                <p className="text-[10px] text-amber-700 mt-0.5">{val}</p>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     {n.nextdoor?.found && (
                                                         <div className="pt-2 border-t border-slate-50 space-y-3">
                                                             <div className="flex flex-col gap-1 mb-1">

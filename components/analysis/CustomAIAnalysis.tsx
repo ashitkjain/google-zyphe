@@ -26,6 +26,7 @@ interface Props {
   onToggleFavorite?: () => void;
   activeSubTab?: string;
   onTabChange?: (tabId: string) => void;
+  onBindContextGraphRefresh?: (fn: () => void) => void;
 }
 
 const CustomAIAnalysis: React.FC<Props> = (props) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ContextGraphExtractionResult } from '../../../../types';
 import {
     FACTOR_NAMES,
@@ -7,6 +7,23 @@ import {
     DELETED_FACTOR_IDS,
     ExtractedFactor
 } from '../../../../constants/contextGraphFactors';
+import {
+    resolveTaxonomySignalsFromFactors,
+    tagsByZone,
+    type TagZone,
+    type TaxonomySignal,
+} from '../../../../utils/propertyTaxonomy';
+
+/** Maps a factor-table bucket key to a PROPERTY_TAXONOMY zone, where one exists. */
+const BUCKET_TO_TAXONOMY_ZONE: Record<string, TagZone> = {
+    architecture: 'architecture_entry',
+    culinary:     'culinary',
+    living:       'living_entertaining',
+    sanctuary:    'primary_sanctuary',
+    wellness:     'wellness_spa',
+    outdoor:      'outdoor_grounds',
+    // Context buckets (quality/systems/connectivity/lifestyle/climate/investment) have no zone counterpart.
+};
 
 interface Props {
     data: ContextGraphExtractionResult;
@@ -14,12 +31,70 @@ interface Props {
     onExtract: () => void;
 }
 
-const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; ranges: [number, number][] }> = {
-    property: { label: 'Property & Financials', icon: 'fa-house', color: 'emerald', ranges: [[1, 30]] },
-    location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88], [120, 122]] },
-    intelligence: { label: 'AI Factors', icon: 'fa-brain', color: 'violet', ranges: [[51, 75], [100, 105]] },
-    visual: { label: 'Visual & Street View', icon: 'fa-street-view', color: 'cyan', ranges: [[94, 98], [108, 116]] },
-    investment: { label: 'Investment & Risk', icon: 'fa-chart-line', color: 'amber', ranges: [[89, 93], [111, 111]] },
+type BucketGroup = 'home' | 'context';
+
+const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; group: BucketGroup }> = {
+    // ── Home Feature Buckets (mirror PROPERTY_TAXONOMY zones) ───────────────
+    architecture: { label: 'Architecture & Curb Appeal', icon: 'fa-building-columns', color: 'amber',   group: 'home' },
+    culinary:     { label: 'Culinary',                   icon: 'fa-utensils',         color: 'rose',    group: 'home' },
+    living:       { label: 'Living & Entertainment',     icon: 'fa-couch',            color: 'fuchsia', group: 'home' },
+    sanctuary:    { label: 'Primary Sanctuary',          icon: 'fa-bed',              color: 'violet',  group: 'home' },
+    wellness:     { label: 'Shower & Wellness',          icon: 'fa-bath',             color: 'indigo',  group: 'home' },
+    outdoor:      { label: 'Outdoor & Grounds',          icon: 'fa-tree',             color: 'teal',    group: 'home' },
+    // ── Cross-Cutting Context Buckets ──────────────────────────────────────
+    quality:      { label: 'Quality & Condition',        icon: 'fa-gem',              color: 'slate',   group: 'context' },
+    systems:      { label: 'Home Systems & Energy',      icon: 'fa-bolt',             color: 'cyan',    group: 'context' },
+    connectivity: { label: 'Connectivity & Commute',     icon: 'fa-route',            color: 'blue',    group: 'context' },
+    lifestyle:    { label: 'Lifestyle & Community',      icon: 'fa-people-group',     color: 'emerald', group: 'context' },
+    climate:      { label: 'Climate & Environment',      icon: 'fa-cloud-sun',        color: 'lime',    group: 'context' },
+    investment:   { label: 'Investment & Market',        icon: 'fa-chart-line',       color: 'orange',  group: 'context' },
+};
+
+/**
+ * Explicit factor → bucket mapping. One entry per non-deleted factor.
+ * Keeps factor IDs/data unchanged — only changes the UI grouping.
+ */
+const FACTOR_TO_BUCKET: Record<number, string> = {
+    // Architecture & Curb Appeal
+    14: 'architecture', 19: 'architecture', 20: 'architecture', 23: 'architecture',
+    34: 'architecture', 38: 'architecture', 41: 'architecture', 51: 'architecture',
+    94: 'architecture', 95: 'architecture', 97: 'architecture', 104: 'architecture',
+    108: 'architecture',
+    // Culinary
+    26: 'culinary',
+    // Living & Entertainment
+    17: 'living', 24: 'living', 25: 'living', 29: 'living', 59: 'living',
+    114: 'living', 116: 'living',
+    // Primary Sanctuary
+    58: 'sanctuary',
+    // Wellness & Spa
+    27: 'wellness',
+    // Outdoor & Grounds
+    6: 'outdoor', 31: 'outdoor', 32: 'outdoor', 33: 'outdoor', 35: 'outdoor',
+    36: 'outdoor', 39: 'outdoor', 40: 'outdoor', 54: 'outdoor', 68: 'outdoor',
+    96: 'outdoor', 109: 'outdoor',
+    // Quality & Condition (cross-zone interior quality)
+    21: 'quality', 22: 'quality', 28: 'quality', 30: 'quality', 67: 'quality',
+    100: 'quality', 113: 'quality', 115: 'quality',
+    // Home Systems & Energy
+    48: 'systems', 50: 'systems', 60: 'systems', 61: 'systems', 86: 'systems',
+    // Connectivity & Commute
+    42: 'connectivity', 43: 'connectivity', 45: 'connectivity', 57: 'connectivity',
+    64: 'connectivity', 76: 'connectivity', 85: 'connectivity',
+    // Lifestyle & Community
+    44: 'lifestyle', 72: 'lifestyle', 73: 'lifestyle', 74: 'lifestyle',
+    80: 'lifestyle', 81: 'lifestyle', 82: 'lifestyle', 83: 'lifestyle',
+    84: 'lifestyle', 88: 'lifestyle', 98: 'lifestyle', 101: 'lifestyle',
+    102: 'lifestyle', 105: 'lifestyle', 120: 'lifestyle', 122: 'lifestyle',
+    // Climate & Environment
+    46: 'climate', 47: 'climate', 49: 'climate', 52: 'climate', 77: 'climate',
+    79: 'climate', 106: 'climate', 121: 'climate',
+    // Investment & Market
+    1: 'investment',  2: 'investment',  4: 'investment',  5: 'investment',
+    7: 'investment',  8: 'investment',  9: 'investment',  65: 'investment',
+    70: 'investment', 71: 'investment', 75: 'investment', 89: 'investment',
+    90: 'investment', 91: 'investment', 92: 'investment', 93: 'investment',
+    103: 'investment', 111: 'investment',
 };
 
 /** Per-factor-ID tag color styles */
@@ -59,15 +134,7 @@ const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border:
 
 
 
-const getCategoryForFactor = (id: number): string => {
-    // Explicit overrides for factors that belong in a different tab than their ID range
-    if (id === 34) return 'intelligence'; // Curb Appeal → AI Intelligence
-    if (id === 100) return 'property';    // Agent Highlights → Property & Financials
-    for (const [key, cat] of Object.entries(CATEGORY_MAP)) {
-        if (cat.ranges.some(([lo, hi]) => id >= lo && id <= hi)) return key;
-    }
-    return 'property';
-};
+const getCategoryForFactor = (id: number): string => FACTOR_TO_BUCKET[id] || 'quality';
 
 const FactorRow: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => {
     const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
@@ -80,7 +147,9 @@ const FactorRow: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => {
                 </div>
             </td>
             <td className="py-3 px-3 text-[11px] text-slate-500 font-normal leading-relaxed italic w-[45%] pr-4 border-x border-slate-50">
-                {factor.value && factor.value !== 'Data not available' ? factor.value : '-'}
+                {factor.value && factor.value !== 'Data not available'
+                    ? (typeof factor.value === 'object' ? JSON.stringify(factor.value) : factor.value)
+                    : '-'}
             </td>
             <td className="py-3 px-3 w-[35%]">
                 <div className="flex flex-wrap gap-1 mt-0.5">
@@ -95,9 +164,16 @@ const FactorRow: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => {
     );
 };
 
-const CategorySection: React.FC<{ categoryKey: string; factors: ExtractedFactor[] }> = ({ categoryKey, factors }) => {
+const CategorySection: React.FC<{
+    categoryKey: string;
+    factors: ExtractedFactor[];
+    signals: TaxonomySignal[];
+}> = ({ categoryKey, factors, signals }) => {
     const cat = CATEGORY_MAP[categoryKey];
-    if (!cat || factors.length === 0) return null;
+    if (!cat) return null;
+
+    const zone = BUCKET_TO_TAXONOMY_ZONE[categoryKey];
+    const totalTagsInZone = zone ? tagsByZone(zone).length : 0;
 
     return (
         <>
@@ -106,11 +182,53 @@ const CategorySection: React.FC<{ categoryKey: string; factors: ExtractedFactor[
                     <div className="flex items-center gap-2">
                         <i className={`fa-solid ${cat.icon} text-${cat.color}-500 text-xs`}></i>
                         <span className="text-xs font-black text-slate-700">{cat.label}</span>
-                        <span className="text-[9px] font-bold text-slate-400">{factors.length}</span>
+                        <span className={`text-[9px] font-bold ${factors.length === 0 ? 'text-slate-300' : 'text-slate-400'}`}>
+                            {factors.length === 0 ? '0 factors' : factors.length}
+                        </span>
+                        {zone && signals.length > 0 && (
+                            <span className={`text-[9px] font-bold text-${cat.color}-700 bg-${cat.color}-100 px-1.5 py-0.5 rounded ml-1`}>
+                                {signals.length}/{totalTagsInZone} taxonomy match
+                            </span>
+                        )}
                     </div>
                 </td>
             </tr>
-            {factors.map(f => <FactorRow key={f.id} factor={f} />)}
+            {zone && signals.length > 0 && (
+                <tr className="border-b border-slate-100">
+                    <td colSpan={3} className={`py-2.5 px-3 bg-${cat.color}-50/20`}>
+                        <div className="flex items-start gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 pt-1 flex-shrink-0">
+                                Detected
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                                {signals.map(sig => (
+                                    <span
+                                        key={sig.tagId}
+                                        title={`Evidence: ${sig.evidence.join(' · ')}\nFrom factor(s): ${sig.sourceFactorIds.join(', ')}`}
+                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border cursor-help ${
+                                            sig.confidence === 'high'
+                                                ? `bg-${cat.color}-50 text-${cat.color}-700 border-${cat.color}-200`
+                                                : 'bg-slate-50 text-slate-500 border-slate-200'
+                                        }`}
+                                    >
+                                        {sig.confidence === 'high' && <i className="fa-solid fa-check text-[8px] mr-1" />}
+                                        {sig.label}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            )}
+            {factors.length === 0 ? (
+                <tr>
+                    <td colSpan={3} className="py-3 px-3 text-[11px] italic text-slate-300">
+                        No factors extracted in this bucket yet.
+                    </td>
+                </tr>
+            ) : (
+                factors.map(f => <FactorRow key={f.id} factor={f} />)
+            )}
         </>
     );
 };
@@ -119,6 +237,13 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     const [activeFilter, setActiveFilter] = useState<string>('all');
     const [showJson, setShowJson] = useState(false);
     const [activeTab, setActiveTab] = useState<'factors' | 'buyerDna'>('factors');
+
+    // Resolve taxonomy signals from factor tags (computed at read time; no AI cost).
+    const taxonomySignals = useMemo(() => {
+        if (!data?.factors) return {};
+        const resolved = (data.factors as any[]).map(resolveFactor).filter(Boolean) as ExtractedFactor[];
+        return resolveTaxonomySignalsFromFactors(resolved);
+    }, [data?.factors]);
 
     if (!data && !loading) {
         return (
@@ -187,16 +312,13 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     return (
         <div className="space-y-6">
             {/* Minimal header */}
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+            <div className="text-xs text-slate-400 px-1">
                 <span>
                     {neighborhoodName && (
                         <><span className="text-slate-600 font-semibold">{neighborhoodName}</span> · </>
                     )}
                     Extracted {formatUpdateDate(data.lastUpdated)} · {totalFactors} factors · ~{tokenLabel} tokens
                 </span>
-                <button onClick={onExtract} title="Re-extract context graph" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                    <i className="fa-solid fa-rotate text-slate-400 hover:text-indigo-500 text-[11px]"></i>
-                </button>
             </div>
 
             {/* Summary Insights */}
@@ -232,7 +354,11 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         <h4 className="text-sm font-black text-indigo-800 mb-3 flex items-center gap-2">
                             <i className="fa-solid fa-star"></i> Property Highlight
                         </h4>
-                        <p className="text-sm text-indigo-700 leading-relaxed">{data.summary.propertyHighlight}</p>
+                        <p className="text-sm text-indigo-700 leading-relaxed">
+                            {typeof data.summary.propertyHighlight === 'object'
+                                ? JSON.stringify(data.summary.propertyHighlight)
+                                : data.summary.propertyHighlight}
+                        </p>
                     </div>
                 )}
             </div>
@@ -271,9 +397,9 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                 </button>
             </div>
 
-            {activeTab === 'factors' ? (
+            {activeTab === 'factors' && (
                 <>
-                    {/* Category Filter */}
+                    {/* Category Filter — split into Home Features vs Property Context */}
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setActiveFilter('all')}
@@ -284,7 +410,23 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         >
                             All Factors
                         </button>
-                        {Object.entries(CATEGORY_MAP).map(([key, cat]) => (
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-300 px-1">Home</span>
+                        {Object.entries(CATEGORY_MAP).filter(([, cat]) => cat.group === 'home').map(([key, cat]) => (
+                            <button
+                                key={key}
+                                onClick={() => setActiveFilter(key)}
+                                className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeFilter === key
+                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <i className={`fa-solid ${cat.icon} text-[10px]`}></i>
+                                {cat.label}
+                            </button>
+                        ))}
+                        <span className="h-6 w-px bg-slate-200 mx-1 flex-shrink-0" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-300 px-1">Context</span>
+                        {Object.entries(CATEGORY_MAP).filter(([, cat]) => cat.group === 'context').map(([key, cat]) => (
                             <button
                                 key={key}
                                 onClick={() => setActiveFilter(key)}
@@ -309,17 +451,26 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredCategories.map(catKey => (
-                                <CategorySection
-                                    key={catKey}
-                                    categoryKey={catKey}
-                                    factors={grouped[catKey] || []}
-                                />
-                            ))}
+                            {filteredCategories.map(catKey => {
+                                const zone = BUCKET_TO_TAXONOMY_ZONE[catKey];
+                                const zoneSignals = zone
+                                    ? (Object.values(taxonomySignals) as TaxonomySignal[]).filter(s => s.zone === zone)
+                                    : [];
+                                return (
+                                    <CategorySection
+                                        key={catKey}
+                                        categoryKey={catKey}
+                                        factors={grouped[catKey] || []}
+                                        signals={zoneSignals}
+                                    />
+                                );
+                            })}
                         </tbody>
                     </table>
                 </>
-            ) : (
+            )}
+
+            {activeTab === 'buyerDna' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {data.buyerDna && typeof data.buyerDna === 'object' && !Array.isArray(data.buyerDna) ? (
                         Object.entries(data.buyerDna).map(([key, info]: [string, any]) => {

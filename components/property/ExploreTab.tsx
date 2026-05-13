@@ -422,7 +422,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             sectionId={activeNavSection}
                                             subId={activeNavSub}
                                             propertyData={mergedPropertyData || propertyData}
-                                            customAnalysis={customAnalysis}
+                                            customAnalysis={customAnalysis || cachedVisualAnalysis}
                                             comprehensiveAnalysis={analysis}
                                             communityPulse={communityPulse}
                                             ltrAnalysis={ltrAnalysis}
@@ -491,7 +491,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
             {propertyData && (
                 <>
-                    <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
+                    <ChatInterface property={propertyData} visual={customAnalysis || cachedVisualAnalysis} comprehensive={analysis} />
                     <ConciergeCall />
                 </>
             )

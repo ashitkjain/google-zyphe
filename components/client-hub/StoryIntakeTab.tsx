@@ -622,42 +622,6 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                 }
             `}</style>
             <div style={{ fontFamily: 'var(--font-sans, Inter, -apple-system, sans-serif)', maxWidth: '1200px', margin: '0 auto', padding: '0 32px 80px', width: '100%', boxSizing: 'border-box' }}>
-
-                {/* ── Hero ── */}
-                <div style={{ paddingTop: 32 }}>
-                    <div style={{
-                        background: 'linear-gradient(135deg, #1a1330 0%, #2d1b5e 50%, #4338CA 100%)',
-                        color: '#fff', borderRadius: 22, padding: '40px 44px', marginBottom: 28,
-                        position: 'relative', overflow: 'hidden',
-                    }}>
-                        <div style={{ position: 'absolute', top: -120, right: -100, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.35), transparent 70%)', pointerEvents: 'none' }}></div>
-                        <div style={{ position: 'absolute', bottom: -60, left: 240, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(244,114,182,0.18), transparent 70%)', pointerEvents: 'none' }}></div>
-                        <div style={{ position: 'relative' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    fontSize: 10.5, letterSpacing: '0.2em', fontWeight: 700, textTransform: 'uppercase',
-                                    background: 'rgba(167,139,250,0.18)', color: '#c7b8ff',
-                                    padding: '5px 12px', borderRadius: 999, border: '1px solid rgba(167,139,250,0.3)',
-                                }}>✦ AI-powered</span>
-                                <span style={{ fontSize: 10.5, letterSpacing: '0.2em', fontWeight: 700, textTransform: 'uppercase', color: '#a78bfa' }}>{heroStepLabel}</span>
-                            </div>
-                            <h1 style={{
-                                fontFamily: 'var(--font-serif, "Instrument Serif", Georgia, serif)',
-                                fontSize: 52, lineHeight: 1.04, margin: '0 0 14px',
-                                fontWeight: 400, letterSpacing: '-0.025em', maxWidth: 880,
-                            }}>
-                                Tell us your story.<br />
-                                We\'ll find the <em style={{ fontStyle: 'italic', color: '#c7b8ff' }}>home that fits.</em>
-                            </h1>
-                            <p style={{ fontSize: 15.5, color: 'rgba(255,255,255,0.78)', lineHeight: 1.55, maxWidth: 720, margin: 0 }}>
-                                Describe your life — your household, your rituals, your must-haves —
-                                and our AI will surface homes scored to <em style={{ fontStyle: 'italic', color: '#fff' }}>your</em> definition of fit, not a generic algorithm.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
                 {/* ── Persona starters ── */}
                 <div style={{ paddingBottom: 28 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 14 }}>

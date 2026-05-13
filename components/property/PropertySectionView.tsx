@@ -4,7 +4,7 @@
  * Content router for the new 5-section hierarchical nav.
  * Each (sectionId, subId) pair renders a focused, isolated view.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../../types';
 import { DeepResearchInsights } from '../../types/ai';
 import { CensusDemographics, MicroclimateDelta } from '../../services/api/environmental';
@@ -186,6 +186,8 @@ export const PageHeader: React.FC<{
 // ─────────────────────────────────────────────────────────────
 
 export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) => {
+    const contextGraphRefreshRef = useRef<(() => void) | null>(null);
+
     const {
         sectionId, subId, propertyData: data,
         customAnalysis, comprehensiveAnalysis: analysis, communityPulse, ltrAnalysis, deepResearch, keyInsights,
@@ -521,11 +523,21 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 // CONTEXT GRAPH
                 // ────────────────────────────────────────────────────────────────────────
                 if (sectionId === 'context-graph') {
+                    const refreshBtn = (
+                        <button
+                            onClick={() => contextGraphRefreshRef.current?.()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-indigo-600 rounded-xl transition-all shadow-sm active:scale-95"
+                        >
+                            <i className="fa-solid fa-arrows-rotate text-[9px]" />
+                            Refresh
+                        </button>
+                    );
                     return (
                         <div className="animate-in fade-in duration-200 space-y-4">
                             <PageHeader icon="fa-diagram-project" title="Factors - At A Glance"
-                                subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" {...headerProps} />
-                            <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
+                                subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" {...headerProps} titleSuffix={refreshBtn} />
+                            <CustomAIAnalysis {...aiProps} activeSubTab="context_graph"
+                                onBindContextGraphRefresh={(fn) => { contextGraphRefreshRef.current = fn; }} />
                         </div>
                     );
                 }

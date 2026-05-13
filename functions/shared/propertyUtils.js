@@ -69,7 +69,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
     const envSnap = await envRef.get();
     const existing = envSnap.exists ? envSnap.data() : null;
     const force = keys?.bypassCache === true;
-    
+
     // Check TTL (30 days)
     if (!force && existing && existing.lastUpdated) {
         const ms = existing.lastUpdated.toMillis ? existing.lastUpdated.toMillis() : new Date(existing.lastUpdated).getTime();
@@ -133,13 +133,13 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                                 });
                             }
                         })() : Promise.resolve(),
-                        !existing.google_places    ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
-                        !existing.broadband        ? _enrichBroadband(zpid, db, lat, lng)                  : Promise.resolve(),
-                        !existing.drought          ? _enrichDrought(zpid, db, lat, lng)                    : Promise.resolve(),
-                        !existing.evChargers       ? _enrichEVChargers(zpid, db, lat, lng)                 : Promise.resolve(),
-                        !existing.faults           ? _enrichFaults(zpid, db, lat, lng)                     : Promise.resolve(),
+                        !existing.google_places ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
+                        !existing.broadband ? _enrichBroadband(zpid, db, lat, lng) : Promise.resolve(),
+                        !existing.drought ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
+                        !existing.evChargers ? _enrichEVChargers(zpid, db, lat, lng) : Promise.resolve(),
+                        !existing.faults ? _enrichFaults(zpid, db, lat, lng) : Promise.resolve(),
                         (!existing.historical_disasters?.seismicZone || !femaNriSnap.exists)
-                            ? _enrichHistoricalDisasters(zpid, db, lat, lng)                               : Promise.resolve(),
+                            ? _enrichHistoricalDisasters(zpid, db, lat, lng) : Promise.resolve(),
                         // v3: retry solar/AQ/pollen if they were missing at original fetch time
                         !existing.solarData ? (async () => {
                             try {
@@ -385,11 +385,11 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
             // The old check (thirdparty_data.historical_disasters.femaRiskIndex) is intentionally dropped —
             // FEMA NRI now lives in fema_nri and may never have been backfilled for older properties.
             (force || !envData.historical_disasters?.seismicZone || !femaNriSnap.exists) ? _enrichHistoricalDisasters(zpid, db, lat, lng) : Promise.resolve(),
-            !envData.google_places       ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
-            !envData.broadband           ? _enrichBroadband(zpid, db, lat, lng) : Promise.resolve(),
-            !envData.drought             ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
-            !envData.evChargers          ? _enrichEVChargers(zpid, db, lat, lng) : Promise.resolve(),
-            !envData.faults              ? _enrichFaults(zpid, db, lat, lng) : Promise.resolve(),
+            !envData.google_places ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
+            !envData.broadband ? _enrichBroadband(zpid, db, lat, lng) : Promise.resolve(),
+            !envData.drought ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
+            !envData.evChargers ? _enrichEVChargers(zpid, db, lat, lng) : Promise.resolve(),
+            !envData.faults ? _enrichFaults(zpid, db, lat, lng) : Promise.resolve(),
         ]);
         await envRef.update({ __env_version: ENV_SCHEMA_VERSION });
     } catch (e) {
@@ -624,8 +624,8 @@ async function _enrichHistoricalDisasters(zpid, db, lat, lng) {
             const d = await seismicRes.json();
             const sdc = d?.response?.data?.sdc ?? '';
             const pga = d?.response?.data?.pga ?? 0;
-            const ss  = d?.response?.data?.ss  ?? 0;
-            const s1  = d?.response?.data?.s1  ?? 0;
+            const ss = d?.response?.data?.ss ?? 0;
+            const s1 = d?.response?.data?.s1 ?? 0;
             let riskLevel = 'low';
             if (sdc === 'D' || sdc === 'E' || sdc === 'F') riskLevel = 'very_high';
             else if (sdc === 'C') riskLevel = 'high';
@@ -644,8 +644,8 @@ async function _enrichHistoricalDisasters(zpid, db, lat, lng) {
                     const R = 6371;
                     const dLat = (coords[1] - lat) * Math.PI / 180;
                     const dLng = (coords[0] - lng) * Math.PI / 180;
-                    const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(coords[1] * Math.PI/180) * Math.sin(dLng/2)**2;
-                    distMi = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 0.621371 * 10) / 10;
+                    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat * Math.PI / 180) * Math.cos(coords[1] * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+                    distMi = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 0.621371 * 10) / 10;
                 }
                 return {
                     id: f.id || `usgs-${p.time}`,
@@ -770,12 +770,12 @@ async function _enrichNearbyPlaces(zpid, db, lat, lng, mapsKey) {
             fetch(PLACES_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': mapsKey, 'X-Goog-FieldMask': FIELD_MASK },
-                body: JSON.stringify({ includedTypes: ['cafe','bakery','restaurant','park','playground','hiking_area','school','primary_school','library','gym','grocery_store','bank'], maxResultCount: 20, locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 1500.0 } }, rankPreference: 'DISTANCE' })
+                body: JSON.stringify({ includedTypes: ['cafe', 'bakery', 'restaurant', 'park', 'playground', 'hiking_area', 'school', 'primary_school', 'library', 'gym', 'grocery_store', 'bank'], maxResultCount: 20, locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 1500.0 } }, rankPreference: 'DISTANCE' })
             }).catch(() => null),
             fetch(PLACES_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': mapsKey, 'X-Goog-FieldMask': FIELD_MASK },
-                body: JSON.stringify({ includedTypes: ['supermarket','shopping_mall','hospital','police','fire_station','transit_station','parking','electric_vehicle_charging_station','gas_station','stadium'], maxResultCount: 20, locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 5000.0 } } })
+                body: JSON.stringify({ includedTypes: ['supermarket', 'shopping_mall', 'hospital', 'police', 'fire_station', 'transit_station', 'parking', 'electric_vehicle_charging_station', 'gas_station', 'stadium'], maxResultCount: 20, locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 5000.0 } } })
             }).catch(() => null)
         ]);
 
@@ -1009,8 +1009,8 @@ async function _enrichFaults(zpid, db, lat, lng) {
             const toRad = d => d * Math.PI / 180;
             const dLat = toRad(lat2 - lat1);
             const dLon = toRad(lon2 - lon1);
-            const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 0.621371;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 0.621371;
         };
         const mapAge = (age) => {
             const a = (age || '').toLowerCase();
@@ -1285,6 +1285,18 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         console.log(`[Enrichment] Fetched fresh RapidAPI specs for ${zpid}`);
     }
 
+    // Normalize address fields to flat top-level fields so the rest of the code
+    // has a single consistent shape regardless of whether root came from RapidAPI
+    // (nested root.address object) or the Firestore cache (already flat).
+    if (root.address && typeof root.address === 'object') {
+        root._streetLine = root.address.line || root.address.streetAddress || null;
+        root.city        = root.city  || root.address.city;
+        root.state       = root.state || root.address.state;
+        root.zipCode     = root.zipCode || root.address.zipcode || root.address.zipCode;
+    } else {
+        root._streetLine = null;
+    }
+
     // 2. Address & Coordinates
     // RapidAPI lat/lng is the authoritative source — use it directly when present.
     // Fall back to stored coordinates (isFresh path) rather than re-deriving from geocoding.
@@ -1292,21 +1304,23 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         ? { latitude: root.latitude, longitude: root.longitude }
         : (root.coordinates?.latitude ? { latitude: root.coordinates.latitude, longitude: root.coordinates.longitude } : null);
 
-    // Build formattedAddress from RapidAPI components directly — no Radar needed for address.
-    const streetPart = root.address?.line || root.address?.streetAddress ||
-        (typeof root.address === 'string' && root.address !== zpid ? root.address : null);
-    const cityPart = root.address?.city || root.city;
-    const statePart = root.address?.state || root.state;
-    const rawZip = root.address?.zipcode || root.address?.zipCode || root.zipCode;
+    // Build formattedAddress from normalized flat fields (set above).
+    const streetPart = root._streetLine;
+    const cityPart   = root.city;
+    const statePart  = root.state;
+    const rawZip     = root.zipCode;
     // Strip zip if the state isn't one we support — avoids carrying over stale/wrong zip codes
     // from properties that were misrouted or have bad RapidAPI address data.
     const zipPart = isSupportedState(statePart) ? rawZip : null;
     if (rawZip && !zipPart) {
         console.warn(`[Enrichment] Dropping zip ${rawZip} for ${zpid}: state '${statePart}' not in supported states`);
     }
+    // If we have a previously stored full address string but no structured components,
+    // use it directly rather than reconstructing (which would append city/state/zip again).
+    const existingFullAddress = typeof root.address === 'string' && root.address !== zpid ? root.address : null;
     let formattedAddress = streetPart
         ? [streetPart, cityPart, statePart, zipPart].filter(Boolean).join(', ')
-        : zpid;
+        : (existingFullAddress || zpid);
 
     // If RapidAPI didn't return lat/lng, forward geocode the full address with Radar to get coordinates.
     if (!coordinates && streetPart) {
@@ -1362,7 +1376,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
                 return null;
             }),
             needsNeighborhoodId
-                ? _enrichNeighborhoodIdentity(zpid, db, formattedAddress, root.address?.city, root.address?.state, coordinates.latitude, coordinates.longitude, root.description, geminiKey, logger)
+                ? _enrichNeighborhoodIdentity(zpid, db, formattedAddress, root.city, root.state, coordinates.latitude, coordinates.longitude, root.description, geminiKey, logger)
                 : Promise.resolve(null)
         ]);
         envResults = envRes.status === 'fulfilled' ? envRes.value : null;
@@ -1373,9 +1387,9 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         zpid,
         address: formattedAddress,
         coordinates,
-        city: root.address?.city,
-        state: root.address?.state,
-        zipCode: root.address?.zipcode || root.address?.zipCode,
+        city: root.city,
+        state: root.state,
+        zipCode: root.zipCode,
         homeType: root.homeType,
         bedrooms: extractNumericValue(root.bedrooms),
         bathrooms: extractNumericValue(root.bathrooms),
@@ -1610,10 +1624,10 @@ function _extractJson(text) {
                 .replace(/\r/g, ' ');
             return fixed;
         };
-        
+
         res = tryParse(repairJson(cand));
         if (res) return res;
-        
+
         // 4. Extreme: Balancing braces (if truncated)
         let balance = 0;
         let truncated = '';
@@ -1627,11 +1641,11 @@ function _extractJson(text) {
                 if (res) return res;
             }
         }
-        
+
         // Final attempt: manual closure of the last seen object
         if (balance > 0) {
             let closure = truncated.trim();
-            for(let j=0; j<balance; j++) closure += '}';
+            for (let j = 0; j < balance; j++) closure += '}';
             res = tryParse(closure) || tryParse(repairJson(closure));
             if (res) return res;
         }

@@ -206,7 +206,7 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
         logFirestoreQuery('getDoc', 'properties', { zpid });
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            return docSnap.data() as PropertyData;
+            return normalizePropertyFields(docSnap.data()) as PropertyData;
         }
         return null;
     } catch (error: any) {
@@ -252,17 +252,16 @@ export const getFemaNriFromCloud = async (zpid: string): Promise<any | null> => 
  */
 export const normalizeAddressString = (address: string): string => {
     if (!address) return '';
-    return address
-        .replace(/, US$/i, '')           // Remove Radar's ", US"
-        .replace(/\sUS$/i, '')           // Remove Radar's " US"
-        .replace(/,?\s?([A-Z]{2}),?\s?(\d{5})/, ', $1 $2') // Ensure "State Zip" format
-        // DEDUPLICATION: Remove repeating address chunks (e.g., ", Pleasanton, CA 94588, Pleasanton, CA 94588")
-        // This regex looks for a comma followed by some text, a state code, and a zip, 
-        // then identifies if that exact sequence repeats.
-        .replace(/(,\s*[^,]+,\s*[A-Z]{2}\s*\d{5})\1+/g, '$1')
-        .replace(/,\s*,/g, ',')          // Fix double commas
-        .replace(/\s+/g, ' ')            // Collapse whitespace
+    const normalized = address
+        .replace(/, US$/i, '')
+        .replace(/\sUS$/i, '')
+        .replace(/,?\s?([A-Z]{2}),?\s?(\d{5})/g, ', $1 $2')
+        .replace(/,\s*,/g, ',')
+        .replace(/\s+/g, ' ')
         .trim();
+    // Truncate at the first state+zip — anything after is a repeated suffix
+    const firstEnd = normalized.match(/^(.+?\b[A-Z]{2}\s+\d{5})/);
+    return firstEnd ? firstEnd[1] : normalized;
 };
 
 /**
@@ -293,7 +292,7 @@ export const getPropertyByAddress = async (address: string): Promise<PropertyDat
             logFirestoreQuery('getDocs', 'properties', { variant, scope: 'address_lookup' });
             const snapshot = await getDocs(q);
             if (!snapshot.empty) {
-                return snapshot.docs[0].data() as PropertyData;
+                return normalizePropertyFields(snapshot.docs[0].data()) as PropertyData;
             }
         }
         return null;
@@ -2198,7 +2197,7 @@ export const deletePropertyStorageAssets = async (zpid: string): Promise<{ succe
     try {
         const { ref, listAll, deleteObject } = await import('firebase/storage');
         const folderRef = ref(storage, `properties/${zpid}`);
-        
+
         // 1. Recursive list and delete helper
         const deleteFolderRecursive = async (folderRef: any): Promise<number> => {
             let deletedCount = 0;

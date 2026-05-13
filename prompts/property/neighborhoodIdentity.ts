@@ -116,7 +116,7 @@ export const neighborhoodIdentitySchema = {
         },
         upcoming_changes: {
             type: Type.STRING,
-            description: "Any planned developments, construction, or zoning changes near this neighborhood. Say 'None known' if nothing found."
+            description: "Any planned developments, construction, or zoning changes near this neighborhood. Must be a single flat text string, NOT a structured JSON object. Say 'None known' if nothing found."
         },
         unique_features: {
             type: Type.ARRAY,

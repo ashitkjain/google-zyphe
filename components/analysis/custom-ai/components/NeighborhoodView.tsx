@@ -235,14 +235,23 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                                     <p className="text-slate-600 text-[12px] leading-relaxed">{gemini.infrastructure_quality}</p>
                                 </div>
                             )}
-                            {gemini?.upcoming_changes && gemini.upcoming_changes !== 'None known' && (
-                                <div>
-                                    <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2">
-                                        <i className="fa-solid fa-triangle-exclamation mr-1" />UPCOMING CHANGES
-                                    </h4>
-                                    <p className="text-slate-600 text-[12px] leading-relaxed">{gemini.upcoming_changes}</p>
-                                </div>
-                            )}
+                             {gemini?.upcoming_changes && (() => {
+                                 const val = typeof gemini.upcoming_changes === 'object'
+                                     ? Object.entries(gemini.upcoming_changes)
+                                         .filter(([_, v]) => v && typeof v === 'string' && v !== 'None known')
+                                         .map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}: ${v}`)
+                                         .join(' | ')
+                                     : gemini.upcoming_changes;
+                                 if (!val || val === 'None known') return null;
+                                 return (
+                                     <div>
+                                         <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2">
+                                             <i className="fa-solid fa-triangle-exclamation mr-1" />UPCOMING CHANGES
+                                         </h4>
+                                         <p className="text-slate-600 text-[12px] leading-relaxed">{val}</p>
+                                     </div>
+                                 );
+                             })()}
                         </div>
                     </div>
 

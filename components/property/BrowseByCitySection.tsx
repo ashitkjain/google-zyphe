@@ -36,6 +36,7 @@ import { getDaysOnMarket } from '../../utils/property.ts';
 import LeadCaptureModal from './LeadCaptureModal';
 import { BrowseResultsPanel } from './BrowseResultsPanel';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
+import FeaturesWizard from '../client-hub/FeaturesWizard';
 import { ORIENTATION_OPTIONS, matchesOrientation } from '../../constants/orientation';
 
 
@@ -381,6 +382,7 @@ const BrowseByCitySection: React.FC<{
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
     const [showMyStory, setShowMyStory] = useState(false);
+    const [storyMode, setStoryMode] = useState<'story' | 'features'>('features');
     // Track which discovery path is active: browse (city), story (My Story), or search (address)
     const [internalPath, setInternalPath] = useState<'browse' | 'story' | 'search'>('search');
 
@@ -1052,7 +1054,27 @@ const BrowseByCitySection: React.FC<{
             {/* My Story panel */}
             {showMyStory && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <StoryIntakeTab isRealtor={false} realtorId={realtorId} onStoryDiscover={handleStoryDiscover} />
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-slate-100 p-1 rounded-full flex gap-1 shadow-inner">
+                            <button 
+                                onClick={() => setStoryMode('story')}
+                                className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${storyMode === 'story' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                My Story
+                            </button>
+                            <button 
+                                onClick={() => setStoryMode('features')}
+                                className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${storyMode === 'features' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Home Features
+                            </button>
+                        </div>
+                    </div>
+                    {storyMode === 'story' ? (
+                        <StoryIntakeTab isRealtor={false} realtorId={realtorId} onStoryDiscover={handleStoryDiscover} />
+                    ) : (
+                        <FeaturesWizard />
+                    )}
                 </div>
             )}
 

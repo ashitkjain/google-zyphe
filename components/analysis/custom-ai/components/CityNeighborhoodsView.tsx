@@ -331,14 +331,23 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                                                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.infrastructure_quality}</p>
                                                     </div>
                                                 )}
-                                                {n.upcoming_changes && n.upcoming_changes !== 'None known' && (
-                                                    <div>
-                                                        <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">
-                                                            <i className="fa-solid fa-triangle-exclamation mr-1" />UPCOMING CHANGES
-                                                        </div>
-                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.upcoming_changes}</p>
-                                                    </div>
-                                                )}
+                                                 {n.upcoming_changes && (() => {
+                                                     const val = typeof n.upcoming_changes === 'object'
+                                                         ? Object.entries(n.upcoming_changes)
+                                                             .filter(([_, v]) => v && typeof v === 'string' && v !== 'None known')
+                                                             .map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}: ${v}`)
+                                                             .join(' | ')
+                                                         : n.upcoming_changes;
+                                                     if (!val || val === 'None known') return null;
+                                                     return (
+                                                         <div>
+                                                             <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">
+                                                                 <i className="fa-solid fa-triangle-exclamation mr-1" />UPCOMING CHANGES
+                                                             </div>
+                                                             <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{val}</p>
+                                                         </div>
+                                                     );
+                                                 })()}
                                                 {n.unique_features?.length > 0 && (
                                                     <div>
                                                         <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2">STANDOUT FEATURES</div>
