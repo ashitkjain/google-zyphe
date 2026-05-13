@@ -31,7 +31,15 @@ OUTPUT — STRICT JSON, no prose around it. Match this exact shape (used by down
   },
   "objective_tags": [
     "5-10 concrete exterior feature tags grounded in the space analyses (e.g. 'Resort Pool', 'Outdoor Kitchen', 'Mature Oaks', 'Hillside Backdrop', 'Three-Car Garage', 'Stone Hardscape')."
-  ]
+  ],
+  "extracted_factors": {
+    "curb_appeal": ["List front yard and facade highlights, e.g. 'Professionally landscaped', 'Statement door', 'Impeccable hardscape'"],
+    "landscaping": ["List plantings and yard features, e.g. 'Mature specimen trees', 'Lush privacy hedges', 'Perennial gardens'"],
+    "outdoor_living": ["List outdoor lifestyle amenities, e.g. 'Custom built-in BBQ', 'Resort-style pool with spa', 'Covered dining pergola'"],
+    "condition": ["List maintenance and structural condition notes, e.g. 'Pristine exterior paint', 'New architectural shingle roof'"]
+  },
+  "buyer_heuristic_score": <integer 1-10: overall buyer appeal based on lot utility, curb appeal, and outdoor amenities>,
+  "buyer_heuristic_rationale": "1 sentence explaining the buyer heuristic score based on outdoor features and curb appeal."
 }
 
 RULES:

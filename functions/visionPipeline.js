@@ -478,13 +478,26 @@ const INTERIOR_SYNTHESIS_SCHEMA = {
                 required: ["name", "hex", "location"],
             },
         },
+        extracted_factors: {
+            type: "object",
+            properties: {
+                surfaces: { type: "array", items: { type: "string" } },
+                appliances: { type: "array", items: { type: "string" } },
+                cabinetry: { type: "array", items: { type: "string" } },
+                lighting: { type: "array", items: { type: "string" } },
+                flooring: { type: "array", items: { type: "string" } },
+            },
+            required: ["surfaces", "appliances", "cabinetry", "lighting", "flooring"],
+        },
+        buyer_heuristic_score: { type: "integer" },
+        buyer_heuristic_rationale: { type: "string" },
     },
     required: [
         "overall_description", "design_style", "color_and_materials",
         "lighting", "spatial_flow", "storage_and_cabinetry",
         "condition_and_finish", "hero_headline", "atmosphere_scores",
         "finish_quality_score", "facet_tags", "hero_tags", "objective_tags",
-        "material_palette",
+        "material_palette", "extracted_factors", "buyer_heuristic_score", "buyer_heuristic_rationale",
     ],
 };
 
@@ -530,11 +543,23 @@ const EXTERIOR_SYNTHESIS_SCHEMA = {
             required: ["style_tag", "lot_coverage_tag", "privacy_tag", "views_tag"],
         },
         objective_tags: { type: "array", items: { type: "string" } },
+        extracted_factors: {
+            type: "object",
+            properties: {
+                curb_appeal: { type: "array", items: { type: "string" } },
+                landscaping: { type: "array", items: { type: "string" } },
+                outdoor_living: { type: "array", items: { type: "string" } },
+                condition: { type: "array", items: { type: "string" } },
+            },
+            required: ["curb_appeal", "landscaping", "outdoor_living", "condition"],
+        },
+        buyer_heuristic_score: { type: "integer" },
+        buyer_heuristic_rationale: { type: "string" },
     },
     required: [
         "exterior_and_lot_appeal", "views_privacy_orientation",
         "hero_headline", "exterior_atmosphere_scores", "facet_tags",
-        "objective_tags",
+        "objective_tags", "extracted_factors", "buyer_heuristic_score", "buyer_heuristic_rationale",
     ],
 };
 

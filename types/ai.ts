@@ -355,6 +355,15 @@ export interface CustomAIAnalysisResult {
         finish_quality_score?: number;  // derived: Factor 30 + Factor 21
         spatial_tag?: string;           // derived: Factor 30 + Factor 16
         condition_tag?: string;         // derived: Factor 21
+        extracted_factors?: {
+            surfaces?: string[];
+            appliances?: string[];
+            cabinetry?: string[];
+            lighting?: string[];
+            flooring?: string[];
+        };
+        buyer_heuristic_score?: number;
+        buyer_heuristic_rationale?: string;
     };
     room_highlights: Array<{
         room_name: string;
@@ -380,6 +389,14 @@ export interface CustomAIAnalysisResult {
             description?: string;
         }>;
         objective_tags: string[];
+        extracted_factors?: {
+            curb_appeal?: string[];
+            landscaping?: string[];
+            outdoor_living?: string[];
+            condition?: string[];
+        };
+        buyer_heuristic_score?: number;
+        buyer_heuristic_rationale?: string;
     };
     neighborhood?: NeighborhoodAnalysis;
     community_pulse?: CommunityPulseResult;

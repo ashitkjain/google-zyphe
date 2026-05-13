@@ -13,6 +13,7 @@ import {
     type TagZone,
     type TaxonomySignal,
 } from '../../../../utils/propertyTaxonomy';
+import { SCORING_MODELS, type ScoringResult } from '../../../../utils/scoringModels';
 
 /** Maps a factor-table bucket key to a PROPERTY_TAXONOMY zone, where one exists. */
 const BUCKET_TO_TAXONOMY_ZONE: Record<string, TagZone> = {
@@ -233,6 +234,132 @@ const CategorySection: React.FC<{
     );
 };
 
+/**
+ * Renders one heuristic scoring result as an expandable card with a score gauge,
+ * per-component breakdown bars, and evidence + gaps.
+ */
+const ScoringCard: React.FC<{ result: ScoringResult }> = ({ result }) => {
+    const [expanded, setExpanded] = useState(false);
+    const { score, grade, color, label, description, icon, components, summary, confidence } = result;
+
+    const gradeColor =
+        grade === 'A' ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+        : grade === 'B' ? 'text-cyan-600 bg-cyan-50 border-cyan-200'
+        : grade === 'C' ? 'text-amber-600 bg-amber-50 border-amber-200'
+        : grade === 'D' ? 'text-orange-600 bg-orange-50 border-orange-200'
+        : 'text-rose-600 bg-rose-50 border-rose-200';
+
+    const confidenceColor =
+        confidence === 'high' ? 'text-emerald-600'
+        : confidence === 'medium' ? 'text-amber-600'
+        : 'text-slate-400';
+
+    return (
+        <div className={`bg-white border border-slate-200 rounded-2xl overflow-hidden`}>
+            {/* Header */}
+            <button
+                onClick={() => setExpanded(e => !e)}
+                className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-slate-50 transition-colors"
+            >
+                <div className={`w-12 h-12 rounded-xl bg-${color}-50 text-${color}-600 flex items-center justify-center flex-shrink-0`}>
+                    <i className={`fa-solid ${icon} text-lg`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-black text-slate-800">{label}</h4>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${confidenceColor}`}>
+                            {confidence} confidence
+                        </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug truncate">{description}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className={`px-2.5 py-1 rounded-lg border text-sm font-black ${gradeColor}`}>
+                        {grade}
+                    </div>
+                    <div className="text-right">
+                        <div className="text-2xl font-black text-slate-800 leading-none">{score}</div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">/100</div>
+                    </div>
+                    <i className={`fa-solid ${expanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-300 text-xs ml-2`} />
+                </div>
+            </button>
+
+            {/* Summary line — always visible */}
+            <div className="px-5 pb-3 -mt-1">
+                <p className="text-xs text-slate-600 leading-relaxed">{summary}</p>
+            </div>
+
+            {/* Expanded breakdown */}
+            {expanded && (
+                <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 space-y-3">
+                    {components.map((c, i) => {
+                        const pct = Math.round((c.earned / c.max) * 100);
+                        const barColor =
+                            pct >= 75 ? 'bg-emerald-500'
+                            : pct >= 50 ? 'bg-cyan-500'
+                            : pct >= 25 ? 'bg-amber-500'
+                            : 'bg-slate-300';
+                        return (
+                            <div key={i} className="bg-white border border-slate-100 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[12px] font-black text-slate-700">{c.label}</span>
+                                    <span className="text-[11px] font-bold text-slate-500">
+                                        {c.earned} / {c.max}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 italic mb-2 leading-snug">{c.rationale}</p>
+                                <div className="w-full bg-slate-100 rounded-full h-1.5 mb-2">
+                                    <div
+                                        className={`${barColor} h-1.5 rounded-full transition-all`}
+                                        style={{ width: `${pct}%` }}
+                                    />
+                                </div>
+                                {c.evidence.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {c.evidence.map((e, j) => (
+                                            <span key={j} className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                                                <i className="fa-solid fa-check text-[8px] mr-1" />{e}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                {c.missing && c.missing.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {c.missing.map((m, j) => (
+                                            <span key={j} className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
+                                                <i className="fa-solid fa-minus text-[8px] mr-1" />{m}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ScoringPanel: React.FC<{ results: ScoringResult[] }> = ({ results }) => {
+    if (results.length === 0) return null;
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+                <i className="fa-solid fa-gauge-high text-indigo-500 text-sm" />
+                <h3 className="text-sm font-black text-slate-700">Buyer Heuristic Scores</h3>
+                <span className="text-[10px] font-bold text-slate-400">
+                    Derived from factors + taxonomy
+                </span>
+            </div>
+            <div className="space-y-2">
+                {results.map(r => <ScoringCard key={r.modelId} result={r} />)}
+            </div>
+        </div>
+    );
+};
+
 export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) => {
     const [activeFilter, setActiveFilter] = useState<string>('all');
     const [showJson, setShowJson] = useState(false);
@@ -244,6 +371,13 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
         const resolved = (data.factors as any[]).map(resolveFactor).filter(Boolean) as ExtractedFactor[];
         return resolveTaxonomySignalsFromFactors(resolved);
     }, [data?.factors]);
+
+    // Heuristic scoring models — pure functions over factors + taxonomy signals.
+    const scoringResults: ScoringResult[] = useMemo(() => {
+        if (!data?.factors) return [];
+        const resolved = (data.factors as any[]).map(resolveFactor).filter(Boolean) as ExtractedFactor[];
+        return SCORING_MODELS.map(model => model(resolved, taxonomySignals));
+    }, [data?.factors, taxonomySignals]);
 
     if (!data && !loading) {
         return (
@@ -380,6 +514,9 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     </div>
                 </div>
             )}
+
+            {/* Buyer Heuristic Scores */}
+            <ScoringPanel results={scoringResults} />
 
             {/* Tab Navigation */}
             <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
