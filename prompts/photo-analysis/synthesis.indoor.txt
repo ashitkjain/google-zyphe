@@ -50,9 +50,7 @@ OUTPUT — STRICT JSON, no prose around it. Match this exact shape (used by down
     "cabinetry": ["List cabinetry styles and features, e.g. 'Custom white shaker', 'Soft-close hardware', 'To-ceiling cabinets'"],
     "lighting": ["List notable lighting fixtures, e.g. 'Designer pendant lighting', 'Recessed LED cans', 'Chandelier'"],
     "flooring": ["List flooring types and continuity, e.g. 'Wide plank engineered oak', 'Designer porcelain tile'"]
-  },
-  "buyer_heuristic_score": <integer 1-10: overall buyer appeal based on layout, finish quality, and move-in readiness>,
-  "buyer_heuristic_rationale": "1 sentence explaining the buyer heuristic score based on premium finishes and layout."
+  }
 }
 
 RULES:

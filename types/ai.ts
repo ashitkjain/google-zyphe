@@ -362,8 +362,6 @@ export interface CustomAIAnalysisResult {
             lighting?: string[];
             flooring?: string[];
         };
-        buyer_heuristic_score?: number;
-        buyer_heuristic_rationale?: string;
     };
     room_highlights: Array<{
         room_name: string;
@@ -395,8 +393,6 @@ export interface CustomAIAnalysisResult {
             outdoor_living?: string[];
             condition?: string[];
         };
-        buyer_heuristic_score?: number;
-        buyer_heuristic_rationale?: string;
     };
     neighborhood?: NeighborhoodAnalysis;
     community_pulse?: CommunityPulseResult;
