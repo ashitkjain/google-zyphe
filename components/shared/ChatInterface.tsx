@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../../types';
-import { CHAT_MODEL, executeGeminiRequest } from '../../services/geminiService';
+import { executeGroqChatRequest, GroqMessage } from '../../services/groqService';
 import { getChatInstruction, getChatContext } from '../../prompts/property/chatInterface';
 
 interface Message {
@@ -42,28 +42,22 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
       const intelligenceContext = getChatContext(property, visual, comprehensive);
       const systemInstruction = getChatInstruction(intelligenceContext);
 
-      const history = messages
-        .filter((m, i) => i !== 0 || m.role !== 'assistant')
-        .slice(-4)
-        .map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        }));
+      const groqMessages: GroqMessage[] = [
+        { role: 'system', content: systemInstruction },
+        ...messages
+          .filter((m, i) => i !== 0 || m.role !== 'assistant')
+          .slice(-4)
+          .map(m => ({
+            role: m.role,
+            content: m.content
+          })),
+        { role: 'user', content: text }
+      ];
 
-      const contents = [...history, { role: 'user', parts: [{ text }] }];
-
-      const { data: aiText } = await executeGeminiRequest<string>({
-        model: CHAT_MODEL,
-        contents,
-        config: {
-          systemInstruction,
-          temperature: 0.1,
-          topP: 0.8,
-          topK: 40
-        },
-        userId: "unknown",
-        promptFilename: "ChatInterface.tsx",
-        zpid: property.zpid,
+      const aiText = await executeGroqChatRequest({
+        messages: groqMessages,
+        temperature: 0.1,
+        topP: 0.8
       });
 
       let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
