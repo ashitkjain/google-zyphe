@@ -103,6 +103,7 @@ export const PROPERTY_TAXONOMY: PropertyTag[] = [
     { id: 'natural_stone_surfaces', label: 'Natural Stone Surfaces', zone: 'culinary', category: 'kitchen_surfaces', aliases: ['quartzite countertops', 'marble countertops', 'granite countertops', 'stone counters', 'slab stone'] },
     { id: 'white_cabinetry', label: 'White Cabinetry', zone: 'culinary', category: 'kitchen_surfaces', aliases: ['white cabinets', 'painted white cabinets', 'shaker white cabinets', 'bright kitchen cabinets'] },
     { id: 'kitchen_skylights', label: 'Skylights', zone: 'culinary', category: 'kitchen_surfaces', aliases: ['kitchen skylight', 'roof windows', 'clerestory windows'] },
+    { id: 'premium_kitchen_fixtures', label: 'Premium Kitchen Fixtures', zone: 'culinary', category: 'kitchen_surfaces', aliases: ['pot filler', 'designer faucet', 'Waterstone faucet', 'Rohl faucet', 'Brizo faucet', 'premium fixtures', 'high-end fixtures', 'luxury fixtures', 'designer hardware', 'high end fixtures'] },
 
     { id: 'premium_appliances', label: 'Premium Appliance Brand', zone: 'culinary', category: 'kitchen_appliances', aliases: [
         // Brand names — major luxury/professional kitchen appliance brands
@@ -182,7 +183,7 @@ export const PROPERTY_TAXONOMY: PropertyTag[] = [
     { id: 'heated_floors', label: 'Heated Floors', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['radiant floor heating', 'underfloor heating', 'warm floors', 'in-floor heat'] },
     { id: 'dual_vanities', label: 'Dual Vanities', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['double vanity', 'his-and-hers vanity', 'two sinks', 'dual sinks'] },
     { id: 'towel_warmers', label: 'Towel Warmers', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['heated towel rack', 'towel warmer bar', 'towel radiator'] },
-    { id: 'kohler_hansgrohe', label: 'Kohler / Hansgrohe', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['Kohler fixtures', 'Hansgrohe faucets', 'Grohe', 'premium fixtures', 'luxury faucets'] },
+    { id: 'premium_bath_fixtures', label: 'Premium Bath Fixtures', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['Kohler fixtures', 'Hansgrohe faucets', 'Grohe', 'premium fixtures', 'luxury faucets', 'high-end fixtures', 'designer fixtures', 'designer hardware', 'high end fixtures'] },
 
     { id: 'natural_stone_bath', label: 'Natural Stone Finishes', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['marble bathroom', 'travertine', 'limestone bathroom', 'stone tile bathroom', 'natural stone bath'] },
     { id: 'designer_tile', label: 'Designer Tile', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['custom tile', 'handmade tile', 'Moroccan tile', 'statement tile', 'mosaic tile', 'zellige tile'] },

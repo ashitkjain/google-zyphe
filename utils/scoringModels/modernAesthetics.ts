@@ -139,6 +139,7 @@ export const scoreModernAesthetics: ScoringModel = (factors, signals) => {
             { id: 'steam_oven',             pts: 2, label: 'Steam oven' },
             { id: 'built_in_coffee',        pts: 1, label: 'Built-in coffee system' },
             { id: 'integrated_wine_fridge', pts: 1, label: 'Integrated wine fridge' },
+            { id: 'premium_kitchen_fixtures', pts: 1, label: 'Premium kitchen fixtures' },
         ];
         for (const a of bonusTags) {
             if (hasSignal(signals, a.id)) {
@@ -183,11 +184,16 @@ export const scoreModernAesthetics: ScoringModel = (factors, signals) => {
         }
         const fixtureTags = [
             { id: 'rain_shower',     pts: 2, label: 'Rain shower' },
+            { id: 'steam_shower',    pts: 2, label: 'Steam shower' },
             { id: 'heated_floors',   pts: 2, label: 'Heated bathroom floors' },
-            { id: 'dual_vanities',   pts: 2, label: 'Dual vanities' },
+            { id: 'dual_vanities',   pts: 1, label: 'Dual vanities' },
             { id: 'backlit_mirrors', pts: 1, label: 'Backlit / LED mirrors' },
-            { id: 'kohler_hansgrohe', pts: 1, label: 'Premium fixtures (Kohler / Hansgrohe)' },
+            { id: 'premium_bath_fixtures', pts: 1, label: 'Premium bath fixtures' },
             { id: 'soaking_tub',     pts: 1, label: 'Freestanding soaking tub' },
+            { id: 'towel_warmers',   pts: 1, label: 'Towel warmers' },
+            { id: 'makeup_station',  pts: 1, label: 'Makeup station' },
+            { id: 'led_vanity_lighting', pts: 1, label: 'LED vanity lighting' },
+            { id: 'jewelry_storage', pts: 1, label: 'Jewelry storage' },
         ];
         for (const f of fixtureTags) {
             if (hasSignal(signals, f.id)) {
@@ -325,9 +331,12 @@ export const scoreModernAesthetics: ScoringModel = (factors, signals) => {
         const evidence: string[] = [];
         let earned = 0;
 
-        if (hasSignal(signals, 'natural_light')) { earned += 2; evidence.push('Abundant natural light'); }
+        if (hasSignal(signals, 'natural_light')) { earned += 1; evidence.push('Abundant natural light'); }
+        if (hasSignal(signals, 'kitchen_skylights')) { earned += 1; evidence.push('Skylights'); }
+        if (hasSignal(signals, 'statement_fireplace')) { earned += 1; evidence.push('Statement fireplace'); }
         if (hasSignal(signals, 'smart_home')) { earned += 1; evidence.push('Smart home integration'); }
         if (hasSignal(signals, 'built_in_audio')) { earned += 1; evidence.push('Built-in audio'); }
+        if (hasSignal(signals, 'morning_bar')) { earned += 1; evidence.push('Morning bar'); }
         if (earned === 0) {
             const f24 = findFactor(factors, 24);
             if (factorMentions(f24, 'south-facing', 'sun-drenched', 'bright', 'skylight')) {
@@ -338,11 +347,54 @@ export const scoreModernAesthetics: ScoringModel = (factors, signals) => {
 
         components.push({
             label: 'Natural Light & Smart Tech',
-            rationale: 'Light and integrated tech round out the contemporary feel.',
+            rationale: 'Light, fireplace presence, and integrated tech round out the contemporary feel.',
             earned: clamp(earned, 4),
             max: 4,
             evidence,
         });
+    }
+
+    // ── Calibration: pull additional evidence from luxury-finish and room-character factors ──
+    // These are read-only enhancements; they boost evidence in components that already exist.
+    {
+        const f67  = findFactor(factors, 67);   // Luxury Finishes
+        const f113 = findFactor(factors, 113);  // Room-by-Room Character
+        const f114 = findFactor(factors, 114);  // Interior Vibe
+        const f115 = findFactor(factors, 115);  // Materials
+
+        // Luxury / room-character mentions reinforce the Kitchen Surfaces and Bathroom Finishes components.
+        const luxuryRoomEvidence: string[] = [
+            ...factorTagsMatching(f67, 'crown molding', 'wide plank', 'designer fixture', 'high-end', 'custom millwork'),
+            ...factorTagsMatching(f113, 'waterfall', 'spa-style', 'professional appliance', 'premium appliance', 'designer'),
+            ...factorTagsMatching(f115, 'marble', 'quartzite', 'porcelain', 'designer tile'),
+        ].slice(0, 3);
+
+        if (luxuryRoomEvidence.length > 0) {
+            // Append to whichever component has the most headroom
+            const target = components
+                .filter(c => c.earned < c.max)
+                .sort((a, b) => (b.max - b.earned) - (a.max - a.earned))[0];
+            if (target) {
+                const bonus = Math.min(target.max - target.earned, luxuryRoomEvidence.length);
+                target.earned += bonus;
+                target.evidence.push(...luxuryRoomEvidence.slice(0, bonus));
+            }
+        }
+
+        // Interior Vibe value can confirm or downgrade the move-in component.
+        if (factorMentions(f114, 'turn-key', 'recently updated', 'cohesive design', 'modern finishes')) {
+            const moveIn = components.find(c => c.label === 'Move-In Readiness');
+            if (moveIn && moveIn.earned < moveIn.max) {
+                moveIn.earned = Math.min(moveIn.max, moveIn.earned + 2);
+                moveIn.evidence.push('Interior Vibe: cohesive / recently updated');
+            }
+        } else if (factorMentions(f114, 'dated', 'original finishes', 'mixed quality')) {
+            const moveIn = components.find(c => c.label === 'Move-In Readiness');
+            if (moveIn) {
+                moveIn.earned = Math.max(0, moveIn.earned - 2);
+                (moveIn.missing ??= []).push('Interior Vibe: dated / mixed quality');
+            }
+        }
     }
 
     // ── Aggregate ────────────────────────────────────────────────────────────
