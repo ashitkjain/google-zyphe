@@ -54,7 +54,7 @@ const ZONES: Zone[] = [
         question: 'What features make up your perfect spa bathroom and wellness areas?',
         placeholder: 'A steam shower, freestanding soaking tub, heated floors, and a home gym…',
         contextTags: ['Bathroom', 'Spa', 'Wellness', 'Finishes', 'Fixtures'],
-        taxonomyZone: 'wellness_spa',
+        taxonomyZone: 'shower_wellness',
     },
     {
         id: 'zone6', num: '06', label: 'Outdoor Oasis',

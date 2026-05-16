@@ -18,7 +18,7 @@ export type TagZone =
     | 'culinary'             // Zone 2: Culinary Space
     | 'living_entertaining'  // Zone 3: Living & Entertainment
     | 'primary_sanctuary'    // Zone 4: Primary Sanctuary
-    | 'wellness_spa'         // Zone 5: Shower & Wellness
+    | 'shower_wellness'      // Zone 5: Shower & Wellness
     | 'outdoor_grounds';     // Zone 6: Outdoor Oasis & Grounds
 
 /**
@@ -177,23 +177,23 @@ export const PROPERTY_TAXONOMY: PropertyTag[] = [
     { id: 'terrace_access', label: 'Terrace Access', zone: 'primary_sanctuary', category: 'bedroom_amenities', aliases: ['private terrace', 'bedroom terrace', 'outdoor terrace from bedroom', 'master suite terrace'] },
 
     // ── Zone 5: Shower & Wellness
-    { id: 'rain_shower', label: 'Rain Shower', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['rainfall shower', 'rain head shower', 'overhead shower', 'large format rain shower'] },
-    { id: 'steam_shower', label: 'Steam Shower', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['steam room shower', 'spa steam shower', 'steam bath'] },
-    { id: 'soaking_tub', label: 'Soaking Tub', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['freestanding tub', 'soaker tub', 'Japanese soaking tub', 'deep soak tub', 'clawfoot tub'] },
-    { id: 'heated_floors', label: 'Heated Floors', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['radiant floor heating', 'underfloor heating', 'warm floors', 'in-floor heat'] },
-    { id: 'dual_vanities', label: 'Dual Vanities', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['double vanity', 'his-and-hers vanity', 'two sinks', 'dual sinks'] },
-    { id: 'towel_warmers', label: 'Towel Warmers', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['heated towel rack', 'towel warmer bar', 'towel radiator'] },
-    { id: 'premium_bath_fixtures', label: 'Premium Bath Fixtures', zone: 'wellness_spa', category: 'bathroom_fixtures', aliases: ['Kohler fixtures', 'Hansgrohe faucets', 'Grohe', 'premium fixtures', 'luxury faucets', 'high-end fixtures', 'designer fixtures', 'designer hardware', 'high end fixtures'] },
+    { id: 'rain_shower', label: 'Rain Shower', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['rainfall shower', 'rain head shower', 'overhead shower', 'large format rain shower'] },
+    { id: 'steam_shower', label: 'Steam Shower', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['steam room shower', 'spa steam shower', 'steam bath'] },
+    { id: 'soaking_tub', label: 'Soaking Tub', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['freestanding tub', 'soaker tub', 'Japanese soaking tub', 'deep soak tub', 'clawfoot tub'] },
+    { id: 'heated_floors', label: 'Heated Floors', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['radiant floor heating', 'underfloor heating', 'warm floors', 'in-floor heat'] },
+    { id: 'dual_vanities', label: 'Dual Vanities', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['double vanity', 'his-and-hers vanity', 'two sinks', 'dual sinks'] },
+    { id: 'towel_warmers', label: 'Towel Warmers', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['heated towel rack', 'towel warmer bar', 'towel radiator'] },
+    { id: 'premium_bath_fixtures', label: 'Premium Bath Fixtures', zone: 'shower_wellness', category: 'bathroom_fixtures', aliases: ['Kohler fixtures', 'Hansgrohe faucets', 'Grohe', 'premium fixtures', 'luxury faucets', 'high-end fixtures', 'designer fixtures', 'designer hardware', 'high end fixtures'] },
 
-    { id: 'natural_stone_bath', label: 'Natural Stone Finishes', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['marble bathroom', 'travertine', 'limestone bathroom', 'stone tile bathroom', 'natural stone bath'] },
-    { id: 'designer_tile', label: 'Designer Tile', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['custom tile', 'handmade tile', 'Moroccan tile', 'statement tile', 'mosaic tile', 'zellige tile'] },
-    { id: 'wellness_focused', label: 'Wellness-Focused', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['spa bathroom', 'spa-like bath', 'hotel-inspired bath', 'luxury spa', 'resort bathroom'] },
-    { id: 'backlit_mirrors', label: 'Backlit Mirrors', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['lighted mirror', 'LED mirror', 'illuminated mirror', 'smart mirror'] },
-    { id: 'led_vanity_lighting', label: 'LED Vanity Lighting', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['vanity lighting', 'lighted vanity', 'daylight vanity', 'Hollywood mirrors'] },
-    { id: 'makeup_station', label: 'Makeup Station', zone: 'wellness_spa', category: 'bathroom_finishes', aliases: ['vanity makeup area', 'dressing table', 'makeup vanity', 'beauty station'] },
+    { id: 'natural_stone_bath', label: 'Natural Stone Finishes', zone: 'shower_wellness', category: 'bathroom_finishes', aliases: ['marble bathroom', 'travertine', 'limestone bathroom', 'stone tile bathroom', 'natural stone bath'] },
+    { id: 'designer_tile', label: 'Designer Tile', zone: 'shower_wellness', category: 'bathroom_finishes', aliases: ['custom tile', 'handmade tile', 'Moroccan tile', 'statement tile', 'mosaic tile', 'zellige tile'] },
+    { id: 'wellness_focused', label: 'Wellness-Focused', zone: 'shower_wellness', category: 'bathroom_finishes', aliases: ['spa bathroom', 'spa-like bath', 'hotel-inspired bath', 'luxury spa', 'resort bathroom'] },
+    { id: 'backlit_mirrors', label: 'Backlit Mirrors', zone: 'shower_wellness', category: 'bathroom_finishes', aliases: ['lighted mirror', 'LED mirror', 'illuminated mirror', 'smart mirror'] },
+    { id: 'led_vanity_lighting', label: 'LED Vanity Lighting', zone: 'shower_wellness', category: 'bathroom_finishes', aliases: ['vanity lighting', 'lighted vanity', 'daylight vanity', 'Hollywood mirrors'] },
+    { id: 'makeup_station', label: 'Makeup Station', zone: 'shower_wellness', category: 'bathroom_finishes', aliases: ['vanity makeup area', 'dressing table', 'makeup vanity', 'beauty station'] },
 
-    { id: 'sauna_cold_plunge', label: 'Sauna / Cold Plunge', zone: 'wellness_spa', category: 'wellness_rooms', aliases: ['sauna', 'cold plunge pool', 'ice bath', 'infrared sauna', 'dry sauna', 'contrast therapy'] },
-    { id: 'home_gym', label: 'Home Gym / Wellness Studio', zone: 'wellness_spa', category: 'wellness_rooms', aliases: ['gym room', 'exercise room', 'fitness room', 'workout room', 'yoga studio', 'wellness room'] },
+    { id: 'sauna_cold_plunge', label: 'Sauna / Cold Plunge', zone: 'shower_wellness', category: 'wellness_rooms', aliases: ['sauna', 'cold plunge pool', 'ice bath', 'infrared sauna', 'dry sauna', 'contrast therapy'] },
+    { id: 'home_gym', label: 'Home Gym / Wellness Studio', zone: 'shower_wellness', category: 'wellness_rooms', aliases: ['gym room', 'exercise room', 'fitness room', 'workout room', 'yoga studio', 'wellness room'] },
 
     // ── Zone 6: Outdoor Oasis & Grounds
     { id: 'lush_landscaping', label: 'Lush Landscaping', zone: 'outdoor_grounds', category: 'lot_vibe', aliases: ['designer landscaping', 'landscape design', 'curated landscaping', 'lush landscaping', 'established landscaping', 'mature plants', 'lush backyard', 'resort landscaping', 'tropical landscaping', 'professionally landscaped', 'mature landscaping'] },

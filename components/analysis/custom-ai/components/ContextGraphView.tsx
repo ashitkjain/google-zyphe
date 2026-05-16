@@ -21,7 +21,7 @@ const BUCKET_TO_TAXONOMY_ZONE: Record<string, TagZone> = {
     culinary:     'culinary',
     living:       'living_entertaining',
     sanctuary:    'primary_sanctuary',
-    wellness:     'wellness_spa',
+    wellness:     'shower_wellness',
     outdoor:      'outdoor_grounds',
     // Context buckets (quality/systems/connectivity/lifestyle/climate/investment) have no zone counterpart.
 };
