@@ -72,13 +72,9 @@ export const scoreSmartHomeInfrastructure: ScoringModel = (factors, signals) => 
         const missing: string[] = [];
         let earned = 0;
 
-        if (hasSignal(signals, 'smart_lighting')) {
+        if (hasSignal(signals, 'premium_lighting')) {
             earned += 10;
-            evidence.push('Smart / automated lighting');
-        }
-        if (hasSignal(signals, 'architectural_lighting')) {
-            earned += 2;
-            evidence.push('Architectural lighting design');
+            evidence.push('Architectural / smart lighting');
         }
         if (earned === 0) {
             const f100 = findFactor(factors, 100);

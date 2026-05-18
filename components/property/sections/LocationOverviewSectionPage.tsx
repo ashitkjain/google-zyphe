@@ -231,7 +231,15 @@ export const LocationOverviewSectionPage: React.FC<Props> = ({
                         {gem?.infrastructure_quality && (
                             <div>
                                 <div style={{ fontSize: 10, fontBlack: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Infrastructure</div>
-                                <div style={{ fontSize: 14, color: '#334155', fontWeight: 500 }}>{gem.infrastructure_quality}</div>
+                                <div style={{ fontSize: 14, color: '#334155', fontWeight: 500 }}>
+                                    {typeof gem.infrastructure_quality === 'object' ? (
+                                        (gem.infrastructure_quality as any).notes || 
+                                        Object.entries(gem.infrastructure_quality)
+                                            .filter(([k, v]) => k !== 'notes' && v)
+                                            .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                                            .join(' · ')
+                                    ) : gem.infrastructure_quality}
+                                </div>
                             </div>
                         )}
 

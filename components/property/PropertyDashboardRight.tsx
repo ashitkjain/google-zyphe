@@ -485,7 +485,15 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                             {gem?.infrastructure_quality && (
                                 <div className="pt-3 border-t border-slate-100">
                                     <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Infrastructure</div>
-                                    <p className="text-[12px] text-slate-500 leading-relaxed font-sans font-medium">{gem.infrastructure_quality}</p>
+                                    <p className="text-[12px] text-slate-500 leading-relaxed font-sans font-medium">
+                                        {typeof gem.infrastructure_quality === 'object' ? (
+                                            (gem.infrastructure_quality as any).notes || 
+                                            Object.entries(gem.infrastructure_quality)
+                                                .filter(([k, v]) => k !== 'notes' && v)
+                                                .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                                                .join(' · ')
+                                        ) : gem.infrastructure_quality}
+                                    </p>
                                 </div>
                             )}
 

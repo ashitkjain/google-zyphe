@@ -85,6 +85,9 @@ export const scoreFunctionalSpaces: ScoringModel = (factors, signals) => {
             earned += 6;
             evidence.push('Main-floor primary suite');
         }
+        if (hasSignal(signals, 'king_size_suite')) { earned += 2; evidence.push('Oversized primary suite'); }
+        if (hasSignal(signals, 'seating_area')) { earned += 1; evidence.push('Bedroom seating area'); }
+        if (hasSignal(signals, 'fireplace_bedroom')) { earned += 1; evidence.push('Bedroom fireplace'); }
         const f58 = findFactor(factors, 58);
         if (factorMentions(f58, 'downstairs bed', 'in-law', 'separate entrance', 'multi-gen', 'multigen')) {
             if (earned === 0) {
@@ -93,6 +96,20 @@ export const scoreFunctionalSpaces: ScoringModel = (factors, signals) => {
             } else {
                 earned += 2;
             }
+        }
+        // Private outdoor connection from primary suite supports flex/multi-gen lifestyle
+        if (hasSignal(signals, 'private_balcony')) { earned += 1; evidence.push('Private balcony'); }
+        if (hasSignal(signals, 'terrace_access')) { earned += 1; evidence.push('Terrace access'); }
+        // Layout / Foundation: split bedrooms or basement = more usable flex space
+        const f116 = findFactor(factors, 116);
+        if (factorMentions(f116, 'split bedroom', 'jack-and-jill', 'separate wings')) {
+            earned += 1;
+            evidence.push('Split / separated bedroom wings');
+        }
+        const f19 = findFactor(factors, 19);
+        if (factorMentions(f19, 'basement', 'finished basement', 'walkout basement')) {
+            earned += 2;
+            evidence.push('Basement (bonus flex space)');
         }
 
         if (earned === 0) missing.push('No multi-gen or main-floor suite');
@@ -113,10 +130,12 @@ export const scoreFunctionalSpaces: ScoringModel = (factors, signals) => {
         const missing: string[] = [];
         let earned = 0;
 
-        if (hasSignal(signals, 'walk_in_pantry')) { earned += 6; evidence.push('Walk-in pantry'); }
-        if (hasSignal(signals, 'mudroom')) { earned += 5; evidence.push('Mudroom'); }
-        if (hasSignal(signals, 'built_in_organizers')) { earned += 2; evidence.push('Built-in organizers'); }
-        if (hasSignal(signals, 'boutique_walk_in_closet')) { earned += 2; evidence.push('Custom walk-in closet'); }
+        if (hasSignal(signals, 'walk_in_pantry')) { earned += 5; evidence.push('Walk-in pantry'); }
+        if (hasSignal(signals, 'mudroom')) { earned += 4; evidence.push('Mudroom'); }
+        if (hasSignal(signals, 'dirty_kitchen')) { earned += 3; evidence.push('Prep / back kitchen'); }
+        if (hasSignal(signals, 'built_in_organizers')) { earned += 1; evidence.push('Built-in organizers'); }
+        if (hasSignal(signals, 'boutique_walk_in_closet')) { earned += 1; evidence.push('Custom walk-in closet'); }
+        if (hasSignal(signals, 'shoe_wall')) { earned += 1; evidence.push('Shoe wall'); }
 
         if (earned === 0) {
             const f100 = findFactor(factors, 100);
@@ -275,10 +294,11 @@ export const scoreFunctionalSpaces: ScoringModel = (factors, signals) => {
         const missing: string[] = [];
         let earned = 0;
 
-        if (hasSignal(signals, 'outdoor_kitchen')) { earned += 4; evidence.push('Outdoor kitchen'); }
+        if (hasSignal(signals, 'outdoor_kitchen')) { earned += 3; evidence.push('Outdoor kitchen'); }
         if (hasSignal(signals, 'multi_zone_layout')) { earned += 2; evidence.push('Multi-area outdoor zones'); }
         if (hasSignal(signals, 'side_yard_storage')) { earned += 1; evidence.push('Side-yard storage'); }
         if (hasSignal(signals, 'covered_patio')) { earned += 1; evidence.push('Covered patio'); }
+        if (hasSignal(signals, 'fenced_yard')) { earned += 1; evidence.push('Fenced / secure yard'); }
         if (hasSignal(signals, 'sport_court') || hasSignal(signals, 'putting_green')) { earned += 1; evidence.push('Sport court / putting green'); }
 
         if (earned === 0) missing.push('No notable outdoor functional spaces');

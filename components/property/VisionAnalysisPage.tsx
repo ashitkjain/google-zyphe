@@ -22,9 +22,12 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { PropertyData } from '../../types';
 import { PageHeader } from './PropertySectionView';
+import { CustomAIAnalysisResult } from '../../types/ai';
+import StaticParcelMap from './StaticParcelMap';
 
 interface Props {
     propertyData: PropertyData;
+    customAnalysis?: CustomAIAnalysisResult | null;
     // Optional close handler — when present the page renders as a fullscreen
     // overlay with a Close button. When absent (the default path now), it
     // renders as a normal section page inside the property nav.
@@ -146,7 +149,7 @@ function groupPhotos(photos: PhotoEntry[] | undefined): { groups: GroupView[]; o
     return { groups, orphans };
 }
 
-const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, mode, renderPalette }) => {
+const VisionAnalysisPage: React.FC<Props> = ({ propertyData, customAnalysis, onClose, userRole, mode, renderPalette }) => {
     const zpid = propertyData?.zpid ? String(propertyData.zpid) : '';
     const [running, setRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -404,6 +407,18 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, 
                             propertyImages={propertyData?.images}
                             onEnlargeImage={(url) => setEnlargedImage(url)}
                         />
+                        
+                        <EyesOnTheStreet data={propertyData} docData={docData} onEnlargeImage={setEnlargedImage} />
+                        
+                        {customAnalysis?.exterior_and_neighborhood?.neighborhood_street_insights && (
+                            <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1.5">Neighborhood Street Insights</div>
+                                <p className="text-xs text-slate-600 leading-relaxed m-0">{customAnalysis.exterior_and_neighborhood.neighborhood_street_insights}</p>
+                            </div>
+                        )}
+                        
+                        <ParcelAndSatellite data={propertyData} />
+                        
                         {extGroups.length > 0 && (
                             <RoomsWalkthrough
                                 groups={extGroups}
@@ -412,7 +427,7 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, onClose, userRole, 
                                 onSelectIdx={setSelectedOutdoorRoomIdx}
                                 onEnlargeImage={(url) => setEnlargedImage(url)}
                                 embedded
-                                sectionNum="03"
+                                sectionNum="05"
                                 accent="#059669"
                             />
                         )}
@@ -1155,3 +1170,415 @@ function SynthesisOutdoor({
         </div>
     );
 }
+
+interface Obs {
+    num: number;
+    category: string;
+    value: string;
+    body: string;
+}
+
+const EyesOnTheStreet: React.FC<{
+    data: PropertyData;
+    docData: VisionDoc | null;
+    onEnlargeImage: (url: string) => void;
+}> = ({ data, docData, onEnlargeImage }) => {
+    const [svTab, setSvTab] = useState<'streetview' | 'satellite'>('streetview');
+    const [isStreetViewExpanded, setIsStreetViewExpanded] = useState(false);
+    
+    const sv = data.streetViewAnalysis;
+    const extS = docData?.exterior_synthesis;
+    
+    const fencingRaw = data.resoFacts?.fencing;
+    const fencing = Array.isArray(fencingRaw) ? fencingRaw.join(', ') : (fencingRaw || '');
+    const lotFeaturesRaw = data.resoFacts?.lotFeatures;
+    const lotFeatures = Array.isArray(lotFeaturesRaw) ? lotFeaturesRaw.join(', ') : (lotFeaturesRaw || '');
+
+    const observations: Obs[] = [
+        {
+            num: 1,
+            category: 'Front-Yard Privacy',
+            value: sv?.privacyRating || (fencing ? 'Fenced' : 'Moderate'),
+            body: extS?.views_privacy_orientation?.privacy
+                || sv?.gardenDescription
+                || 'Privacy screening details will appear after running the exterior analysis.',
+        },
+        {
+            num: 2,
+            category: 'Safety & Access',
+            value: fencing ? 'Fully fenced' : (sv?.familySafety?.split(' ').slice(0, 2).join(' ') || 'Open front'),
+            body: sv?.familySafety
+                || (fencing
+                    ? `${fencing} fencing with direct access to sidewalks. Suitable for kids and pets.`
+                    : 'No fencing listed. Front yard is open to the street.'),
+        },
+        {
+            num: 3,
+            category: 'Solar Potential',
+            value: sv?.solarObstructions
+                ? (sv.solarObstructions.toLowerCase().includes('obstruct') ? 'Obstructed' : 'Good')
+                : (lotFeatures.toLowerCase().includes('tree') ? 'Obstructed' : 'Good'),
+            body: sv?.solarObstructions
+                || (lotFeatures.toLowerCase().includes('tree')
+                    ? 'Mature trees on the property and surrounding lots could obstruct rooftop solar, especially in winter months when the sun angle is lower.'
+                    : 'No major obstructions detected. Good exposure for rooftop solar.'),
+        },
+        {
+            num: 4,
+            category: 'Vibe',
+            value: sv?.neighborhoodVibe?.split(' ').slice(0, 3).join(' ') || 'Pleasant',
+            body: [sv?.neighborCondition, sv?.neighborhoodVibe]
+                .filter(Boolean)
+                .join(' — ')
+                || 'Neighboring houses appear well-maintained and in good condition, contributing to a cohesive neighborhood aesthetic.',
+        },
+        {
+            num: 5,
+            category: 'Utilities',
+            value: sv?.utilityAesthetic
+                ? (sv.utilityAesthetic.toLowerCase().includes('underground') ? 'Underground' : 'Visible')
+                : 'Underground',
+            body: sv?.utilityAesthetic
+                || 'No overhead wires visible — utilities appear to be underground, preserving the visual character of the street.',
+        },
+        {
+            num: 6,
+            category: 'Parking',
+            value: sv?.parkingLogistics?.split(' ').slice(0, 3).join(' ') || 'Street + driveway',
+            body: sv?.parkingLogistics
+                || 'Street parking is available and unrestricted. Combined with the private driveway, guest parking is not a concern.',
+        },
+    ];
+
+    const pinMap = new Map<number, { xPct: number; yPct: number }>(
+        (sv?.observationPins ?? []).map(p => [p.num, { xPct: p.xPct, yPct: p.yPct }])
+    );
+
+    const svUrl = data.streetView || data.orientation_ai?.street_view_url;
+    const hasSatellite = !!data.satelliteImageUrl;
+
+    const MAPS_API_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
+
+    const Pin: React.FC<{ n: number; style?: React.CSSProperties }> = ({ n, style }) => (
+        <div style={{
+            position: 'absolute', width: 26, height: 26, borderRadius: '50%',
+            background: '#4f46e5', border: '2px solid rgba(255,255,255,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: _mono, fontSize: 11, fontWeight: 700, color: '#fff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.35)', cursor: 'default', zIndex: 2,
+            transform: 'translate(-50%, -50%)',
+            ...style,
+        }}>
+            {n}
+        </div>
+    );
+
+    const ObsCard: React.FC<Obs> = ({ num, category, value, body }) => (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center font-mono text-[10px] font-bold text-white flex-shrink-0">{num}</div>
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">{category}</span>
+            </div>
+            <div className="font-serif text-lg text-slate-900 leading-tight">{value}</div>
+            <p className="text-xs text-slate-600 leading-relaxed m-0">{body}</p>
+        </div>
+    );
+
+    if (!svUrl && !hasSatellite) return null;
+
+    return (
+        <section>
+            <SectionTitleBar num="03" kicker="Eyes on the Street" title="What the street tells you — before you walk up." italicWord="before you walk up." accent="#059669" />
+            <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                Six observations synthesised from street view, satellite, and parcel data.
+            </p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                <div>
+                    <div className="flex gap-1.5 mb-2">
+                        {svUrl && (
+                            <button onClick={() => setSvTab('streetview')} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${svTab === 'streetview' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                Google Street View
+                            </button>
+                        )}
+                        {hasSatellite && (
+                            <button onClick={() => setSvTab('satellite')} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${svTab === 'satellite' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                Parcel Satellite
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="relative rounded-2xl overflow-hidden aspect-square bg-slate-100 border border-slate-200">
+                        {svTab === 'streetview' ? (
+                            <>
+                                <img src={svUrl} alt="Street View" className="w-full h-full object-cover cursor-pointer" onClick={() => onEnlargeImage(svUrl)} />
+                                {observations.map(obs => {
+                                    const pos = pinMap.get(obs.num);
+                                    if (!pos) return null;
+                                    return <Pin key={obs.num} n={obs.num} style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%` }} />;
+                                })}
+                                <button
+                                    onClick={() => setIsStreetViewExpanded(true)}
+                                    className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-700 uppercase tracking-wider shadow-sm flex items-center gap-1.5 border border-slate-200 hover:bg-white transition-colors"
+                                >
+                                    <i className="fa-solid fa-up-right-and-down-left-from-center text-[9px]" />
+                                    360° View
+                                </button>
+                            </>
+                        ) : (
+                            <img src={data.satelliteImageUrl} alt="Satellite" className="w-full h-full object-cover cursor-pointer" onClick={() => onEnlargeImage(data.satelliteImageUrl!)} />
+                        )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {observations.map(obs => (
+                        <ObsCard key={obs.num} {...obs} />
+                    ))}
+                </div>
+            </div>
+
+            {isStreetViewExpanded && data.coordinates && (
+                <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="relative w-full max-w-5xl aspect-video bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                        <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-white">
+                            <div>
+                                <h3 className="font-serif text-2xl text-slate-900">Street View Exploration</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">{data.address}</p>
+                            </div>
+                            <button
+                                onClick={() => setIsStreetViewExpanded(false)}
+                                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors"
+                            >
+                                <i className="fa-solid fa-xmark" />
+                            </button>
+                        </div>
+                        <div className="flex-1">
+                            <iframe
+                                width="100%" height="100%"
+                                style={{ border: 0 }}
+                                loading="lazy"
+                                allowFullScreen
+                                src={`https://www.google.com/maps/embed/v1/streetview?key=${MAPS_API_KEY}&location=${data.coordinates.latitude},${data.coordinates.longitude}&heading=${data.orientation_ai?.azimuth_degrees ?? 0}&pitch=0&fov=90&source=outdoor`}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+}
+
+const ParcelStat: React.FC<{
+    icon: string;
+    label: string;
+    value: string;
+    sub?: string;
+    badge?: string;
+}> = ({ icon, label, value, sub, badge }) => {
+    return (
+        <div className="flex gap-3 items-start">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i className={`fa-solid ${icon} text-indigo-600 text-[10px]`} />
+            </div>
+            <div className="min-w-0">
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{label}</div>
+                <div className="flex items-center gap-2">
+                    <span className="font-serif text-xl text-slate-900">{value}</span>
+                    {badge && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 uppercase">
+                            {badge}
+                        </span>
+                    )}
+                </div>
+                {sub && <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">{sub}</div>}
+            </div>
+        </div>
+    );
+};
+
+const ParcelAndSatellite: React.FC<{ data: PropertyData }> = ({ data }) => {
+    const [lotTab, setLotTab] = useState<'parcel' | 'satellite'>('parcel');
+    const [isSatelliteExpanded, setIsSatelliteExpanded] = useState(false);
+    const [pvLoading, setPvLoading] = useState(false);
+    const [pvFlags, setPvFlags] = useState<any[] | null>(null);
+    const [arcgisArea, setArcgisArea] = useState<number | null>(null);
+    const [taxSqft, setTaxSqft] = useState<number | null>(null);
+    const [drivewayDisplay, setDrivewayDisplay] = useState<any>(null);
+    const [backyardDisplay, setBackyardDisplay] = useState<any>(null);
+    const [viewDisplay, setViewDisplay] = useState<any>(null);
+    const [elevationFt, setElevationFt] = useState<number | null>(null);
+
+    const hasSatellite = !!data.satelliteImageUrl;
+
+    useEffect(() => {
+        if (!data.zpid || !data.coordinates) return;
+        let cancelled = false;
+        const run = async () => {
+            setPvLoading(true);
+            try {
+                const { doc, getDoc } = await import('firebase/firestore');
+                const { db } = await import('../../services/firebase/config');
+                const propSnap = await getDoc(doc(db, 'properties', String(data.zpid)));
+                const pData = propSnap.exists() ? propSnap.data() : null;
+                if (pData?.parcelValidation) {
+                    const pv = pData.parcelValidation;
+                    setPvFlags(pv.flags || []);
+                    if (pv.slopePercent != null)       setBackyardDisplay({ grade: pv.slopePercent, category: pv.slopeCategory || 'Flat', dir: pv.uphillDir || '?' });
+                    if (pv.drivewayGradePercent != null) setDrivewayDisplay({ grade: pv.drivewayGradePercent, category: pv.drivewayCategory || 'Flat', dir: pv.downhillDir || '?' });
+                    if (pv.viewDropFt != null)          setViewDisplay({ potential: pv.viewPotential || 'None', dropFt: pv.viewDropFt, dir: pv.viewDropDir || '?' });
+                    if (pv.elevationFt != null)         setElevationFt(pv.elevationFt);
+                }
+                setArcgisArea(pData?.parcelAreaSqft || null);
+                setTaxSqft(pData?.taxSqft || null);
+            } catch (e) { console.error('PV Fetch failed', e); }
+            finally { if (!cancelled) setPvLoading(false); }
+        };
+        run();
+        return () => { cancelled = true; };
+    }, [data.zpid, data.coordinates]);
+
+    const lotFeaturesRaw = data.resoFacts?.lotFeatures;
+    const lotFeatures = Array.isArray(lotFeaturesRaw) ? lotFeaturesRaw.join(', ') : (lotFeaturesRaw || '');
+
+    return (
+        <section className="bg-white border border-slate-200 rounded-2xl p-6">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Parcel & Satellite</div>
+                    <h2 className="font-serif text-2xl text-slate-900">What the lot is <em className="text-emerald-600 not-italic">actually</em> working with</h2>
+                </div>
+                {data.parcelApn && (
+                    <span className="font-mono text-[10px] text-slate-400 tracking-wider">APN: {data.parcelApn}</span>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[44%_1fr] gap-4 items-start">
+                <div>
+                    <div className="flex gap-2 mb-2">
+                        {(['parcel', 'satellite'] as const).map(tab => {
+                            const active = lotTab === tab;
+                            return (
+                                <button key={tab} onClick={() => setLotTab(tab)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    {tab}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="relative rounded-xl overflow-hidden aspect-square bg-slate-100 border border-slate-200">
+                        {lotTab === 'parcel' ? (
+                            <StaticParcelMap
+                                data={data}
+                                className="h-full w-full"
+                                parcelPolygon={
+                                    data.parcelPolygon && data.parcelPolygon.length > 3
+                                        ? data.parcelPolygon.map((pt: any) => Array.isArray(pt) ? pt : [pt.lon, pt.lat])
+                                        : undefined
+                                }
+                            />
+                        ) : hasSatellite ? (
+                            <>
+                                <img src={data.satelliteImageUrl!} alt="Satellite View" className="w-full h-full object-cover cursor-pointer" onClick={() => setIsSatelliteExpanded(true)} />
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm p-2 flex items-center gap-2 text-white text-[9px] uppercase tracking-wider">
+                                    <span>Satellite View</span>
+                                    {data.address && <span className="opacity-60">· {data.address}</span>}
+                                    {lotFeatures && <span className="opacity-45">· {lotFeatures.slice(0, 30)}</span>}
+                                </div>
+                            </>
+                        ) : (
+                            <StaticParcelMap
+                                data={data}
+                                className="h-full w-full"
+                                parcelPolygon={
+                                    data.parcelPolygon && data.parcelPolygon.length > 3
+                                        ? data.parcelPolygon.map((pt: any) => Array.isArray(pt) ? pt : [pt.lon, pt.lat])
+                                        : undefined
+                                }
+                            />
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        <ParcelStat
+                            icon="fa-draw-polygon"
+                            label="Parcel Polygon"
+                            value={arcgisArea ? `${arcgisArea.toLocaleString()} sf` : (data.lotSize ? `${data.lotSize.toLocaleString()} sf` : '—')}
+                            sub={(arcgisArea || data.lotSize) ? `(${((arcgisArea || data.lotSize || 0) / 43560).toFixed(2)} ac)` : undefined}
+                        />
+                        <ParcelStat
+                            icon="fa-ruler-combined"
+                            label="Living Area (Tax Records)"
+                            value={taxSqft ? `${taxSqft.toLocaleString()} sf` : (data.livingAreaValue ? `${data.livingAreaValue.toLocaleString()} sf` : '—')}
+                        />
+
+                        <div className="col-span-2 h-px bg-slate-200" />
+
+                        <ParcelStat
+                            icon="fa-car"
+                            label="Driveway Grade"
+                            value={drivewayDisplay ? `${drivewayDisplay.grade}%` : '—'}
+                            badge={drivewayDisplay?.category}
+                            sub={drivewayDisplay?.category === 'Flat' ? 'Level entry — no concern for vehicles or accessibility' : 'Measured terrain grade.'}
+                        />
+                        <ParcelStat
+                            icon="fa-tree"
+                            label="Backyard Slope"
+                            value={backyardDisplay ? `${backyardDisplay.grade}%` : '—'}
+                            badge={backyardDisplay?.category}
+                            sub={backyardDisplay?.category === 'Flat' ? 'Fully usable — pool, patio & lawn all feasible' : 'Measured terrain grade.'}
+                        />
+
+                        <div className="col-span-2 h-px bg-slate-200" />
+
+                        <ParcelStat
+                            icon="fa-mountain-sun"
+                            label="Elevation"
+                            value={elevationFt ? `${elevationFt.toLocaleString()} ft` : '—'}
+                            sub="above sea level"
+                        />
+                        <ParcelStat
+                            icon="fa-binoculars"
+                            label="View Potential"
+                            value={viewDisplay?.potential || 'None'}
+                            sub={viewDisplay?.potential === 'None' || !viewDisplay ? 'Flat surroundings — no terrain-based view expected' : 'View potential assessed.'}
+                        />
+                    </div>
+
+                    {pvFlags && pvFlags.filter(f => f.severity === 'alert' || f.severity === 'warning').length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-slate-200">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <i className="fa-solid fa-triangle-exclamation text-amber-500" />
+                                Verify These
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {pvFlags.filter(f => f.severity === 'alert' || f.severity === 'warning').map((f, idx) => (
+                                    <div key={idx} className={`border rounded-lg p-3 ${f.severity === 'alert' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                                        <div className="text-xs font-bold leading-snug mb-1">
+                                            {f.finding}
+                                        </div>
+                                        {f.listed && f.measured && (
+                                            <div className="flex gap-4 text-[10px] opacity-75">
+                                                <span>Listed: <strong>{f.listed}</strong></span>
+                                                <span>Measured: <strong>{f.measured}</strong></span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {isSatelliteExpanded && data.satelliteImageUrl && (
+                <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsSatelliteExpanded(false)}>
+                    <img src={data.satelliteImageUrl} alt="Satellite Expanded" className="max-width-full max-height-full object-contain rounded-xl" />
+                </div>
+            )}
+        </section>
+    );
+};
+

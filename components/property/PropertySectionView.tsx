@@ -386,7 +386,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
 
                     if (subId === 'outdoor-ai') return (
                         <div className="animate-in fade-in duration-200">
-                            <VisionAnalysisPage propertyData={data} userRole={userRole} mode="outdoor" renderPalette={renderPalette} />
+                            <VisionAnalysisPage propertyData={data} customAnalysis={customAnalysis} userRole={userRole} mode="outdoor" renderPalette={renderPalette} />
                         </div>
                     );
                 }

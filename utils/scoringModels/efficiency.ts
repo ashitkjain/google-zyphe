@@ -190,6 +190,11 @@ export const scoreEfficiencyLowMaintenance: ScoringModel = (factors, signals) =>
             earned += 2;
             evidence.push('Microclimate reduces water needs');
         }
+        // Level / flat lot reduces grading, drainage, and erosion maintenance
+        if (hasSignal(signals, 'level_flat_lot')) {
+            earned += 1;
+            evidence.push('Level lot (minimal grading maintenance)');
+        }
 
         if (earned === 0) missing.push('Landscaping appears water-intensive');
 
@@ -305,6 +310,12 @@ export const scoreEfficiencyLowMaintenance: ScoringModel = (factors, signals) =>
         } else if (factorMentions(f20, 'pre-war', 'pre war', 'historic')) {
             earned += 0;
             missing.push('Older construction — likely lower energy performance');
+        }
+        // Disaster Resilience (factor 79): retrofits and resilient materials reduce future maintenance/insurance cost
+        const f79 = findFactor(factors, 79);
+        if (factorMentions(f79, 'seismic retrofit', 'fire-resistant siding', 'class a roof', 'defensible space', 'hardened')) {
+            earned += 2;
+            evidence.push('Disaster-resilience retrofits');
         }
 
         components.push({

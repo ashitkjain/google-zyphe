@@ -73,13 +73,13 @@ export const scoreCurbAppealLandscaping: ScoringModel = (factors, signals) => {
         let earned = 0;
 
         const landscapeSignals = [
-            { id: 'professionally_landscaped', pts: 6, label: 'Professionally landscaped' },
-            { id: 'mature_landscaping',         pts: 4, label: 'Mature landscaping' },
-            { id: 'manicured_lawn',             pts: 3, label: 'Manicured lawn' },
+            { id: 'lush_landscaping', pts: 6, label: 'Professionally landscaped' },
+            // mature_landscaping consolidated into lush_landscaping above.
+            { id: 'kid_friendly_lawn',             pts: 3, label: 'Manicured lawn' },
             { id: 'mature_trees',               pts: 3, label: 'Mature trees' },
-            { id: 'privacy_hedges',             pts: 2, label: 'Privacy hedges' },
-            { id: 'stone_pathways',             pts: 2, label: 'Stone pathways' },
-            { id: 'water_feature',              pts: 2, label: 'Water feature / fountain' },
+            { id: 'fully_secluded',             pts: 2, label: 'Privacy hedges' },
+            { id: 'stone_hardscaping',             pts: 2, label: 'Stone pathways' },
+            { id: 'water_features',              pts: 2, label: 'Water feature / fountain' },
         ];
         for (const s of landscapeSignals) {
             if (hasSignal(signals, s.id)) {
@@ -98,6 +98,12 @@ export const scoreCurbAppealLandscaping: ScoringModel = (factors, signals) => {
                 missing.push('No landscaping details detected');
             }
         }
+        // Bonus: factor 32 — visible front-yard fountain, fire feature, or notable hardscape from street
+        const f32 = findFactor(factors, 32);
+        if (factorMentions(f32, 'front fountain', 'front courtyard', 'front patio', 'visible from street')) {
+            earned += 2;
+            evidence.push('Front-yard outdoor feature visible from street');
+        }
 
         components.push({
             label: 'Landscaping & Greenery',
@@ -115,11 +121,12 @@ export const scoreCurbAppealLandscaping: ScoringModel = (factors, signals) => {
         const missing: string[] = [];
         let earned = 0;
 
-        if (hasSignal(signals, 'statement_door')) { earned += 6; evidence.push('Statement front door'); }
+        if (hasSignal(signals, 'statement_door')) { earned += 5; evidence.push('Statement front door'); }
         if (hasSignal(signals, 'welcoming_porch')) { earned += 4; evidence.push('Welcoming porch'); }
         if (hasSignal(signals, 'dramatic_foyer')) { earned += 3; evidence.push('Dramatic foyer'); }
+        if (hasSignal(signals, 'motor_court')) { earned += 2; evidence.push('Motor court / circular drive'); }
         if (hasSignal(signals, 'designer_hardware')) { earned += 2; evidence.push('Designer hardware'); }
-        if (hasSignal(signals, 'entry_glass_views')) { earned += 2; evidence.push('Glass sidelights & transom'); }
+        if (hasSignal(signals, 'entry_glass_views')) { earned += 1; evidence.push('Glass sidelights & transom'); }
         if (hasSignal(signals, 'high_ceilings_entry')) { earned += 1; evidence.push('High entry ceilings'); }
 
         if (earned === 0) missing.push('No statement entry or notable facade details');
@@ -163,6 +170,12 @@ export const scoreCurbAppealLandscaping: ScoringModel = (factors, signals) => {
                 missing.push('No defining architectural style');
             }
         }
+        // Bonus: premium siding/exterior material
+        const f41 = findFactor(factors, 41);
+        if (factorMentions(f41, 'stone', 'brick', 'cedar', 'stucco', 'fiber cement')) {
+            earned += 2;
+            evidence.push(...factorTagsMatching(f41, 'stone', 'brick', 'cedar', 'fiber cement').slice(0, 1));
+        }
 
         components.push({
             label: 'Architectural Character',
@@ -180,8 +193,8 @@ export const scoreCurbAppealLandscaping: ScoringModel = (factors, signals) => {
         const missing: string[] = [];
         let earned = 0;
 
-        if (hasSignal(signals, 'architectural_lighting')) { earned += 5; evidence.push('Architectural / landscape lighting'); }
-        if (hasSignal(signals, 'smart_lighting')) { earned += 3; evidence.push('Smart exterior lighting'); }
+        if (hasSignal(signals, 'premium_lighting')) { earned += 5; evidence.push('Architectural / landscape lighting'); }
+        // smart_lighting was consolidated into premium_lighting; covered above.
 
         if (earned === 0) missing.push('No notable exterior lighting');
 

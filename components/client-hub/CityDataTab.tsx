@@ -5322,7 +5322,15 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                                     {n.infrastructure_quality && (
                                                         <div>
                                                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Infrastructure</span>
-                                                            <p className="text-[10px] text-slate-600 mt-0.5">{n.infrastructure_quality}</p>
+                                                            <p className="text-[10px] text-slate-600 mt-0.5">
+                                                                {typeof n.infrastructure_quality === 'object' ? (
+                                                                    (n.infrastructure_quality as any).notes || 
+                                                                    Object.entries(n.infrastructure_quality)
+                                                                        .filter(([k, v]) => k !== 'notes' && v)
+                                                                        .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                                                                        .join(' · ')
+                                                                ) : n.infrastructure_quality}
+                                                            </p>
                                                         </div>
                                                     )}
                                                     {n.upcoming_changes && (() => {
