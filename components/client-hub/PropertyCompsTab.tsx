@@ -497,6 +497,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
 
             const res = await findComps(subject, {
                 forceRefresh: false,
+                skipGemini: true,
                 onProgress: (step) => {
                     console.log(`[Comps Progress] ${step}`);
                 }

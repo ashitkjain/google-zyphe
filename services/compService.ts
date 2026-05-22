@@ -72,6 +72,7 @@ export interface FindCompsOptions {
     useZipCache?: boolean;
     onProgress?: (step: string) => void;
     userId?: string;
+    skipGemini?: boolean;
 }
 
 export interface CompAnalysisResult {
@@ -133,7 +134,8 @@ export async function findComps(
         forceRefresh = false,
         useZipCache = false,
         onProgress = () => {},
-        userId = 'unknown'
+        userId = 'unknown',
+        skipGemini = false
     } = options;
 
     onProgress('Resolving subject property details...');
@@ -451,6 +453,16 @@ export async function findComps(
         eligibleComps = mappedComps
             .filter(c => !c.isOutlier && !c.priceUnverified)
             .slice(0, 5);
+    }
+
+    if (skipGemini) {
+        return {
+            rawComps: mappedComps,
+            eligibleComps: eligibleComps,
+            geminiResult: null,
+            monthlyAppreciationRate: monthlyRate,
+            subjectProperty: subjectData
+        };
     }
 
     if (eligibleComps.length === 0) {
