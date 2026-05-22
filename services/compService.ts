@@ -168,7 +168,37 @@ export async function findComps(
         if (zipMatch) zipCode = zipMatch[1];
     }
 
-    // 3. Enrich Subject Attributes from local DB or Rentcast
+    // 3. Enrich Subject Attributes from US Housing API (if ZPID is missing) or Local DB
+    if (!subjectData.zpid) {
+        onProgress('Searching county records for subject property specs...');
+        try {
+            const config = APP_CONFIG.usHousingApi;
+            const searchUrl = `https://${config.host}/propertyExtendedSearch?location=${encodeURIComponent(subjectData.address)}`;
+            const searchResp = await fetch(searchUrl, {
+                method: 'GET',
+                headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
+            });
+            if (searchResp.ok) {
+                const searchData = await searchResp.json();
+                const matched = (searchData.props || searchData.results || searchData || [])[0];
+                if (matched && matched.zpid) {
+                    console.log(`[CompService] Resolved subject ZPID via live search: ${matched.zpid}`);
+                    subjectData.zpid = String(matched.zpid);
+                    subjectData.bedrooms = subjectData.bedrooms ?? matched.bedrooms ?? matched.beds;
+                    subjectData.bathrooms = subjectData.bathrooms ?? matched.bathrooms ?? matched.baths;
+                    subjectData.squareFootage = subjectData.squareFootage ?? matched.livingArea ?? matched.squareFootage ?? matched.livingAreaValue;
+                    subjectData.lotSize = subjectData.lotSize ?? matched.lotSize ?? matched.lotAreaValue;
+                    subjectData.yearBuilt = subjectData.yearBuilt ?? matched.yearBuilt;
+                    subjectData.homeType = subjectData.homeType ?? matched.propertyType ?? matched.homeType;
+                    subjectData.listPrice = subjectData.listPrice ?? matched.price ?? matched.listPrice;
+                    subjectData.zestimate = subjectData.zestimate ?? matched.zestimate;
+                }
+            }
+        } catch (e: any) {
+            console.warn('[CompService] Subject property ZPID search failed:', e.message);
+        }
+    }
+
     if (subjectData.zpid) {
         const subjSnap = await getDoc(doc(db, 'properties', subjectData.zpid));
         if (subjSnap.exists()) {

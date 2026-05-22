@@ -520,6 +520,10 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                 address: res.subjectProperty?.address || trimmed,
             });
 
+            if (res.subjectProperty) {
+                setActiveSubject(res.subjectProperty);
+            }
+
             if (res.geminiResult) {
                 setCompAnalysisResult(res.geminiResult);
             }
@@ -607,6 +611,10 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                     console.log(`[CompAnalysis Progress] ${step}`);
                 }
             });
+
+            if (res.subjectProperty) {
+                setActiveSubject(res.subjectProperty);
+            }
 
             if (res.geminiResult) {
                 setCompAnalysisResult(res.geminiResult);
@@ -956,8 +964,9 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                     const nonSFR = ['townhouse', 'townhome', 'condo', 'condominium', 'co-op', 'coop', 'apartment', 'multi', 'duplex', 'triplex', 'fourplex', 'manufactured', 'mobile'];
                     return !nonSFR.some(t => ht.includes(t));
                 })();
+                const activeLotSizeForCalc = subjectLotSize || subjectAuditData?.arcgis_lot_sqft || subjectAuditData?.gross_lot_sqft || 0;
                 const subjectLotCalcLocal = subjectIsSFLocal
-                    ? ((subjectAuditData?.lot_calc?.usable != null ? subjectAuditData.lot_calc : null) ?? getLotCalcLocal(subjectLotSize ?? null, subjectAuditData?.slope_category, subjectAuditData?.slope_percent))
+                    ? ((subjectAuditData?.lot_calc?.usable != null ? subjectAuditData.lot_calc : null) ?? getLotCalcLocal(activeLotSizeForCalc, subjectAuditData?.slope_category, subjectAuditData?.slope_percent))
                     : null;
 
                 return (
@@ -1054,7 +1063,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         </div>
                                         <div>
                                             <div className="text-teal-500 font-bold text-[10px]">Lot Area</div>
-                                            <div className="font-black text-slate-700">{subjectLotSize ? `${subjectLotSize.toLocaleString()} sf` : '—'}</div>
+                                            <div className="font-black text-slate-700">{(subjectLotSize || activeLotSizeForCalc) ? `${(subjectLotSize || activeLotSizeForCalc).toLocaleString()} sf` : '—'}</div>
                                         </div>
                                         {subjectIsSFLocal && (
                                             <div>
