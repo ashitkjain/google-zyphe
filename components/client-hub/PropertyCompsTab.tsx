@@ -346,6 +346,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [tempSqft, setTempSqft] = useState<number | null>(null);
     const [tempLotSize, setTempLotSize] = useState<number | null>(null);
     const [tempZpid, setTempZpid] = useState<string | null>(null);
+    const [tempMlsId, setTempMlsId] = useState<string | null>(null);
     const [tempListPrice, setTempListPrice] = useState<number | null>(null);
     const [tempYearBuilt, setTempYearBuilt] = useState<number | null>(null);
 
@@ -364,23 +365,21 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setTempBaths(subjectBathrooms || null);
         setTempSqft(subjectSqft || null);
         setTempLotSize(subjectLotSize || null);
-        setTempZpid(activeSubject?.zpid || (activeSubject as any)?.mlsId || subjectZpid || null);
+        setTempZpid(activeSubject?.zpid || subjectZpid || null);
+        setTempMlsId((activeSubject as any)?.mlsId || null);
         setTempListPrice(subjectListPrice || null);
         setTempYearBuilt(subjectYearBuilt || null);
     }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize, subjectZpid, subjectListPrice, subjectYearBuilt]);
 
     const handleSaveCustomSpecs = () => {
-        const rawZpidOrMls = tempZpid?.trim() || '';
-        const isPureNumeric = /^\d+$/.test(rawZpidOrMls);
-
         const updated: SubjectProperty & { mlsId?: string } = {
             ...(activeSubject || { address: activeAddress }),
             bedrooms: tempBeds || undefined,
             bathrooms: tempBaths || undefined,
             squareFootage: tempSqft || undefined,
             lotSize: tempLotSize || undefined,
-            zpid: isPureNumeric ? rawZpidOrMls : undefined,
-            mlsId: !isPureNumeric && rawZpidOrMls ? rawZpidOrMls : undefined,
+            zpid: tempZpid?.trim() || undefined,
+            mlsId: tempMlsId?.trim() || undefined,
             listPrice: tempListPrice || undefined,
             yearBuilt: tempYearBuilt || undefined,
         };
@@ -553,13 +552,12 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const trimmed = manualAddress.trim();
         if (!trimmed) return;
 
-        const rawZpidOrMls = searchZpid.trim();
-        const isPureNumeric = /^\d+$/.test(rawZpidOrMls);
+        const rawMlsId = searchZpid.trim();
 
         const newActive: SubjectProperty & { mlsId?: string } = {
             address: trimmed,
-            zpid: isPureNumeric ? rawZpidOrMls : undefined,
-            mlsId: !isPureNumeric && rawZpidOrMls ? rawZpidOrMls : undefined,
+            zpid: undefined,
+            mlsId: rawMlsId || undefined,
         };
 
         setActiveSubject(newActive); // Seed the override instantly
@@ -567,7 +565,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setCompAnalysisResult(null);
         setCompAnalysisError(null);
         setCompAnalysisLoading(false);
-        fetchComps(trimmed, newActive.zpid, newActive.mlsId);
+        fetchComps(trimmed, undefined, newActive.mlsId);
     };
 
 
@@ -1286,14 +1284,24 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                 className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
                                             />
                                         </div>
-                                        <div className="col-span-2">
-                                            <label className="text-[9px] font-black text-indigo-500 uppercase tracking-wider block mb-0.5">MLS ID / Zillow ZPID</label>
+                                        <div>
+                                            <label className="text-[9px] font-black text-indigo-500 uppercase tracking-wider block mb-0.5">MLS ID</label>
+                                            <input
+                                                type="text"
+                                                value={tempMlsId ?? ''}
+                                                onChange={e => setTempMlsId(e.target.value || null)}
+                                                placeholder="e.g. ML82043166"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 font-mono font-bold bg-white text-indigo-900 placeholder:text-slate-300"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-violet-500 uppercase tracking-wider block mb-0.5">Zillow ZPID</label>
                                             <input
                                                 type="text"
                                                 value={tempZpid ?? ''}
                                                 onChange={e => setTempZpid(e.target.value || null)}
-                                                placeholder="e.g. 20442162"
-                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 font-mono font-bold bg-white text-indigo-900 placeholder:text-slate-300"
+                                                placeholder="e.g. 19599551"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-violet-500 font-mono font-bold bg-white text-violet-900 placeholder:text-slate-300"
                                             />
                                         </div>
                                     </div>
