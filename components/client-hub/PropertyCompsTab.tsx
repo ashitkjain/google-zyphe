@@ -338,6 +338,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [activeSubject, setActiveSubject] = useState<SubjectProperty | null>(null);
     const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
     const [manualAddress, setManualAddress] = useState('');
+    const [searchZpid, setSearchZpid] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
     const [bulkResults, setBulkResults] = useState<Record<string, { zypheValue: number | null, averagePsf: number | null, compsCount: number, error?: string }>>({});
     const [tempBeds, setTempBeds] = useState<number | null>(null);
@@ -547,6 +548,12 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setCompAnalysisResult(null);
         setCompAnalysisError(null);
         setCompAnalysisLoading(false);
+        if (searchZpid.trim()) {
+            setActiveSubject({
+                address: trimmed,
+                zpid: searchZpid.trim()
+            });
+        }
         fetchComps(trimmed);
     };
 
@@ -847,8 +854,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                             </p>
                         </div>
 
-                        <form onSubmit={handleManualAddressSearch} className="flex gap-2">
-                            <div className="relative flex-1">
+                        <form onSubmit={handleManualAddressSearch} className="flex gap-2 flex-wrap sm:flex-nowrap">
+                            <div className="relative flex-[2]">
                                 <i className="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
                                 <input
                                     type="text"
@@ -856,6 +863,16 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                     onChange={(e) => setManualAddress(e.target.value)}
                                     placeholder="Enter street, city, state or zip..."
                                     className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-semibold focus:border-indigo-500 focus:outline-none transition-all placeholder:text-slate-400 placeholder:font-medium bg-white"
+                                />
+                            </div>
+                            <div className="relative flex-1 min-w-[120px]">
+                                <i className="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                <input
+                                    type="text"
+                                    value={searchZpid}
+                                    onChange={(e) => setSearchZpid(e.target.value)}
+                                    placeholder="MLS ID (Optional)"
+                                    className="w-full pl-8 pr-3 py-2.5 rounded-2xl border border-slate-200 text-xs font-semibold focus:border-indigo-500 focus:outline-none transition-all placeholder:text-slate-400 placeholder:font-medium bg-white font-mono"
                                 />
                             </div>
                             <button
