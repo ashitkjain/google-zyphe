@@ -480,142 +480,54 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setShowAllSale(false);
 
         try {
-            const key = cacheKey(trimmed);
-            const cacheRef = doc(db, 'rentcast_comps', key);
-
-            // ── Cache read ───────────────────────────────────────────────────
-            const snap = await getDoc(cacheRef);
-            if (snap.exists()) {
-                const d = snap.data() as any;
-                // Only serve cache if it uses the new flat schema (d.comps array).
-                // Old AVM-format docs have d.valueEstimate but no d.comps — treat as miss
-                // so we re-fetch with the new /properties endpoint.
-                if (d.comps) {
-                    console.log('[Comps] cache hit — subjectLat:', subjectLat, 'subjectLng:', subjectLng);
-                    const rawComps: SaleComp[] = d.comps;
-                    const cachedComps = rawComps.map(c => ({
-                        ...c,
-                        // Use stored distance; fall back to Haversine if missing (older cache docs)
-                        distance: c.distance != null
-                            ? c.distance
-                            : (subjectLat != null && subjectLng != null && c.latitude != null && c.longitude != null)
-                                ? Math.round(haversineDistanceMi(subjectLat, subjectLng, c.latitude, c.longitude) * 10) / 10
-                                : undefined,
-                    }));
-                    setCached({
-                        valueEstimate: cachedComps.length > 0
-                            ? {
-                                price: null as any, priceRangeLow: null as any, priceRangeHigh: null as any,
-                                latitude: null as any, longitude: null as any, listingType: null as any, comps: cachedComps
-                            }
-                            : null,
-                        rentEstimate: null,
-                        queriedAt: d.queriedAt?.toDate?.() ?? new Date(),
-                        address: d.address ?? trimmed,
-                    });
-                    setLoading(false);
-                    return;
-                }
-                // Old AVM cache doc — fall through to live API call
-                console.log('[Comps] old AVM cache detected — re-fetching from /properties');
-            }
-
-            // ── Live API call: /properties with saleDateRange & radius ────────
-            const headers = { 'X-Api-Key': APP_CONFIG.rentcast.key, 'Content-Type': 'application/json' };
-            const base = APP_CONFIG.rentcast.baseUrl;
-
-            const params = new URLSearchParams({
-                address: trimmed,        // full address e.g. "27663 La Porte Ave, Hayward, CA 94545 US"
-                saleDateRange: '0:180',
-                radius: '1.0',
-                limit: '20',
-            });
-            console.log('[Comps] fetching:', `${base}/properties?${params}`);
-
-            const res = await fetch(`${base}/properties?${params}`, { headers });
-            if (!res.ok) {
-                const txt = await res.text();
-                throw new Error(`Rentcast /properties error: ${txt}`);
-            }
-
-            const json: any[] = await res.json();
-
-            // ── DEBUG: show raw Rentcast dates before any mapping ────────────
-            console.log('[Comps] raw Rentcast response — first 3 lastSaleDate values:',
-                (Array.isArray(json) ? json.slice(0, 3) : []).map((p: any) => ({
-                    address: p.formattedAddress,
-                    lastSaleDate: p.lastSaleDate,
-                    lastSaleDateType: typeof p.lastSaleDate,
-                    lastSalePrice: p.lastSalePrice,
-                }))
-            );
-
-            // Map /properties response → SaleComp
-            const comps: SaleComp[] = (Array.isArray(json) ? json : []).map((p: any) => ({
-                ...p,
-                id: p.id ?? p.formattedAddress ?? String(Math.random()),
-                formattedAddress: p.formattedAddress ?? '',
-                city: p.city ?? '',
-                state: p.state ?? '',
-                zipCode: p.zipCode ?? '',
-                distance: (subjectLat != null && subjectLng != null && p.latitude != null && p.longitude != null)
-                    ? Math.round(haversineDistanceMi(subjectLat, subjectLng, p.latitude, p.longitude) * 10) / 10
-                    : undefined,
-            }));
-
-            // /properties has no AVM estimate — set price fields to null, keep comps
-            const valueEstimate: ValueEstimate = {
-                price: null as any,
-                priceRangeLow: null as any,
-                priceRangeHigh: null as any,
-                latitude: null as any,
-                longitude: null as any,
-                listingType: null as any,
-                comps,
-            };
-
-
-            // ── Cache write — store all fields except the two large tax objects ──
-            // taxAssessments and propertyTaxes are deeply nested year-by-year records.
-            // lastSaleDate is explicitly stringified to prevent Firestore from auto-converting
-            // ISO date strings into Timestamp objects (which breaks read-time parsing).
-            // distance IS stored — it is stable and avoids recomputing on every read.
-            const slimComps = comps.map(({ taxAssessments, propertyTaxes, ...rest }: any) => ({
-                ...rest,
-                // ensure lastSaleDate is stored as a plain string, never a Timestamp
-                lastSaleDate: rest.lastSaleDate != null ? String(rest.lastSaleDate) : undefined,
-            }));
-
-            const stripUndefined = (obj: any): any => {
-                if (Array.isArray(obj)) return obj.map(stripUndefined);
-                if (obj !== null && typeof obj === 'object') {
-                    return Object.fromEntries(
-                        Object.entries(obj)
-                            .filter(([, v]) => v !== undefined)
-                            .map(([k, v]) => [k, stripUndefined(v)])
-                    );
-                }
-                return obj;
-            };
-
-            await setDoc(cacheRef, stripUndefined({
+            const subject: SubjectProperty = {
+                zpid: activeSubject ? undefined : subjectZpid,
                 address: trimmed,
-                comps: slimComps,
-                queriedAt: Timestamp.now(),
-            }));
+                latitude: activeSubject ? undefined : subjectLat ?? undefined,
+                longitude: activeSubject ? undefined : subjectLng ?? undefined,
+                bedrooms: subjectBedrooms ?? undefined,
+                bathrooms: subjectBathrooms ?? undefined,
+                squareFootage: subjectSqft ?? undefined,
+                lotSize: subjectLotSize ?? undefined,
+                yearBuilt: subjectYearBuilt ?? undefined,
+                homeType: subjectHomeType ?? undefined,
+                listPrice: subjectListPrice ?? undefined,
+                zestimate: subjectZestimate ?? undefined,
+            };
 
+            const res = await findComps(subject, {
+                forceRefresh: false,
+                onProgress: (step) => {
+                    console.log(`[Comps Progress] ${step}`);
+                }
+            });
+
+            const rawComps: SaleComp[] = res.rawComps || [];
 
             setCached({
-                valueEstimate,
+                valueEstimate: {
+                    price: null as any,
+                    priceRangeLow: null as any,
+                    priceRangeHigh: null as any,
+                    latitude: null as any,
+                    longitude: null as any,
+                    listingType: null as any,
+                    comps: rawComps,
+                },
+                rentEstimate: null,
                 queriedAt: new Date(),
-                address: trimmed,
+                address: res.subjectProperty?.address || trimmed,
             });
+
+            if (res.geminiResult) {
+                setCompAnalysisResult(res.geminiResult);
+            }
         } catch (e: any) {
             setError(e.message ?? 'Unknown error');
         } finally {
             setLoading(false);
         }
-    }, [address]);
+    }, [address, subjectSqft, subjectBedrooms, subjectBathrooms, subjectHomeType, subjectYearBuilt, subjectListPrice, subjectLotSize, subjectZpid, subjectLat, subjectLng, subjectZestimate, activeSubject]);
 
     // Auto-fetch when navigated here with an initialAddress
     useEffect(() => {
