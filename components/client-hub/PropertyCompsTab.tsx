@@ -338,6 +338,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [activeSubject, setActiveSubject] = useState<SubjectProperty | null>(null);
     const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
     const [manualAddress, setManualAddress] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkResults, setBulkResults] = useState<Record<string, { zypheValue: number | null, averagePsf: number | null, compsCount: number, error?: string }>>({});
 
     const subjectSqft = activeSubject?.squareFootage ?? propSubjectSqft;
     const subjectBedrooms = activeSubject?.bedrooms ?? propSubjectBedrooms;
@@ -455,6 +457,58 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setCompAnalysisError(null);
         setCompAnalysisLoading(false);
         fetchComps(subj.address);
+    };
+
+    const runBulkValuation = async () => {
+        if (parsedSubjectProperties.length === 0) return;
+        setBulkLoading(true);
+        setBulkResults({});
+        
+        const newResults: Record<string, any> = {};
+        
+        for (const subj of parsedSubjectProperties) {
+            try {
+                const res = await findComps(subj, {
+                    forceRefresh: false,
+                    useZipCache: true,
+                    skipGemini: true,
+                    onProgress: (step) => {
+                        console.log(`[Bulk progress - ${subj.address}] ${step}`);
+                    }
+                });
+                
+                const subjectSqftLocal = subj.squareFootage || res.subjectProperty?.squareFootage || 0;
+                
+                let zypheValue: number | null = null;
+                let avgAdjPsf: number | null = null;
+                
+                const eligible = (res.rawComps || [])
+                    .filter(c => !c.isOutlier && !c.priceUnverified && c.adjustedPrice && c.squareFootage && c.squareFootage > 0)
+                    .sort((a, b) => (a.tier ?? 4) - (b.tier ?? 4) || (a.distance ?? 99) - (b.distance ?? 99))
+                    .slice(0, 3);
+                    
+                if (eligible.length > 0 && subjectSqftLocal > 0) {
+                    avgAdjPsf = eligible.reduce((s, c) => s + (c.adjustedPrice! / c.squareFootage!), 0) / eligible.length;
+                    zypheValue = Math.round(avgAdjPsf * subjectSqftLocal);
+                }
+                
+                newResults[subj.address] = {
+                    zypheValue,
+                    averagePsf: avgAdjPsf,
+                    compsCount: res.rawComps?.length || 0,
+                };
+            } catch (err: any) {
+                newResults[subj.address] = {
+                    zypheValue: null,
+                    averagePsf: null,
+                    compsCount: 0,
+                    error: err.message || 'Valuation failed'
+                };
+            }
+        }
+        
+        setBulkResults(newResults);
+        setBulkLoading(false);
     };
 
     const handleManualAddressSearch = (e: React.FormEvent) => {
@@ -823,24 +877,45 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
 
                 {parsedSubjectProperties.length > 0 && (
                     <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 Parsed Properties (Top 2 selected)
                             </span>
-                            <button
-                                onClick={() => {
-                                    setParsedSubjectProperties([]);
-                                    setActiveSubject(null);
-                                    setAddress(initialAddress);
-                                    setCompAnalysisResult(null);
-                                    setCompAnalysisError(null);
-                                    fetchComps(initialAddress);
-                                }}
-                                className="text-[9px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-widest transition-colors"
-                            >
-                                <i className="fa-solid fa-trash-can mr-1" />
-                                Clear Uploaded Properties
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={runBulkValuation}
+                                    disabled={bulkLoading || parsedSubjectProperties.length === 0}
+                                    className="text-[9px] font-black text-teal-600 hover:text-teal-800 disabled:text-slate-400 uppercase tracking-widest transition-colors flex items-center gap-1"
+                                >
+                                    {bulkLoading ? (
+                                        <>
+                                            <i className="fa-solid fa-spinner animate-spin" />
+                                            Running Bulk Valuations...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fa-solid fa-play mr-1" />
+                                            Run Bulk Valuation (Fast Mode)
+                                        </>
+                                    )}
+                                </button>
+                                <span className="text-slate-200">|</span>
+                                <button
+                                    onClick={() => {
+                                        setParsedSubjectProperties([]);
+                                        setActiveSubject(null);
+                                        setAddress(initialAddress);
+                                        setCompAnalysisResult(null);
+                                        setCompAnalysisError(null);
+                                        setBulkResults({});
+                                        fetchComps(initialAddress);
+                                    }}
+                                    className="text-[9px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-widest transition-colors"
+                                >
+                                    <i className="fa-solid fa-trash-can mr-1" />
+                                    Clear Uploaded Properties
+                                </button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -874,6 +949,43 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                     {subj.listPrice && <span>${subj.listPrice.toLocaleString()}</span>}
                                                     {subj.homeType && <span>{subj.homeType}</span>}
                                                 </div>
+
+                                                {(() => {
+                                                    const res = bulkResults[subj.address];
+                                                    if (!res) return null;
+                                                    if (res.error) {
+                                                        return (
+                                                            <div className="mt-2 text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 rounded px-1.5 py-0.5 w-fit uppercase">
+                                                                ⚠️ {res.error}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    const delta = subj.listPrice && res.zypheValue
+                                                        ? ((res.zypheValue - subj.listPrice) / subj.listPrice * 100)
+                                                        : null;
+                                                    return (
+                                                        <div className="mt-2.5 flex items-center gap-3 border-t border-slate-100/60 pt-2 flex-wrap">
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Zyphe Valuation</span>
+                                                                <span className="text-[12px] font-black text-teal-600">{res.zypheValue ? `$${res.zypheValue.toLocaleString()}` : '—'}</span>
+                                                            </div>
+                                                            {res.averagePsf != null && (
+                                                                <div>
+                                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Avg $/sf</span>
+                                                                    <span className="text-[11px] font-black text-slate-700">${Math.round(res.averagePsf)}/sf</span>
+                                                                </div>
+                                                            )}
+                                                            {delta != null && (
+                                                                <div>
+                                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Delta vs List</span>
+                                                                    <span className={`text-[11px] font-black ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                        {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
 
                                             {isActive && (
