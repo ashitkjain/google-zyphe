@@ -28,6 +28,8 @@ export interface SubjectProperty {
 export interface SaleComp {
     id: string;
     formattedAddress: string;
+    imageUrl?: string;
+    rentZestimate?: number;
     addressLine1?: string;
     addressLine2?: string;
     city: string;
@@ -445,6 +447,9 @@ export async function findComps(
             isOutlier,
             priceUnverified,
             zestimate: compZestimate,
+            imageUrl: listing.imgSrc || listing.imageUrl || undefined,
+            rentZestimate: listing.rentZestimate || undefined,
+            daysOnMarket: listing.daysOnZillow ?? listing.daysOnMarket ?? undefined,
         });
     }
 
