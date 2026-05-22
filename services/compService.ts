@@ -195,51 +195,34 @@ export async function findComps(
         }
     }
 
-    // 4. Resolve ZPID from live US Housing API using Radar-normalized address
+    // 4. Resolve details directly from live US Housing API using Radar-normalized address
     if (!subjectData.zpid) {
-        onProgress('Looking up subject property via RapidAPI...');
+        onProgress('Querying subject details via US Housing API by address...');
         try {
             const config = APP_CONFIG.usHousingApi;
-            const searchUrl = `https://${config.host}/propertyExtendedSearch?location=${encodeURIComponent(subjectData.address)}`;
-            const searchResp = await fetch(searchUrl, {
+            const detailUrl = `https://${config.host}/property?address=${encodeURIComponent(subjectData.address)}`;
+            const detailResp = await fetch(detailUrl, {
                 method: 'GET',
                 headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
             });
-            if (searchResp.ok) {
-                const searchData = await searchResp.json();
-                let matched = null;
-                if (searchData && typeof searchData === 'object') {
-                    if (searchData.zpid) {
-                        matched = searchData;
-                    } else {
-                        const list = searchData.props || searchData.results || searchData;
-                        if (Array.isArray(list)) {
-                            matched = list[0];
-                        } else if (list && typeof list === 'object') {
-                            const keys = Object.keys(list);
-                            if (keys.length > 0 && typeof list[keys[0]] === 'object') {
-                                matched = list[keys[0]];
-                            }
-                        }
-                    }
-                }
-
-                if (matched && matched.zpid) {
-                    console.log(`[CompService] Resolved subject ZPID via RapidAPI search: ${matched.zpid}`);
-                    subjectData.zpid = String(matched.zpid);
-                    subjectData.bedrooms = subjectData.bedrooms ?? matched.bedrooms ?? matched.beds;
-                    subjectData.bathrooms = subjectData.bathrooms ?? matched.bathrooms ?? matched.baths;
-                    subjectData.squareFootage = subjectData.squareFootage ?? matched.livingArea ?? matched.squareFootage ?? matched.livingAreaValue;
-                    subjectData.lotSize = subjectData.lotSize ?? matched.lotSize ?? matched.lotAreaValue;
-                    subjectData.yearBuilt = subjectData.yearBuilt ?? matched.yearBuilt;
-                    subjectData.homeType = subjectData.homeType ?? matched.propertyType ?? matched.homeType;
-                    subjectData.listPrice = subjectData.listPrice ?? matched.price ?? matched.listPrice;
-                    subjectData.zestimate = subjectData.zestimate ?? matched.zestimate;
-                    subjectData.mlsId = subjectData.mlsId ?? matched.mlsid ?? matched.mlsId;
+            if (detailResp.ok) {
+                const detail = await detailResp.json();
+                console.log('[CompService] Live address detail fetch successful:', detail);
+                if (detail && detail.zpid) {
+                    subjectData.zpid = String(detail.zpid);
+                    subjectData.bedrooms = subjectData.bedrooms ?? detail.bedrooms ?? detail.beds;
+                    subjectData.bathrooms = subjectData.bathrooms ?? detail.bathrooms ?? detail.baths;
+                    subjectData.squareFootage = subjectData.squareFootage ?? detail.livingArea ?? detail.squareFootage ?? detail.livingAreaValue;
+                    subjectData.lotSize = subjectData.lotSize ?? detail.lotSize ?? detail.lotAreaValue;
+                    subjectData.yearBuilt = subjectData.yearBuilt ?? detail.yearBuilt;
+                    subjectData.homeType = subjectData.homeType ?? detail.propertyType ?? detail.homeType;
+                    subjectData.listPrice = subjectData.listPrice ?? detail.price ?? detail.listPrice;
+                    subjectData.zestimate = subjectData.zestimate ?? detail.zestimate;
+                    subjectData.mlsId = subjectData.mlsId ?? detail.mlsid ?? detail.mlsId;
                 }
             }
         } catch (e: any) {
-            console.warn('[CompService] Subject property ZPID search failed:', e.message);
+            console.warn('[CompService] Live address details query failed:', e.message);
         }
     }
 
@@ -262,7 +245,7 @@ export async function findComps(
                 mlsId: subjectData.mlsId ?? d.mlsid ?? d.mlsId,
             };
         } else {
-            onProgress('Querying details via US Housing API...');
+            onProgress('Querying details via US Housing API by ZPID...');
             try {
                 const config = APP_CONFIG.usHousingApi;
                 const detailUrl = `https://${config.host}/property?zpid=${subjectData.zpid}`;
