@@ -337,6 +337,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [parsedSubjectProperties, setParsedSubjectProperties] = useState<SubjectProperty[]>([]);
     const [activeSubject, setActiveSubject] = useState<SubjectProperty | null>(null);
     const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
+    const [manualAddress, setManualAddress] = useState('');
 
     const subjectSqft = activeSubject?.squareFootage ?? propSubjectSqft;
     const subjectBedrooms = activeSubject?.bedrooms ?? propSubjectBedrooms;
@@ -454,6 +455,19 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setCompAnalysisError(null);
         setCompAnalysisLoading(false);
         fetchComps(subj.address);
+    };
+
+    const handleManualAddressSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = manualAddress.trim();
+        if (!trimmed) return;
+
+        setActiveSubject(null); // Clear any active CSV override
+        setAddress(trimmed);
+        setCompAnalysisResult(null);
+        setCompAnalysisError(null);
+        setCompAnalysisLoading(false);
+        fetchComps(trimmed);
     };
 
 
@@ -816,30 +830,66 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                 </div>
             </div>
  
-            {/* ── CSV Uploader & Parsed Subjects Selection ── */}
+            {/* ── Comps Valuation Control Center ── */}
             <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                            <i className="fa-solid fa-file-csv text-indigo-600 text-base" />
-                            Dynamic Subject Property CSV Parser
-                        </h3>
-                        <p className="text-[11px] text-slate-400 font-semibold mt-1">
-                            Upload a CSV containing property profiles. We will parse the top 2 properties for direct comps analysis.
-                        </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                    
+                    {/* Column 1: Manual Address Lookup */}
+                    <div className="space-y-3 pr-0 md:pr-6">
+                        <div>
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <i className="fa-solid fa-magnifying-glass text-indigo-600 text-sm" />
+                                Run Live Address Comps
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-semibold mt-1">
+                                Manually enter any address to geocode, search sold listings, and calculate dynamic ARV metrics.
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleManualAddressSearch} className="flex gap-2">
+                            <div className="relative flex-1">
+                                <i className="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+                                <input
+                                    type="text"
+                                    value={manualAddress}
+                                    onChange={(e) => setManualAddress(e.target.value)}
+                                    placeholder="Enter street, city, state or zip..."
+                                    className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-semibold focus:border-indigo-500 focus:outline-none transition-all placeholder:text-slate-400 placeholder:font-medium bg-white"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="flex-shrink-0 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest shadow-md shadow-indigo-100 transition-all"
+                            >
+                                Search Address
+                            </button>
+                        </form>
                     </div>
 
-                    <div className="relative">
-                        <label className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-md shadow-indigo-100 transition-all">
-                            <i className="fa-solid fa-cloud-arrow-up" />
-                            Upload CSV File
-                            <input 
-                                type="file" 
-                                accept=".csv" 
-                                onChange={handleCsvUpload} 
-                                className="hidden" 
-                            />
-                        </label>
+                    {/* Column 2: CSV Profiles Import */}
+                    <div className="space-y-3 pt-4 md:pt-0 pl-0 md:pl-6">
+                        <div>
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <i className="fa-solid fa-file-csv text-indigo-600 text-base" />
+                                Dynamic Subject Property CSV Parser
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-semibold mt-1">
+                                Upload a CSV containing property profiles. We will parse the top 2 properties for direct comps analysis.
+                            </p>
+                        </div>
+
+                        <div className="relative">
+                            <label className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-md shadow-indigo-100 transition-all">
+                                <i className="fa-solid fa-cloud-arrow-up" />
+                                Upload CSV File
+                                <input 
+                                    type="file" 
+                                    accept=".csv" 
+                                    onChange={handleCsvUpload} 
+                                    className="hidden" 
+                                />
+                            </label>
+                        </div>
                     </div>
                 </div>
 
