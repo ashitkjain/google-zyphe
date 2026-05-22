@@ -1168,30 +1168,52 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                 let vsDelta: number | null = null;
                 let avgAdjPsf: number | null = null;
                 let eligibleForVal: typeof saleComps = [];
+                let isStaleCache = false;
 
                 if (subjectSqft && subjectSqft > 0 && saleComps.length > 0 && !compAnalysisLoading) {
                     const geminiRecs = compAnalysisResult?.comp_analysis as any[] | undefined;
+
+                    // Build the top eligible comps list (AI-guided if available)
                     let eligible = saleComps
                         .filter(c => !c.isOutlier && !c.priceUnverified && c.adjustedPrice && c.squareFootage && c.squareFootage > 0)
                         .sort((a, b) => (a.tier ?? 4) - (b.tier ?? 4) || (a.distance ?? 99) - (b.distance ?? 99));
+
                     if (geminiRecs && geminiRecs.length > 0) {
+                        // Prefer comps that passed both Gemini include_in_avg AND backend stat filter (zyphe_in_avg)
+                        const inAvgZpids = new Set(geminiRecs.filter(r => r.zyphe_in_avg).map(r => r.zpid));
                         const includedZpids = new Set(geminiRecs.filter(r => r.include_in_avg && !r.zyphe_excluded).map(r => r.zpid));
+                        const topFiltered = eligible.filter(c => inAvgZpids.has(c.id));
                         const geminiFiltered = eligible.filter(c => includedZpids.has(c.id));
-                        if (geminiFiltered.length > 0) {
-                            eligible = geminiFiltered;
+                        if (topFiltered.length > 0) {
+                            eligible = topFiltered;           // Best: use exactly what backend selected for the avg
+                        } else if (geminiFiltered.length > 0) {
+                            eligible = geminiFiltered;        // Fallback: AI included but stat filter not yet run
                         } else {
-                            eligible = eligible.slice(0, 3);
+                            eligible = eligible.slice(0, 3);  // Last resort
                         }
                     } else {
                         eligible = eligible.slice(0, 3);
                     }
                     eligible = eligible.slice(0, 3);
+
                     if (eligible.length > 0) {
                         const finalSummary = compAnalysisResult?.final_summary;
                         if (finalSummary?.recommended_avg_psf && finalSummary?.subject_valuation) {
+                            // ✅ Backend already computed the outlier-filtered AI-normalized value — use it directly
                             avgAdjPsf = finalSummary.recommended_avg_psf;
                             zypheValue = finalSummary.subject_valuation;
+                        } else if (geminiRecs && geminiRecs.some((r: any) => typeof r.normalized_psf === 'number')) {
+                            // ⚠️ Stale cache: has AI comps but no final_summary yet — compute from normalized_psf
+                            isStaleCache = true;
+                            const psfSum = eligible.reduce((s, c) => {
+                                const rec = geminiRecs.find((r: any) => String(r.zpid) === String(c.id));
+                                return s + (typeof rec?.normalized_psf === 'number' ? rec.normalized_psf : (c.adjustedPrice! / c.squareFootage!));
+                            }, 0);
+                            avgAdjPsf = psfSum / eligible.length;
+                            zypheValue = Math.round(avgAdjPsf * subjectSqft);
                         } else {
+                            // ⚠️ No AI data at all — raw fallback, mark as stale
+                            isStaleCache = !!compAnalysisResult;
                             avgAdjPsf = eligible.reduce((s, c) => s + (c.adjustedPrice! / c.squareFootage!), 0) / eligible.length;
                             zypheValue = Math.round(avgAdjPsf * subjectSqft);
                         }
@@ -1492,10 +1514,36 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                     </div>
                                 )}
                                 {zypheValue != null && (
-                                    <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-200 p-3">
-                                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">
-                                            <i className="fa-solid fa-gem text-[9px] mr-1" />Zyphe ARV Estimate
+                                    <div className={`rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border p-3 ${isStaleCache ? 'border-amber-300' : 'border-indigo-200'}`}>
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                                <i className="fa-solid fa-gem text-[9px] mr-1" />Zyphe ARV Estimate
+                                            </div>
+                                            {!isStaleCache && compAnalysisResult?.final_summary?.recommended_avg_psf && (
+                                                <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wide flex items-center gap-0.5">
+                                                    <i className="fa-solid fa-circle-check text-[7px]" />AI Normalized
+                                                </span>
+                                            )}
                                         </div>
+                                        {isStaleCache && (
+                                            <div className="mb-2 flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                                                <i className="fa-solid fa-clock-rotate-left text-amber-500 text-[9px]" />
+                                                <span className="text-[9px] font-bold text-amber-700">Stale cache — outlier filter not applied. Click</span>
+                                                <button
+                                                    onClick={() => {
+                                                        setCompAnalysisResult(null);
+                                                        setCompAnalysisError(null);
+                                                        if (subjectZpid) {
+                                                            setDoc(doc(db, 'distress_analysis', subjectZpid), { compNormalization: null, compNormalizationAt: null }, { merge: true }).catch(() => {});
+                                                        }
+                                                        const sc = cached?.valueEstimate?.comps ?? [];
+                                                        if (sc.length > 0) runCompAnalysis(sc);
+                                                    }}
+                                                    className="text-[9px] font-black text-amber-700 underline hover:text-amber-900"
+                                                >Refresh</button>
+                                                <span className="text-[9px] font-bold text-amber-700">to recalculate.</span>
+                                            </div>
+                                        )}
                                         <div className="text-2xl font-black text-indigo-900">${zypheValue.toLocaleString()}</div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             {vsDelta != null && (

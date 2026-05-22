@@ -829,23 +829,25 @@ export async function findComps(
         lot_calc: subjectLotCalc,
     } : null;
 
-    // Apply statistical outlier deviation filter
+    // Apply statistical outlier deviation filter (runs with >= 2 AI-included comps)
     const MEDIAN_DEV_THRESHOLD = 0.20;
     const includedComps = mergedComps.filter((c: any) => c.include_in_avg && typeof c.normalized_psf === 'number');
-    if (includedComps.length >= 3) {
+    if (includedComps.length >= 2) {
         const psfValues = includedComps.map((c: any) => c.normalized_psf as number).sort((a: number, b: number) => a - b);
         const median = psfValues[Math.floor(psfValues.length / 2)];
+        console.log(`[CompService] Outlier filter: ${includedComps.length} included comps, median PSF=$${Math.round(median)}`);
         for (const c of mergedComps) {
             if (c.include_in_avg && typeof c.normalized_psf === 'number') {
                 const deviation = Math.abs(c.normalized_psf - median) / median;
                 if (deviation > MEDIAN_DEV_THRESHOLD) {
                     c.zyphe_excluded = true;
                     c.zyphe_exclude_reason = `$/sqft ($${Math.round(c.normalized_psf)}) deviates ${Math.round(deviation * 100)}% from median ($${Math.round(median)})`;
+                    console.log(`[CompService] Excluding zpid=${c.zpid}: ${c.zyphe_exclude_reason}`);
                 }
             }
         }
 
-        const finalComps = mergedComps
+        let finalComps = mergedComps
             .filter((c: any) => c.include_in_avg && !c.zyphe_excluded && typeof c.normalized_psf === 'number')
             .sort((a: any, b: any) => {
                 const scA = eligibleComps.find(sc => String(sc.id) === String(a.zpid));
@@ -854,12 +856,26 @@ export async function findComps(
             })
             .slice(0, 3);
 
+        // Safety net: if ALL comps were flagged as outliers, use the single closest-to-median comp
+        if (finalComps.length === 0 && includedComps.length > 0) {
+            const closest = includedComps.reduce((best: any, c: any) => {
+                const devC = Math.abs(c.normalized_psf - median);
+                const devB = Math.abs(best.normalized_psf - median);
+                return devC < devB ? c : best;
+            });
+            closest.zyphe_excluded = false;
+            closest.zyphe_exclude_reason = undefined;
+            finalComps = [closest];
+            console.log(`[CompService] All comps were outliers — using closest-to-median: zpid=${closest.zpid} PSF=$${Math.round(closest.normalized_psf)}`);
+        }
+
         if (finalComps.length > 0) {
             for (const fc of finalComps) {
                 fc.zyphe_in_avg = true;
             }
             const zypheAvgPsf = finalComps.reduce((sum: number, c: any) => sum + c.normalized_psf, 0) / finalComps.length;
             const zypheValuation = subjectSqft > 0 ? Math.round(zypheAvgPsf * subjectSqft) : null;
+            console.log(`[CompService] Final avg PSF=$${Math.round(zypheAvgPsf)}, valuation=$${zypheValuation} (${finalComps.length} comps)`);
             if (normData) {
                 normData.final_summary = {
                     ...normData.final_summary,
