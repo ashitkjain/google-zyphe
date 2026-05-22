@@ -183,7 +183,23 @@ export async function findComps(
             });
             if (searchResp.ok) {
                 const searchData = await searchResp.json();
-                const matched = (searchData.props || searchData.results || searchData || [])[0];
+                let matched = null;
+                if (searchData && typeof searchData === 'object') {
+                    if (searchData.zpid) {
+                        matched = searchData;
+                    } else {
+                        const list = searchData.props || searchData.results || searchData;
+                        if (Array.isArray(list)) {
+                            matched = list[0];
+                        } else if (list && typeof list === 'object') {
+                            const keys = Object.keys(list);
+                            if (keys.length > 0 && typeof list[keys[0]] === 'object') {
+                                matched = list[keys[0]];
+                            }
+                        }
+                    }
+                }
+
                 if (matched && matched.zpid) {
                     console.log(`[CompService] Resolved subject ZPID via live search: ${matched.zpid}`);
                     subjectData.zpid = String(matched.zpid);
@@ -246,6 +262,10 @@ export async function findComps(
                 console.warn('[CompService] Live MLS ID details query failed:', e.message);
             }
         }
+    }
+
+    if (!subjectData.zpid) {
+        throw new Error('Property could not be located in Zillow/MLS database via RapidAPI. Valuation and AI analysis aborted.');
     }
 
 
