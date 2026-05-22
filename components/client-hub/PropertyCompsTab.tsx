@@ -346,6 +346,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [tempSqft, setTempSqft] = useState<number | null>(null);
     const [tempLotSize, setTempLotSize] = useState<number | null>(null);
     const [tempZpid, setTempZpid] = useState<string | null>(null);
+    const [tempListPrice, setTempListPrice] = useState<number | null>(null);
+    const [tempYearBuilt, setTempYearBuilt] = useState<number | null>(null);
 
     const subjectSqft = activeSubject?.squareFootage ?? propSubjectSqft;
     const subjectBedrooms = activeSubject?.bedrooms ?? propSubjectBedrooms;
@@ -363,7 +365,9 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setTempSqft(subjectSqft || null);
         setTempLotSize(subjectLotSize || null);
         setTempZpid(activeSubject?.zpid || subjectZpid || null);
-    }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize, subjectZpid]);
+        setTempListPrice(subjectListPrice || null);
+        setTempYearBuilt(subjectYearBuilt || null);
+    }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize, subjectZpid, subjectListPrice, subjectYearBuilt]);
 
     const handleSaveCustomSpecs = () => {
         const updated: SubjectProperty = {
@@ -373,6 +377,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             squareFootage: tempSqft || undefined,
             lotSize: tempLotSize || undefined,
             zpid: tempZpid ? tempZpid.replace(/\D/g, '') : undefined,
+            listPrice: tempListPrice || undefined,
+            yearBuilt: tempYearBuilt || undefined,
         };
         setActiveSubject(updated);
         fetchComps(updated.address);
@@ -1248,6 +1254,26 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                 value={tempLotSize ?? ''}
                                                 onChange={e => setTempLotSize(parseInt(e.target.value) || null)}
                                                 placeholder="e.g. 5000"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-rose-500 uppercase tracking-wider block mb-0.5">List Price ($)</label>
+                                            <input
+                                                type="number"
+                                                value={tempListPrice ?? ''}
+                                                onChange={e => setTempListPrice(parseInt(e.target.value) || null)}
+                                                placeholder="e.g. 2196000"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-rose-500 font-bold bg-white text-rose-700 placeholder:text-rose-200"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Year Built</label>
+                                            <input
+                                                type="number"
+                                                value={tempYearBuilt ?? ''}
+                                                onChange={e => setTempYearBuilt(parseInt(e.target.value) || null)}
+                                                placeholder="e.g. 1941"
                                                 className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
                                             />
                                         </div>
