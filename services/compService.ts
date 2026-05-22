@@ -172,7 +172,54 @@ export async function findComps(
         if (zipMatch) zipCode = zipMatch[1];
     }
 
-    // 3. Enrich Subject Attributes from local DB (relying on explicit user ZPID/MLS ID or local cache)
+    // 3. Resolve MLS ID via live Zillow search if provided and ZPID is missing
+    if (subjectData.mlsId && !subjectData.zpid) {
+        onProgress('Resolving MLS ID via live Zillow search...');
+        try {
+            const config = APP_CONFIG.usHousingApi;
+            const searchUrl = `https://${config.host}/propertyExtendedSearch?location=${encodeURIComponent(subjectData.mlsId)}`;
+            const searchResp = await fetch(searchUrl, {
+                method: 'GET',
+                headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
+            });
+            if (searchResp.ok) {
+                const searchData = await searchResp.json();
+                let matched = null;
+                if (searchData && typeof searchData === 'object') {
+                    if (searchData.zpid) {
+                        matched = searchData;
+                    } else {
+                        const list = searchData.props || searchData.results || searchData;
+                        if (Array.isArray(list)) {
+                            matched = list[0];
+                        } else if (list && typeof list === 'object') {
+                            const keys = Object.keys(list);
+                            if (keys.length > 0 && typeof list[keys[0]] === 'object') {
+                                matched = list[keys[0]];
+                            }
+                        }
+                    }
+                }
+
+                if (matched && matched.zpid) {
+                    console.log(`[CompService] Resolved subject ZPID via live MLS ID search: ${matched.zpid}`);
+                    subjectData.zpid = String(matched.zpid);
+                    subjectData.bedrooms = subjectData.bedrooms ?? matched.bedrooms ?? matched.beds;
+                    subjectData.bathrooms = subjectData.bathrooms ?? matched.bathrooms ?? matched.baths;
+                    subjectData.squareFootage = subjectData.squareFootage ?? matched.livingArea ?? matched.squareFootage ?? matched.livingAreaValue;
+                    subjectData.lotSize = subjectData.lotSize ?? matched.lotSize ?? matched.lotAreaValue;
+                    subjectData.yearBuilt = subjectData.yearBuilt ?? matched.yearBuilt;
+                    subjectData.homeType = subjectData.homeType ?? matched.propertyType ?? matched.homeType;
+                    subjectData.listPrice = subjectData.listPrice ?? matched.price ?? matched.listPrice;
+                    subjectData.zestimate = subjectData.zestimate ?? matched.zestimate;
+                }
+            }
+        } catch (e: any) {
+            console.warn('[CompService] Subject property MLS ID search failed:', e.message);
+        }
+    }
+
+    // 4. Enrich Subject Attributes from local DB (relying on explicit user ZPID/MLS ID or local cache)
     if (!subjectData.zpid) {
         onProgress('Checking local database for subject property specs...');
         try {
