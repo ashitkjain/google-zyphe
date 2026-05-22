@@ -790,7 +790,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const normStatus = isCompResultReady ? 'Success' as const : (compAnalysisLoading ? 'Running' : 'Not Run' as const);
         const normCost = normStatus === 'Success' ? 0.0005 : 0;
         const normCall = {
-            name: 'Google Gemini 1.5 - Comps Normalization',
+            name: 'Google Gemini 2.5 - Comps Normalization',
             provider: 'Gemini Flash AI Model',
             status: normStatus,
             cost: normCost,
@@ -802,7 +802,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const landStatus = isCompResultReady ? 'Success' as const : (compAnalysisLoading ? 'Running' : 'Not Run' as const);
         const landCost = landStatus === 'Success' ? 0.0010 : 0;
         const landCall = {
-            name: 'Google Gemini 1.5 - Land Utility & LiDAR Audit',
+            name: 'Google Gemini 2.5 - Land Utility & LiDAR Audit',
             provider: 'Gemini Flash AI Model',
             status: landStatus,
             cost: landCost,
