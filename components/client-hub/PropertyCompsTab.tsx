@@ -1187,8 +1187,14 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                     }
                     eligible = eligible.slice(0, 3);
                     if (eligible.length > 0) {
-                        avgAdjPsf = eligible.reduce((s, c) => s + (c.adjustedPrice! / c.squareFootage!), 0) / eligible.length;
-                        zypheValue = Math.round(avgAdjPsf * subjectSqft);
+                        const finalSummary = compAnalysisResult?.final_summary;
+                        if (finalSummary?.recommended_avg_psf && finalSummary?.subject_valuation) {
+                            avgAdjPsf = finalSummary.recommended_avg_psf;
+                            zypheValue = finalSummary.subject_valuation;
+                        } else {
+                            avgAdjPsf = eligible.reduce((s, c) => s + (c.adjustedPrice! / c.squareFootage!), 0) / eligible.length;
+                            zypheValue = Math.round(avgAdjPsf * subjectSqft);
+                        }
                         vsDelta = subjectListPrice ? ((zypheValue - subjectListPrice) / subjectListPrice * 100) : null;
                         eligibleForVal = eligible;
                     }
@@ -1509,12 +1515,21 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         </div>
                                         <div className="mt-2 space-y-0.5 border-t border-indigo-100 pt-1.5">
                                             {eligibleForVal.map((c, i) => {
-                                                const cPsf = Math.round(c.adjustedPrice! / c.squareFootage!);
+                                                const gRecord = compAnalysisResult?.comp_analysis?.find((r: any) => String(r.zpid) === String(c.id));
+                                                const cPsf = (gRecord && typeof gRecord.normalized_psf === 'number') 
+                                                    ? Math.round(gRecord.normalized_psf) 
+                                                    : Math.round(c.adjustedPrice! / c.squareFootage!);
+                                                const isAiPsf = gRecord && typeof gRecord.normalized_psf === 'number';
                                                 return (
                                                     <div key={c.id} className="flex items-center gap-1.5 text-[11px]">
                                                         <span className="w-3.5 h-3.5 rounded bg-indigo-100 text-indigo-600 font-black flex items-center justify-center text-[9px]">{i + 1}</span>
                                                         <a href={`https://www.zillow.com/homedetails/${c.id}_zpid/`} target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-600 hover:underline truncate">{c.formattedAddress}</a>
-                                                        <span className="text-slate-400 font-medium shrink-0">${cPsf}/sf</span>
+                                                        <span className="text-slate-400 font-medium shrink-0 flex items-center gap-0.5">
+                                                            ${cPsf}/sf
+                                                            {isAiPsf && (
+                                                                <span className="text-[7.5px] font-black text-cyan-600 bg-cyan-50 px-0.5 rounded leading-none shrink-0" title="AI Normalized $/sf">AI</span>
+                                                            )}
+                                                        </span>
                                                     </div>
                                                 );
                                             })}
@@ -2027,8 +2042,9 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         const tier = c.tier ?? 4;
                                         const adjDelta = c.adjustedPrice && c.lastSalePrice
                                             ? ((c.adjustedPrice - c.lastSalePrice) / c.lastSalePrice * 100) : null;
+                                        const ca = compAnalysisResult?.comp_analysis?.find((r: any) => String(r.zpid) === String(c.id));
                                         return (
-                                            <tr key={c.id} className={`border-b border-slate-100 hover:bg-indigo-50/40 transition-colors ${tier <= 2 ? 'border-l-2 border-l-emerald-400' : ''} ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} ${c.isOutlier ? 'opacity-50' : ''}`}>
+                                            <tr key={c.id} className={`border-b border-slate-100 hover:bg-indigo-50/40 transition-colors ${tier <= 2 ? 'border-l-2 border-l-emerald-400' : ''} ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} ${c.isOutlier || ca?.zyphe_excluded || ca?.include_in_avg === false ? 'opacity-65' : ''}`}>
                                                 <td className="px-3 py-3 text-center">
                                                     <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-black border ${tierColors[tier]}`}>
                                                         {tierLabels[tier]}
@@ -2036,11 +2052,28 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <a href={`https://www.zillow.com/homedetails/${c.id}_zpid/`} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline leading-snug truncate max-w-[240px] block">{c.formattedAddress}</a>
-                                                    {c.isOutlier && (
-                                                        <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-black text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
-                                                            <i className="fa-solid fa-ban text-[8px]" />IQR Outlier — Not sent to AI
-                                                        </span>
-                                                    )}
+                                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                                        {c.isOutlier && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-black text-orange-600 bg-orange-50 border border-orange-200 px-1 rounded uppercase tracking-wide">
+                                                                <i className="fa-solid fa-ban text-[7px]" />IQR Outlier
+                                                            </span>
+                                                        )}
+                                                        {ca?.zyphe_excluded && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wide" title={ca.zyphe_exclude_reason}>
+                                                                <i className="fa-solid fa-triangle-exclamation text-[7px]" />Stat Outlier
+                                                            </span>
+                                                        )}
+                                                        {!ca?.zyphe_excluded && ca?.include_in_avg === false && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wide" title={ca.exclude_reason}>
+                                                                <i className="fa-solid fa-ban text-[7px]" />AI Excluded
+                                                            </span>
+                                                        )}
+                                                        {ca?.zyphe_in_avg && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                                                <i className="fa-solid fa-circle-check text-[7px]" />Top Comp
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-3 py-3 text-right whitespace-nowrap">
                                                     <div className={`text-[12px] font-black ${c.priceUnverified ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{fmt(c.lastSalePrice ?? null)}</div>
