@@ -158,6 +158,7 @@ export async function findComps(
 
     // 2. Geocode / Normalize Subject Address
     onProgress('Normalizing address...');
+    const radarResult = await normalizeAddress(subjectData.address);
     subjectData.address = radarResult.formattedAddress.replace(/(?:\s*,?\s*)(?:US|USA|United States)$/i, '');
     subjectData.latitude = subjectData.latitude ?? radarResult.coordinates.latitude;
     subjectData.longitude = subjectData.longitude ?? radarResult.coordinates.longitude;
