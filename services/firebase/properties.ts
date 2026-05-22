@@ -265,6 +265,43 @@ export const normalizeAddressString = (address: string): string => {
 };
 
 /**
+ * Lookup a property by its MLS ID string.
+ * Used to resolve MLS ID -> ZPID without calling RapidAPI search.
+ * Returns the first matching property or null.
+ */
+export const getPropertyByMlsId = async (mlsId: string): Promise<PropertyData | null> => {
+    if (!db || !mlsId) return null;
+    try {
+        const q1 = query(
+            collection(db, "properties"),
+            where("mlsId", "==", mlsId),
+            limit(1)
+        );
+        logFirestoreQuery('getDocs', 'properties', { mlsId, scope: 'mlsid_lookup' });
+        const snap1 = await getDocs(q1);
+        if (!snap1.empty) {
+            return normalizePropertyFields(snap1.docs[0].data()) as PropertyData;
+        }
+
+        const q2 = query(
+            collection(db, "properties"),
+            where("mlsid", "==", mlsId),
+            limit(1)
+        );
+        logFirestoreQuery('getDocs', 'properties', { mlsId, scope: 'mlsid_lookup_fallback' });
+        const snap2 = await getDocs(q2);
+        if (!snap2.empty) {
+            return normalizePropertyFields(snap2.docs[0].data()) as PropertyData;
+        }
+
+        return null;
+    } catch (error: any) {
+        handleFirestoreError(error, "getPropertyByMlsId");
+        return null;
+    }
+};
+
+/**
  * Lookup a property by its address string.
  * Used to resolve address→ZPID without calling RapidAPI.
  * Returns the first matching property or null.
@@ -545,8 +582,8 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
 export const getVisionExtensionFromCloud = async (zpid: string): Promise<any | null> => {
     if (!db) return null;
     try {
-        const nestedRef = doc(db, "properties", zpid, "analysis", "vision_extension");
-        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'vision_extension' });
+        const nestedRef = doc(db, "properties", zpid, "analysis", "vision_v2");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'vision_v2' });
         const nestedSnap = await getDoc(nestedRef);
         return nestedSnap.exists() ? nestedSnap.data() : null;
     } catch (error) {
