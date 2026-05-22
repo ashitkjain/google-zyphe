@@ -186,32 +186,7 @@ export async function findComps(
         }
     }
 
-    // Fallback: If missing basic details (like sqft or bedrooms), fetch from Rentcast /properties by address
-    if (!subjectData.bedrooms || !subjectData.squareFootage) {
-        try {
-            onProgress('Fetching subject specs from Rentcast...');
-            const headers = { 'X-Api-Key': APP_CONFIG.rentcast.key, 'Content-Type': 'application/json' };
-            const res = await fetch(
-                `${APP_CONFIG.rentcast.baseUrl}/properties?address=${encodeURIComponent(subjectData.address)}`,
-                { headers }
-            );
-            if (res.ok) {
-                const list = await res.json();
-                if (Array.isArray(list) && list.length > 0) {
-                    const root = list[0];
-                    subjectData.bedrooms = subjectData.bedrooms ?? root.bedrooms;
-                    subjectData.bathrooms = subjectData.bathrooms ?? root.bathrooms;
-                    subjectData.squareFootage = subjectData.squareFootage ?? root.squareFootage;
-                    subjectData.lotSize = subjectData.lotSize ?? root.lotSize;
-                    subjectData.yearBuilt = subjectData.yearBuilt ?? root.yearBuilt;
-                    subjectData.homeType = subjectData.homeType ?? root.propertyType;
-                    subjectData.listPrice = subjectData.listPrice ?? root.lastSalePrice;
-                }
-            }
-        } catch (err: any) {
-            console.warn('[CompService] Fallback Rentcast search failed:', err.message);
-        }
-    }
+
 
     const subjectSqft = subjectData.squareFootage || 0;
     const subjectType = (subjectData.homeType || '').toString().toUpperCase().trim();
@@ -257,48 +232,28 @@ export async function findComps(
             }
         }
 
-        // Fall back to live Rentcast API if no cached listings found
-        if (rawCompsList.length === 0) {
+        // Live sold listings retrieval from US Housing API (RapidAPI)
+        if (rawCompsList.length === 0 && zipCode) {
+            onProgress(`Fetching live sold properties from US Housing API for zip ${zipCode}...`);
             try {
-                onProgress('Fetching live sold properties near address...');
-                const headers = { 'X-Api-Key': APP_CONFIG.rentcast.key, 'Content-Type': 'application/json' };
-                const params = new URLSearchParams({
-                    address: subjectData.address,
-                    saleDateRange: '0:180',
-                    radius: '1.0',
-                    limit: '20',
+                const config = APP_CONFIG.usHousingApi;
+                const baseUrl = `https://${config.host}/propertyExtendedSearch?location=${zipCode}&status_type=RecentlySold&soldInLast=6m`;
+                const resp = await fetch(baseUrl, {
+                    headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
                 });
-                const res = await fetch(`${APP_CONFIG.rentcast.baseUrl}/properties?${params}`, { headers });
-                if (!res.ok) {
-                    const txt = await res.text();
-                    throw new Error(`Rentcast /properties error: ${txt}`);
+                if (!resp.ok) {
+                    throw new Error(`US Housing API returned status ${resp.status}`);
                 }
-                const json = await res.json();
-                rawCompsList = Array.isArray(json) ? json : [];
-            } catch (rentcastErr: any) {
-                console.warn('[CompService] Rentcast fetch failed, checking US Housing API fallback:', rentcastErr.message);
-                if (zipCode) {
-                    onProgress(`Fetching live sold properties from US Housing API for zip ${zipCode}...`);
-                    const config = APP_CONFIG.usHousingApi;
-                    const baseUrl = `https://${config.host}/propertyExtendedSearch?location=${zipCode}&status_type=RecentlySold&soldInLast=6m`;
-                    const resp = await fetch(baseUrl, {
-                        headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
-                    });
-                    if (resp.ok) {
-                        const result = await resp.json();
-                        const items = Array.isArray(result) ? result : (result.props || result.results || []);
-                        if (items.length > 0) {
-                            rawCompsList = items;
-                            // Cache it for the next run
-                            await saveZipSoldListings(zipCode, items);
-                        }
-                    } else {
-                        console.warn(`[CompService] US Housing API returned status ${resp.status}`);
-                    }
+                const result = await resp.json();
+                const items = Array.isArray(result) ? result : (result.props || result.results || []);
+                rawCompsList = items;
+                if (items.length > 0) {
+                    // Cache it for the next run
+                    await saveZipSoldListings(zipCode, items);
                 }
-                if (rawCompsList.length === 0) {
-                    throw new Error(`Comparable retrieval failed. Rentcast error: ${rentcastErr.message}`);
-                }
+            } catch (err: any) {
+                console.warn('[CompService] Live US Housing API fetch failed:', err.message);
+                throw new Error(`Comparable retrieval failed: ${err.message}`);
             }
         }
     }
