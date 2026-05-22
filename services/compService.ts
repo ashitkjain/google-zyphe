@@ -441,9 +441,17 @@ export async function findComps(
     }
 
     // Filter to top eligible comps for Gemini Enrichment (tier 1-3, non-outlier, non-unverified)
-    const eligibleComps = mappedComps
+    let eligibleComps = mappedComps
         .filter(c => !c.isOutlier && !c.priceUnverified && (c.tier === 1 || c.tier === 2 || c.tier === 3))
         .slice(0, 10);
+
+    // Resilient Fallback: If no strict Tier 1-3 comps exist, relax filters to include Tier 4 comps
+    if (eligibleComps.length === 0 && mappedComps.length > 0) {
+        console.log('[CompService] Resilient Fallback: No Tier 1-3 comps found. Relaxing filter to allow Tier 4 matches.');
+        eligibleComps = mappedComps
+            .filter(c => !c.isOutlier && !c.priceUnverified)
+            .slice(0, 5);
+    }
 
     if (eligibleComps.length === 0) {
         return {

@@ -610,7 +610,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             if (res.geminiResult) {
                 setCompAnalysisResult(res.geminiResult);
             } else {
-                setCompAnalysisError('No eligible comps found (need tier 1-3, non-outlier)');
+                setCompAnalysisError('No recent comparable sales found for this property profile within 1.0 mile. Try entering a different address or uploading a custom CSV property list.');
             }
         } catch (e: any) {
             console.error('[CompAnalysis] Error:', e);
