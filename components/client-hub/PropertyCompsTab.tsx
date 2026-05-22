@@ -790,8 +790,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const normStatus = isCompResultReady ? 'Success' as const : (compAnalysisLoading ? 'Running' : 'Not Run' as const);
         const normCost = normStatus === 'Success' ? 0.0005 : 0;
         const normCall = {
-            name: 'Google Gemini 2.5 - Comps Normalization',
-            provider: 'Gemini Flash AI Model',
+            name: 'gemini-2.5-flash-lite - Comps Normalization',
+            provider: 'gemini-2.5-flash-lite',
             status: normStatus,
             cost: normCost,
             details: 'Applies AI linear regression adjustments for date, built-area, and bedrooms.',
@@ -802,8 +802,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const landStatus = isCompResultReady ? 'Success' as const : (compAnalysisLoading ? 'Running' : 'Not Run' as const);
         const landCost = landStatus === 'Success' ? 0.0010 : 0;
         const landCall = {
-            name: 'Google Gemini 2.5 - Land Utility & LiDAR Audit',
-            provider: 'Gemini Flash AI Model',
+            name: 'gemini-2.5-flash-lite - Land Utility & LiDAR Audit',
+            provider: 'gemini-2.5-flash-lite',
             status: landStatus,
             cost: landCost,
             details: 'Audits geospatial LiDAR profiles, front/rear lot slopes, solar exposure, and zoning restrictions.',
