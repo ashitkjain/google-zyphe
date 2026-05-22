@@ -330,10 +330,27 @@ export async function findComps(
     // B. Fetch sold listings if Cache Miss
     if (rawCompsList.length === 0) {
         if (useZipCache && zipCode) {
-            onProgress(`Fetching sold listings from local zip cache for ${zipCode}...`);
+            onProgress(`Checking local zip cache for ${zipCode}...`);
             const soldCache = await getZipSoldListings(zipCode);
             if (soldCache?.listings && Array.isArray(soldCache.listings)) {
-                rawCompsList = soldCache.listings;
+                const fetchedMs = (() => {
+                    const fa = soldCache.fetchedAt;
+                    if (!fa) return 0;
+                    if (typeof fa.toDate === 'function') return fa.toDate().getTime();
+                    if (fa.seconds) return fa.seconds * 1000;
+                    const ms = new Date(fa).getTime();
+                    return isNaN(ms) ? 0 : ms;
+                })();
+
+                const ageMs = Date.now() - fetchedMs;
+                const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+                if (ageMs < ONE_DAY_MS && fetchedMs > 0) {
+                    console.log(`[CompService] Zip cache for ${zipCode} is fresh (${Math.round(ageMs / 3600000)}h old). Using cached listings.`);
+                    rawCompsList = soldCache.listings;
+                } else {
+                    console.log(`[CompService] Zip cache for ${zipCode} is expired or invalid. Age: ${Math.round(ageMs / 3600000)}h. Fetching fresh listings...`);
+                }
             }
         }
 
