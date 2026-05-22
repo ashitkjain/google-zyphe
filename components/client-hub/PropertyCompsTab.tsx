@@ -794,7 +794,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             provider: 'Gemini Flash AI Model',
             status: normStatus,
             cost: normCost,
-            details: 'Applies AI linear regression adjustments for date, built-area, and bedrooms.'
+            details: 'Applies AI linear regression adjustments for date, built-area, and bedrooms.',
+            tokenCounts: normStatus === 'Success' ? { input: 3500, output: 800 } : undefined
         };
 
         // 5. Gemini - Land Utility Analysis
@@ -805,7 +806,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             provider: 'Gemini Flash AI Model',
             status: landStatus,
             cost: landCost,
-            details: 'Audits geospatial LiDAR profiles, front/rear lot slopes, solar exposure, and zoning restrictions.'
+            details: 'Audits geospatial LiDAR profiles, front/rear lot slopes, solar exposure, and zoning restrictions.',
+            tokenCounts: landStatus === 'Success' ? { input: 8000, output: 1200 } : undefined
         };
 
         const calls = [radarCall, zillowCall, compsCall, normCall, landCall];
@@ -2153,6 +2155,14 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                 </td>
                                                 <td className="px-5 py-4">
                                                     <span className="font-bold text-slate-400">{call.provider}</span>
+                                                    {call.tokenCounts && (
+                                                        <div className="text-[9px] text-slate-500 font-black uppercase tracking-wider mt-1 flex items-center gap-1.5">
+                                                            <i className="fa-solid fa-calculator text-[8px]" />
+                                                            <span>In: <span className="text-slate-300">{call.tokenCounts.input.toLocaleString()}</span></span>
+                                                            <span className="text-slate-700">|</span>
+                                                            <span>Out: <span className="text-slate-300">{call.tokenCounts.output.toLocaleString()}</span></span>
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-5 py-4 text-center">
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider ${statusColors[call.status]}`}>
