@@ -543,22 +543,22 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const trimmed = manualAddress.trim();
         if (!trimmed) return;
 
-        setActiveSubject(null); // Clear any active CSV override
+        const cleanedZpid = searchZpid.trim() ? searchZpid.trim().replace(/\D/g, '') : undefined;
+        const newActive: SubjectProperty = {
+            address: trimmed,
+            zpid: cleanedZpid
+        };
+
+        setActiveSubject(newActive); // Seed the override instantly
         setAddress(trimmed);
         setCompAnalysisResult(null);
         setCompAnalysisError(null);
         setCompAnalysisLoading(false);
-        if (searchZpid.trim()) {
-            setActiveSubject({
-                address: trimmed,
-                zpid: searchZpid.trim().replace(/\D/g, '')
-            });
-        }
-        fetchComps(trimmed);
+        fetchComps(trimmed, cleanedZpid);
     };
 
 
-    const fetchComps = useCallback(async (addrOverride?: string) => {
+    const fetchComps = useCallback(async (addrOverride?: string, zpidOverride?: string) => {
         const trimmed = (addrOverride ?? address).trim();
         if (!trimmed) return;
         setLoading(true);
@@ -567,19 +567,22 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setShowAllSale(false);
 
         try {
+            const resolvedZpid = zpidOverride || activeSubject?.zpid || subjectZpid;
+            const hasZpid = !!resolvedZpid;
+
             const subject: SubjectProperty = {
-                zpid: activeSubject ? undefined : subjectZpid,
+                zpid: resolvedZpid ?? undefined,
                 address: trimmed,
-                latitude: activeSubject ? undefined : subjectLat ?? undefined,
-                longitude: activeSubject ? undefined : subjectLng ?? undefined,
-                bedrooms: subjectBedrooms ?? undefined,
-                bathrooms: subjectBathrooms ?? undefined,
-                squareFootage: subjectSqft ?? undefined,
-                lotSize: subjectLotSize ?? undefined,
-                yearBuilt: subjectYearBuilt ?? undefined,
-                homeType: subjectHomeType ?? undefined,
-                listPrice: subjectListPrice ?? undefined,
-                zestimate: subjectZestimate ?? undefined,
+                latitude: hasZpid ? undefined : (subjectLat ?? undefined),
+                longitude: hasZpid ? undefined : (subjectLng ?? undefined),
+                bedrooms: hasZpid ? (activeSubject?.bedrooms ?? undefined) : (subjectBedrooms ?? undefined),
+                bathrooms: hasZpid ? (activeSubject?.bathrooms ?? undefined) : (subjectBathrooms ?? undefined),
+                squareFootage: hasZpid ? (activeSubject?.squareFootage ?? undefined) : (subjectSqft ?? undefined),
+                lotSize: hasZpid ? (activeSubject?.lotSize ?? undefined) : (subjectLotSize ?? undefined),
+                yearBuilt: hasZpid ? (activeSubject?.yearBuilt ?? undefined) : (subjectYearBuilt ?? undefined),
+                homeType: hasZpid ? (activeSubject?.homeType ?? undefined) : (subjectHomeType ?? undefined),
+                listPrice: hasZpid ? (activeSubject?.listPrice ?? undefined) : (subjectListPrice ?? undefined),
+                zestimate: hasZpid ? (activeSubject?.zestimate ?? undefined) : (subjectZestimate ?? undefined),
             };
 
             const res = await findComps(subject, {
