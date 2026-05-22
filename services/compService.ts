@@ -202,6 +202,7 @@ export async function findComps(
     }
 
     if (subjectData.zpid) {
+        subjectData.zpid = subjectData.zpid.replace(/\D/g, '');
         const subjSnap = await getDoc(doc(db, 'properties', subjectData.zpid));
         if (subjSnap.exists()) {
             const d = subjSnap.data();

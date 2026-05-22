@@ -372,7 +372,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             bathrooms: tempBaths || undefined,
             squareFootage: tempSqft || undefined,
             lotSize: tempLotSize || undefined,
-            zpid: tempZpid || undefined,
+            zpid: tempZpid ? tempZpid.replace(/\D/g, '') : undefined,
         };
         setActiveSubject(updated);
         fetchComps(updated.address);
@@ -551,7 +551,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         if (searchZpid.trim()) {
             setActiveSubject({
                 address: trimmed,
-                zpid: searchZpid.trim()
+                zpid: searchZpid.trim().replace(/\D/g, '')
             });
         }
         fetchComps(trimmed);
