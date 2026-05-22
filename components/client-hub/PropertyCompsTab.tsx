@@ -1346,6 +1346,15 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         </div>
                                     </div>
                                 )}
+                                {!compAnalysisLoading && zypheValue == null && (
+                                    <div className="rounded-xl bg-slate-50 border border-dashed border-slate-300 p-4 text-center flex flex-col items-center justify-center min-h-[140px]">
+                                        <span className="text-3xl mb-2 animate-bounce">📐</span>
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valuation Pending</div>
+                                        <p className="text-[11px] font-semibold text-slate-500 leading-normal max-w-[200px]">
+                                            Enter the property's <strong className="text-teal-600">Built Area (sf)</strong> in the specs editor on the left to generate the Zyphe ARV Estimate.
+                                        </p>
+                                    </div>
+                                )}
                                 {/* ARV Remodel Breakdown — compact inline */}
                                 {arvBreakdown && arvBreakdown.length > 0 && (
                                     <div className="overflow-hidden rounded-lg border border-emerald-200/60">
