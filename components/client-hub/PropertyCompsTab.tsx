@@ -719,6 +719,19 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                 setActiveSubject(res.subjectProperty);
             }
 
+            if (res.rawComps && res.rawComps.length > 0) {
+                setCached(prev => {
+                    if (!prev) return null;
+                    return {
+                        ...prev,
+                        valueEstimate: {
+                            ...prev.valueEstimate,
+                            comps: res.rawComps,
+                        }
+                    };
+                });
+            }
+
             if (res.geminiResult) {
                 setCompAnalysisResult(res.geminiResult);
             } else {
