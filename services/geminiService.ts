@@ -377,7 +377,21 @@ export const executeGeminiRequest = async <T>(
         });
 
         console.log(`[Gemini] Response received for ${promptFilename}`);
-        const responseText = typeof result.text === 'function' ? result.text() : result.text;
+        // Extract text — 3 shapes depending on SDK version + tool config:
+        // 1. Callable getter (older SDK)   2. Direct string   3. Google Search grounded (text=undefined, content in candidates parts)
+        let responseText: string | undefined;
+        if (typeof result.text === 'function') {
+          responseText = result.text();
+        } else if (typeof result.text === 'string') {
+          responseText = result.text;
+        } else {
+          // Google Search grounding: result.text is absent — content lives in candidates[0].content.parts
+          const parts = result.candidates?.[0]?.content?.parts;
+          if (Array.isArray(parts)) {
+            const joined = parts.map((p: any) => p.text || '').join('');
+            if (joined) responseText = joined;
+          }
+        }
         const usage = calculateUsage(result, model);
 
         const finishReason = result.candidates?.[0]?.finishReason;
