@@ -172,30 +172,7 @@ export async function findComps(
         if (zipMatch) zipCode = zipMatch[1];
     }
 
-    // 3. Resolve MLS ID from local database if provided and ZPID is missing
-    if (subjectData.mlsId && !subjectData.zpid) {
-        onProgress('Checking local database for subject MLS ID...');
-        try {
-            const localProp = await getPropertyByMlsId(subjectData.mlsId);
-            if (localProp) {
-                console.log(`[CompService] Resolved subject ZPID via MLS ID local database search: ${localProp.zpid}`);
-                subjectData.zpid = localProp.zpid;
-                subjectData.bedrooms = subjectData.bedrooms ?? (localProp as any).bedrooms;
-                subjectData.bathrooms = subjectData.bathrooms ?? (localProp as any).bathrooms;
-                subjectData.squareFootage = subjectData.squareFootage ?? (localProp as any).livingAreaValue ?? (localProp as any).squareFootage ?? (localProp as any).livingArea;
-                subjectData.lotSize = subjectData.lotSize ?? (localProp as any).lotSize ?? (localProp as any).lotSizeValue;
-                subjectData.yearBuilt = subjectData.yearBuilt ?? (localProp as any).yearBuilt;
-                subjectData.homeType = subjectData.homeType ?? (localProp as any).homeType ?? (localProp as any).propertyType;
-                subjectData.listPrice = subjectData.listPrice ?? (localProp as any).price ?? (localProp as any).listPrice ?? (localProp as any).list_price;
-                subjectData.zestimate = subjectData.zestimate ?? (localProp as any).zestimate;
-                subjectData.mlsId = subjectData.mlsId ?? (localProp as any).mlsId ?? (localProp as any).mlsid;
-            }
-        } catch (e: any) {
-            console.warn('[CompService] Local database lookup by MLS ID failed:', e.message);
-        }
-    }
-
-    // 4. Enrich Subject Attributes from local DB (relying on explicit user ZPID/MLS ID or local cache)
+    // 3. Resolve ZPID from local database (using Radar-normalized address)
     if (!subjectData.zpid) {
         onProgress('Checking local database for subject property specs...');
         try {
@@ -218,6 +195,54 @@ export async function findComps(
         }
     }
 
+    // 4. Resolve ZPID from live US Housing API using Radar-normalized address
+    if (!subjectData.zpid) {
+        onProgress('Looking up subject property via RapidAPI...');
+        try {
+            const config = APP_CONFIG.usHousingApi;
+            const searchUrl = `https://${config.host}/propertyExtendedSearch?location=${encodeURIComponent(subjectData.address)}`;
+            const searchResp = await fetch(searchUrl, {
+                method: 'GET',
+                headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
+            });
+            if (searchResp.ok) {
+                const searchData = await searchResp.json();
+                let matched = null;
+                if (searchData && typeof searchData === 'object') {
+                    if (searchData.zpid) {
+                        matched = searchData;
+                    } else {
+                        const list = searchData.props || searchData.results || searchData;
+                        if (Array.isArray(list)) {
+                            matched = list[0];
+                        } else if (list && typeof list === 'object') {
+                            const keys = Object.keys(list);
+                            if (keys.length > 0 && typeof list[keys[0]] === 'object') {
+                                matched = list[keys[0]];
+                            }
+                        }
+                    }
+                }
+
+                if (matched && matched.zpid) {
+                    console.log(`[CompService] Resolved subject ZPID via RapidAPI search: ${matched.zpid}`);
+                    subjectData.zpid = String(matched.zpid);
+                    subjectData.bedrooms = subjectData.bedrooms ?? matched.bedrooms ?? matched.beds;
+                    subjectData.bathrooms = subjectData.bathrooms ?? matched.bathrooms ?? matched.baths;
+                    subjectData.squareFootage = subjectData.squareFootage ?? matched.livingArea ?? matched.squareFootage ?? matched.livingAreaValue;
+                    subjectData.lotSize = subjectData.lotSize ?? matched.lotSize ?? matched.lotAreaValue;
+                    subjectData.yearBuilt = subjectData.yearBuilt ?? matched.yearBuilt;
+                    subjectData.homeType = subjectData.homeType ?? matched.propertyType ?? matched.homeType;
+                    subjectData.listPrice = subjectData.listPrice ?? matched.price ?? matched.listPrice;
+                    subjectData.zestimate = subjectData.zestimate ?? matched.zestimate;
+                    subjectData.mlsId = subjectData.mlsId ?? matched.mlsid ?? matched.mlsId;
+                }
+            }
+        } catch (e: any) {
+            console.warn('[CompService] Subject property ZPID search failed:', e.message);
+        }
+    }
+
     if (subjectData.zpid) {
         subjectData.zpid = subjectData.zpid.replace(/\D/g, '');
         const subjSnap = await getDoc(doc(db, 'properties', subjectData.zpid));
@@ -237,7 +262,7 @@ export async function findComps(
                 mlsId: subjectData.mlsId ?? d.mlsid ?? d.mlsId,
             };
         } else {
-            onProgress('Querying MLS ID details via US Housing API...');
+            onProgress('Querying details via US Housing API...');
             try {
                 const config = APP_CONFIG.usHousingApi;
                 const detailUrl = `https://${config.host}/property?zpid=${subjectData.zpid}`;
@@ -259,8 +284,23 @@ export async function findComps(
                     subjectData.mlsId = subjectData.mlsId ?? detail.mlsid ?? detail.mlsId;
                 }
             } catch (e: any) {
-                console.warn('[CompService] Live MLS ID details query failed:', e.message);
+                console.warn('[CompService] Live ZPID details query failed:', e.message);
             }
+        }
+    }
+
+    // 5. If a user provided MLS ID is present, validate it against the returned property MLS ID to double-confirm
+    if (subject.mlsId) {
+        const normalizeMls = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const returnedMlsId = subjectData.mlsId;
+        if (returnedMlsId) {
+            const normUser = normalizeMls(subject.mlsId);
+            const normReturned = normalizeMls(returnedMlsId);
+            if (normUser !== normReturned) {
+                throw new Error(`MLS ID Mismatch: Entered ${subject.mlsId}, but the resolved property has MLS ID ${returnedMlsId}.`);
+            }
+        } else {
+            console.warn('[CompService] Resolved property details did not contain MLS ID to validate against.');
         }
     }
 
