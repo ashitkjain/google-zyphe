@@ -11,6 +11,7 @@ import { executeLandUtilityAnalysis } from '../prompts/property/landUtility';
 
 export interface SubjectProperty {
     zpid?: string;
+    mlsId?: string;
     address: string;
     latitude?: number;
     longitude?: number;
@@ -217,6 +218,7 @@ export async function findComps(
                 listPrice: subjectData.listPrice ?? d.listPrice ?? d.price ?? d.list_price,
                 description: subjectData.description ?? d.description ?? d.homeDescription,
                 zestimate: subjectData.zestimate ?? d.zestimate,
+                mlsId: subjectData.mlsId ?? d.mlsid ?? d.mlsId,
             };
         } else {
             onProgress('Querying MLS ID details via US Housing API...');
@@ -238,6 +240,7 @@ export async function findComps(
                     subjectData.homeType = subjectData.homeType ?? detail.propertyType ?? detail.homeType;
                     subjectData.listPrice = subjectData.listPrice ?? detail.price ?? detail.listPrice;
                     subjectData.zestimate = subjectData.zestimate ?? detail.zestimate;
+                    subjectData.mlsId = subjectData.mlsId ?? detail.mlsid ?? detail.mlsId;
                 }
             } catch (e: any) {
                 console.warn('[CompService] Live MLS ID details query failed:', e.message);

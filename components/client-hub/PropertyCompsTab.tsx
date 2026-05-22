@@ -364,24 +364,28 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setTempBaths(subjectBathrooms || null);
         setTempSqft(subjectSqft || null);
         setTempLotSize(subjectLotSize || null);
-        setTempZpid(activeSubject?.zpid || subjectZpid || null);
+        setTempZpid(activeSubject?.zpid || (activeSubject as any)?.mlsId || subjectZpid || null);
         setTempListPrice(subjectListPrice || null);
         setTempYearBuilt(subjectYearBuilt || null);
     }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize, subjectZpid, subjectListPrice, subjectYearBuilt]);
 
     const handleSaveCustomSpecs = () => {
-        const updated: SubjectProperty = {
+        const rawZpidOrMls = tempZpid?.trim() || '';
+        const isPureNumeric = /^\d+$/.test(rawZpidOrMls);
+
+        const updated: SubjectProperty & { mlsId?: string } = {
             ...(activeSubject || { address: activeAddress }),
             bedrooms: tempBeds || undefined,
             bathrooms: tempBaths || undefined,
             squareFootage: tempSqft || undefined,
             lotSize: tempLotSize || undefined,
-            zpid: tempZpid ? tempZpid.replace(/\D/g, '') : undefined,
+            zpid: isPureNumeric ? rawZpidOrMls : undefined,
+            mlsId: !isPureNumeric && rawZpidOrMls ? rawZpidOrMls : undefined,
             listPrice: tempListPrice || undefined,
             yearBuilt: tempYearBuilt || undefined,
         };
         setActiveSubject(updated);
-        fetchComps(updated.address);
+        fetchComps(updated.address, updated.zpid, updated.mlsId);
     };
 
     // Helper to parse CSV
@@ -549,10 +553,13 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         const trimmed = manualAddress.trim();
         if (!trimmed) return;
 
-        const cleanedZpid = searchZpid.trim() ? searchZpid.trim().replace(/\D/g, '') : undefined;
-        const newActive: SubjectProperty = {
+        const rawZpidOrMls = searchZpid.trim();
+        const isPureNumeric = /^\d+$/.test(rawZpidOrMls);
+
+        const newActive: SubjectProperty & { mlsId?: string } = {
             address: trimmed,
-            zpid: cleanedZpid
+            zpid: isPureNumeric ? rawZpidOrMls : undefined,
+            mlsId: !isPureNumeric && rawZpidOrMls ? rawZpidOrMls : undefined,
         };
 
         setActiveSubject(newActive); // Seed the override instantly
@@ -560,11 +567,11 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setCompAnalysisResult(null);
         setCompAnalysisError(null);
         setCompAnalysisLoading(false);
-        fetchComps(trimmed, cleanedZpid);
+        fetchComps(trimmed, newActive.zpid, newActive.mlsId);
     };
 
 
-    const fetchComps = useCallback(async (addrOverride?: string, zpidOverride?: string) => {
+    const fetchComps = useCallback(async (addrOverride?: string, zpidOverride?: string, mlsIdOverride?: string) => {
         const trimmed = (addrOverride ?? address).trim();
         if (!trimmed) return;
         setLoading(true);
@@ -574,10 +581,12 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
 
         try {
             const resolvedZpid = zpidOverride || activeSubject?.zpid || subjectZpid;
+            const resolvedMlsId = mlsIdOverride || (activeSubject as any)?.mlsId;
             const hasZpid = !!resolvedZpid;
 
-            const subject: SubjectProperty = {
+            const subject: SubjectProperty & { mlsId?: string } = {
                 zpid: resolvedZpid ?? undefined,
+                mlsId: resolvedMlsId ?? undefined,
                 address: trimmed,
                 latitude: hasZpid ? undefined : (subjectLat ?? undefined),
                 longitude: hasZpid ? undefined : (subjectLng ?? undefined),
