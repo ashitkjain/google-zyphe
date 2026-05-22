@@ -3,6 +3,7 @@ import { db } from './firebaseService';
 import { APP_CONFIG } from '../config';
 import { normalizeAddress } from './api/geocoding';
 import { getZipSoldListings, saveZipSoldListings } from './firebase/cityData';
+import { getPropertyByAddress } from './firebase/properties';
 import { COMP_NORMALIZATION_PROMPT, COMP_NORMALIZATION_SYSTEM_INSTRUCTION } from '../prompts/property/compNormalization';
 import { executeGeminiRequest, FLASH_MODEL, FLASH_LITE_MODEL } from './geminiService';
 import { executeLandUtilityAnalysis } from '../prompts/property/landUtility';
@@ -171,50 +172,26 @@ export async function findComps(
         if (zipMatch) zipCode = zipMatch[1];
     }
 
-    // 3. Enrich Subject Attributes from US Housing API (if ZPID is missing) or Local DB
+    // 3. Enrich Subject Attributes from local DB (relying on explicit user ZPID/MLS ID or local cache)
     if (!subjectData.zpid) {
-        onProgress('Searching county records for subject property specs...');
+        onProgress('Checking local database for subject property specs...');
         try {
-            const config = APP_CONFIG.usHousingApi;
-            const searchUrl = `https://${config.host}/propertyExtendedSearch?location=${encodeURIComponent(subjectData.address)}`;
-            const searchResp = await fetch(searchUrl, {
-                method: 'GET',
-                headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
-            });
-            if (searchResp.ok) {
-                const searchData = await searchResp.json();
-                let matched = null;
-                if (searchData && typeof searchData === 'object') {
-                    if (searchData.zpid) {
-                        matched = searchData;
-                    } else {
-                        const list = searchData.props || searchData.results || searchData;
-                        if (Array.isArray(list)) {
-                            matched = list[0];
-                        } else if (list && typeof list === 'object') {
-                            const keys = Object.keys(list);
-                            if (keys.length > 0 && typeof list[keys[0]] === 'object') {
-                                matched = list[keys[0]];
-                            }
-                        }
-                    }
-                }
-
-                if (matched && matched.zpid) {
-                    console.log(`[CompService] Resolved subject ZPID via live search: ${matched.zpid}`);
-                    subjectData.zpid = String(matched.zpid);
-                    subjectData.bedrooms = subjectData.bedrooms ?? matched.bedrooms ?? matched.beds;
-                    subjectData.bathrooms = subjectData.bathrooms ?? matched.bathrooms ?? matched.baths;
-                    subjectData.squareFootage = subjectData.squareFootage ?? matched.livingArea ?? matched.squareFootage ?? matched.livingAreaValue;
-                    subjectData.lotSize = subjectData.lotSize ?? matched.lotSize ?? matched.lotAreaValue;
-                    subjectData.yearBuilt = subjectData.yearBuilt ?? matched.yearBuilt;
-                    subjectData.homeType = subjectData.homeType ?? matched.propertyType ?? matched.homeType;
-                    subjectData.listPrice = subjectData.listPrice ?? matched.price ?? matched.listPrice;
-                    subjectData.zestimate = subjectData.zestimate ?? matched.zestimate;
-                }
+            const localProp = await getPropertyByAddress(subjectData.address);
+            if (localProp) {
+                console.log(`[CompService] Resolved subject ZPID via Firestore search: ${localProp.zpid}`);
+                subjectData.zpid = localProp.zpid;
+                subjectData.bedrooms = subjectData.bedrooms ?? (localProp as any).bedrooms;
+                subjectData.bathrooms = subjectData.bathrooms ?? (localProp as any).bathrooms;
+                subjectData.squareFootage = subjectData.squareFootage ?? (localProp as any).livingAreaValue ?? (localProp as any).squareFootage ?? (localProp as any).livingArea;
+                subjectData.lotSize = subjectData.lotSize ?? (localProp as any).lotSize ?? (localProp as any).lotSizeValue;
+                subjectData.yearBuilt = subjectData.yearBuilt ?? (localProp as any).yearBuilt;
+                subjectData.homeType = subjectData.homeType ?? (localProp as any).homeType ?? (localProp as any).propertyType;
+                subjectData.listPrice = subjectData.listPrice ?? (localProp as any).price ?? (localProp as any).listPrice ?? (localProp as any).list_price;
+                subjectData.zestimate = subjectData.zestimate ?? (localProp as any).zestimate;
+                subjectData.mlsId = subjectData.mlsId ?? (localProp as any).mlsId ?? (localProp as any).mlsid;
             }
         } catch (e: any) {
-            console.warn('[CompService] Subject property ZPID search failed:', e.message);
+            console.warn('[CompService] Local database lookup by address failed:', e.message);
         }
     }
 
@@ -264,8 +241,8 @@ export async function findComps(
         }
     }
 
-    if (!subjectData.zpid) {
-        throw new Error('Property could not be located in Zillow/MLS database via RapidAPI. Valuation and AI analysis aborted.');
+    if (!subjectData.squareFootage || !subjectData.bedrooms) {
+        throw new Error('Property specs (Built Area, Bedrooms) are missing. Please enter them in the specs editor to run comps and AI analysis.');
     }
 
 
