@@ -344,6 +344,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [tempBaths, setTempBaths] = useState<number | null>(null);
     const [tempSqft, setTempSqft] = useState<number | null>(null);
     const [tempLotSize, setTempLotSize] = useState<number | null>(null);
+    const [tempZpid, setTempZpid] = useState<string | null>(null);
 
     const subjectSqft = activeSubject?.squareFootage ?? propSubjectSqft;
     const subjectBedrooms = activeSubject?.bedrooms ?? propSubjectBedrooms;
@@ -360,7 +361,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         setTempBaths(subjectBathrooms || null);
         setTempSqft(subjectSqft || null);
         setTempLotSize(subjectLotSize || null);
-    }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize]);
+        setTempZpid(activeSubject?.zpid || subjectZpid || null);
+    }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize, subjectZpid]);
 
     const handleSaveCustomSpecs = () => {
         const updated: SubjectProperty = {
@@ -369,6 +371,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             bathrooms: tempBaths || undefined,
             squareFootage: tempSqft || undefined,
             lotSize: tempLotSize || undefined,
+            zpid: tempZpid || undefined,
         };
         setActiveSubject(updated);
         fetchComps(updated.address);
@@ -1226,6 +1229,16 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                 onChange={e => setTempLotSize(parseInt(e.target.value) || null)}
                                                 placeholder="e.g. 5000"
                                                 className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <label className="text-[9px] font-black text-indigo-500 uppercase tracking-wider block mb-0.5">MLS ID / Zillow ZPID</label>
+                                            <input
+                                                type="text"
+                                                value={tempZpid ?? ''}
+                                                onChange={e => setTempZpid(e.target.value || null)}
+                                                placeholder="e.g. 20442162"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 font-mono font-bold bg-white text-indigo-900 placeholder:text-slate-300"
                                             />
                                         </div>
                                     </div>

@@ -217,6 +217,30 @@ export async function findComps(
                 description: subjectData.description ?? d.description ?? d.homeDescription,
                 zestimate: subjectData.zestimate ?? d.zestimate,
             };
+        } else {
+            onProgress('Querying MLS ID details via US Housing API...');
+            try {
+                const config = APP_CONFIG.usHousingApi;
+                const detailUrl = `https://${config.host}/property?zpid=${subjectData.zpid}`;
+                const detailResp = await fetch(detailUrl, {
+                    method: 'GET',
+                    headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
+                });
+                if (detailResp.ok) {
+                    const detail = await detailResp.json();
+                    console.log('[CompService] Live ZPID detail fetch successful:', detail);
+                    subjectData.bedrooms = subjectData.bedrooms ?? detail.bedrooms ?? detail.beds;
+                    subjectData.bathrooms = subjectData.bathrooms ?? detail.bathrooms ?? detail.baths;
+                    subjectData.squareFootage = subjectData.squareFootage ?? detail.livingArea ?? detail.squareFootage ?? detail.livingAreaValue;
+                    subjectData.lotSize = subjectData.lotSize ?? detail.lotSize ?? detail.lotAreaValue;
+                    subjectData.yearBuilt = subjectData.yearBuilt ?? detail.yearBuilt;
+                    subjectData.homeType = subjectData.homeType ?? detail.propertyType ?? detail.homeType;
+                    subjectData.listPrice = subjectData.listPrice ?? detail.price ?? detail.listPrice;
+                    subjectData.zestimate = subjectData.zestimate ?? detail.zestimate;
+                }
+            } catch (e: any) {
+                console.warn('[CompService] Live MLS ID details query failed:', e.message);
+            }
         }
     }
 
