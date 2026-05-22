@@ -474,12 +474,12 @@ export async function executeLandUtilityAnalysis(
     subjectDescription?: string,
     subjectTaxSqft?: number,
 ): Promise<any> {
-    const { getAi } = await import('../../services/geminiService');
+    const { getAi, FLASH_LITE_MODEL } = await import('../../services/geminiService');
     const { logLLMCall, updateLLMCall } = await import('../../services/firebase/llm_logs');
     const { serverTimestamp } = await import('firebase/firestore');
 
     const ai = await getAi();
-    const MODEL = 'gemini-3.1-pro-preview';
+    const MODEL = FLASH_LITE_MODEL || 'gemini-2.5-flash-lite';
 
     const logId = await logLLMCall({
         user_id: 'unknown',

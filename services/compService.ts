@@ -4,7 +4,7 @@ import { APP_CONFIG } from '../config';
 import { normalizeAddress } from './api/geocoding';
 import { getZipSoldListings, saveZipSoldListings } from './firebase/cityData';
 import { COMP_NORMALIZATION_PROMPT, COMP_NORMALIZATION_SYSTEM_INSTRUCTION } from '../prompts/property/compNormalization';
-import { executeGeminiRequest, FLASH_MODEL } from './geminiService';
+import { executeGeminiRequest, FLASH_MODEL, FLASH_LITE_MODEL } from './geminiService';
 import { executeLandUtilityAnalysis } from '../prompts/property/landUtility';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -617,7 +617,7 @@ export async function findComps(
 
     const [normResult, landResult] = await Promise.allSettled([
         executeGeminiRequest<any>({
-            model: FLASH_MODEL,
+            model: FLASH_LITE_MODEL,
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
