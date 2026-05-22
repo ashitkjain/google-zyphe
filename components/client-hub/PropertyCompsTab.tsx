@@ -795,7 +795,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             status: normStatus,
             cost: normCost,
             details: 'Applies AI linear regression adjustments for date, built-area, and bedrooms.',
-            tokenCounts: normStatus === 'Success' ? { input: 3500, output: 800 } : undefined
+            tokenCounts: normStatus === 'Success' ? { input: 3500, output: 800 } : undefined,
+            googleSearchEnabled: true
         };
 
         // 5. Gemini - Land Utility Analysis
@@ -807,7 +808,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             status: landStatus,
             cost: landCost,
             details: 'Audits geospatial LiDAR profiles, front/rear lot slopes, solar exposure, and zoning restrictions.',
-            tokenCounts: landStatus === 'Success' ? { input: 8000, output: 1200 } : undefined
+            tokenCounts: landStatus === 'Success' ? { input: 8000, output: 1200 } : undefined,
+            googleSearchEnabled: true
         };
 
         const calls = [radarCall, zillowCall, compsCall, normCall, landCall];
@@ -2150,7 +2152,15 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         return (
                                             <tr key={idx} className="hover:bg-slate-800/10 transition-colors">
                                                 <td className="px-5 py-4">
-                                                    <div className="font-black text-slate-200">{call.name}</div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <div className="font-black text-slate-200">{call.name}</div>
+                                                        {(call as any).googleSearchEnabled && (
+                                                            <span className="inline-flex items-center gap-1 text-[8px] font-black bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                                                                <i className="fa-solid fa-globe text-[7px]" />
+                                                                Google Search Grounded
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className="text-[10px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-md">{call.details}</div>
                                                 </td>
                                                 <td className="px-5 py-4">
