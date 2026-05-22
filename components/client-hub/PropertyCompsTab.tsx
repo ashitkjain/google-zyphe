@@ -340,6 +340,10 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [manualAddress, setManualAddress] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
     const [bulkResults, setBulkResults] = useState<Record<string, { zypheValue: number | null, averagePsf: number | null, compsCount: number, error?: string }>>({});
+    const [tempBeds, setTempBeds] = useState<number | null>(null);
+    const [tempBaths, setTempBaths] = useState<number | null>(null);
+    const [tempSqft, setTempSqft] = useState<number | null>(null);
+    const [tempLotSize, setTempLotSize] = useState<number | null>(null);
 
     const subjectSqft = activeSubject?.squareFootage ?? propSubjectSqft;
     const subjectBedrooms = activeSubject?.bedrooms ?? propSubjectBedrooms;
@@ -350,6 +354,25 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const subjectLotSize = activeSubject?.lotSize ?? propSubjectLotSize;
     const subjectZestimate = activeSubject?.zestimate ?? propSubjectZestimate;
     const activeAddress = activeSubject?.address || address || initialAddress;
+
+    useEffect(() => {
+        setTempBeds(subjectBedrooms || null);
+        setTempBaths(subjectBathrooms || null);
+        setTempSqft(subjectSqft || null);
+        setTempLotSize(subjectLotSize || null);
+    }, [activeSubject, propSubjectBedrooms, propSubjectBathrooms, propSubjectSqft, propSubjectLotSize, subjectSqft, subjectBedrooms, subjectBathrooms, subjectLotSize]);
+
+    const handleSaveCustomSpecs = () => {
+        const updated: SubjectProperty = {
+            ...(activeSubject || { address: activeAddress }),
+            bedrooms: tempBeds || undefined,
+            bathrooms: tempBaths || undefined,
+            squareFootage: tempSqft || undefined,
+            lotSize: tempLotSize || undefined,
+        };
+        setActiveSubject(updated);
+        fetchComps(updated.address);
+    };
 
     // Helper to parse CSV
     const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1011,7 +1034,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                 let avgAdjPsf: number | null = null;
                 let eligibleForVal: typeof saleComps = [];
 
-                if (subjectSqft && subjectSqft > 0 && saleComps.length > 0 && !compAnalysisLoading && compAnalysisResult) {
+                if (subjectSqft && subjectSqft > 0 && saleComps.length > 0 && !compAnalysisLoading) {
                     const geminiRecs = compAnalysisResult?.comp_analysis as any[] | undefined;
                     let eligible = saleComps
                         .filter(c => !c.isOutlier && !c.priceUnverified && c.adjustedPrice && c.squareFootage && c.squareFootage > 0)
@@ -1159,11 +1182,64 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                     </div>
                                 )}
 
+                                <div className="mt-3 bg-slate-50/70 hover:bg-slate-50 rounded-xl p-3 border border-slate-200/60 transition-all">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                        <i className="fa-solid fa-pen-to-square text-[9px] text-teal-600" /> Edit Subject Specs
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mb-2">
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Beds</label>
+                                            <input
+                                                type="number"
+                                                value={tempBeds ?? ''}
+                                                onChange={e => setTempBeds(parseInt(e.target.value) || null)}
+                                                placeholder="e.g. 3"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Baths</label>
+                                            <input
+                                                type="number"
+                                                step="0.5"
+                                                value={tempBaths ?? ''}
+                                                onChange={e => setTempBaths(parseFloat(e.target.value) || null)}
+                                                placeholder="e.g. 2"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Built Area (sf)</label>
+                                            <input
+                                                type="number"
+                                                value={tempSqft ?? ''}
+                                                onChange={e => setTempSqft(parseInt(e.target.value) || null)}
+                                                placeholder="e.g. 1500"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Lot Size (sf)</label>
+                                            <input
+                                                type="number"
+                                                value={tempLotSize ?? ''}
+                                                onChange={e => setTempLotSize(parseInt(e.target.value) || null)}
+                                                placeholder="e.g. 5000"
+                                                className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500 font-bold bg-white text-slate-700"
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleSaveCustomSpecs}
+                                        className="w-full px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1 shadow-sm shadow-teal-100"
+                                    >
+                                        <i className="fa-solid fa-arrows-rotate text-[8px]" /> Save & Calculate Valuation
+                                    </button>
+                                </div>
                             </div>
 
                             {/* ── Column 2: SqFt + Lot Analysis ── */}
                             <div className="space-y-1.5">
-                                {subjectAuditData && (
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div>
                                             <div className="text-slate-400 font-bold text-[10px]">Built Area (Listing)</div>
@@ -1171,7 +1247,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         </div>
                                         <div>
                                             <div className="text-slate-400 font-bold text-[10px]">Built Area (Tax Records)</div>
-                                            <div className="font-black text-slate-700">{subjectAuditData.tax_sqft ? `${subjectAuditData.tax_sqft.toLocaleString()} sf` : '—'}</div>
+                                            <div className="font-black text-slate-700">{subjectAuditData?.tax_sqft ? `${subjectAuditData.tax_sqft.toLocaleString()} sf` : '—'}</div>
                                         </div>
                                         <div>
                                             <div className="text-teal-500 font-bold text-[10px]">Lot Area</div>
@@ -1180,11 +1256,10 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         {subjectIsSFLocal && (
                                             <div>
                                                 <div className="text-teal-500 font-bold text-[10px]">Usable Lot</div>
-                                                <div className="font-black text-teal-700">{(subjectLotCalcLocal?.usable ?? subjectAuditData.usable_lot) ? `${(subjectLotCalcLocal?.usable ?? subjectAuditData.usable_lot)?.toLocaleString()} sf` : '—'}</div>
+                                                <div className="font-black text-teal-700">{(subjectLotCalcLocal?.usable ?? subjectAuditData?.usable_lot) ? `${(subjectLotCalcLocal?.usable ?? subjectAuditData?.usable_lot)?.toLocaleString()} sf` : '—'}</div>
                                             </div>
                                         )}
                                     </div>
-                                )}
                                 {subjectLotCalcLocal && (
                                     <div className="space-y-0.5 text-[11px] font-mono bg-white/60 rounded-lg p-2 border border-teal-100">
                                         <div className="text-[9px] font-black text-teal-600 uppercase tracking-widest font-mono mb-1">Usable Lot Calculation</div>
