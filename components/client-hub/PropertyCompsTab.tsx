@@ -290,7 +290,18 @@ interface PropertyCompsTabProps {
 }
 
 
-const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, onRefresh, subjectZpid, subjectLat, subjectLng, subjectListPrice, subjectBedrooms, subjectBathrooms, subjectSqft, subjectYearBuilt, subjectHomeType, subjectLotSize, preloadedComps, monthlyRate, subjectZestimate }) => {
+const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ 
+    initialAddress = '', onBack, onRefresh, subjectZpid, subjectLat, subjectLng, 
+    subjectListPrice: propSubjectListPrice, 
+    subjectBedrooms: propSubjectBedrooms, 
+    subjectBathrooms: propSubjectBathrooms, 
+    subjectSqft: propSubjectSqft, 
+    subjectYearBuilt: propSubjectYearBuilt, 
+    subjectHomeType: propSubjectHomeType, 
+    subjectLotSize: propSubjectLotSize, 
+    preloadedComps, monthlyRate, 
+    subjectZestimate: propSubjectZestimate 
+}) => {
     const [address, setAddress] = useState(initialAddress);
     const [bedrooms, setBedrooms] = useState('');
     const [bathrooms, setBathrooms] = useState('');
@@ -321,6 +332,129 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
     const [compAnalysisError, setCompAnalysisError] = useState<string | null>(null);
     const [arvBreakdown, setArvBreakdown] = useState<{ item: string; estimated_cost: number; value_add: number; roi_pct: number }[] | null>(null);
     const [renovationStrategy, setRenovationStrategy] = useState<string | null>(null);
+
+    // ── CSV Uploader & Dynamic Override State ──────────────────────────────
+    const [parsedSubjectProperties, setParsedSubjectProperties] = useState<SubjectProperty[]>([]);
+    const [activeSubject, setActiveSubject] = useState<SubjectProperty | null>(null);
+    const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
+
+    const subjectSqft = activeSubject?.squareFootage ?? propSubjectSqft;
+    const subjectBedrooms = activeSubject?.bedrooms ?? propSubjectBedrooms;
+    const subjectBathrooms = activeSubject?.bathrooms ?? propSubjectBathrooms;
+    const subjectHomeType = activeSubject?.homeType ?? propSubjectHomeType;
+    const subjectYearBuilt = activeSubject?.yearBuilt ?? propSubjectYearBuilt;
+    const subjectListPrice = activeSubject?.listPrice ?? propSubjectListPrice;
+    const subjectLotSize = activeSubject?.lotSize ?? propSubjectLotSize;
+    const subjectZestimate = activeSubject?.zestimate ?? propSubjectZestimate;
+    const activeAddress = activeSubject?.address || address || initialAddress;
+
+    // Helper to parse CSV
+    const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setCsvUploadError(null);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const text = event.target?.result as string;
+                if (!text) throw new Error('File is empty');
+
+                const parsed = parseCSV(text);
+                if (parsed.length === 0) {
+                    throw new Error('Could not parse any valid subject properties. Check header columns (address, beds, baths, sqft).');
+                }
+
+                // Parse out top 2
+                const top2 = parsed.slice(0, 2);
+                setParsedSubjectProperties(top2);
+                
+                // Auto-select and run the first one
+                handleSelectSubject(top2[0]);
+            } catch (err: any) {
+                setCsvUploadError(err.message || 'Failed to parse CSV');
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const parseCSV = (text: string): SubjectProperty[] => {
+        const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+        if (lines.length < 2) return [];
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+        const findIndex = (keys: string[]) => {
+            return headers.findIndex(h => keys.some(k => h.includes(k)));
+        };
+
+        const addrIdx = findIndex(['address', 'street', 'location']);
+        const bedsIdx = findIndex(['bed', 'bd', 'room']);
+        const bathsIdx = findIndex(['bath', 'ba']);
+        const sqftIdx = findIndex(['sqft', 'sf', 'size', 'square', 'area', 'living']);
+        const lotIdx = findIndex(['lot']);
+        const yearIdx = findIndex(['year', 'built']);
+        const typeIdx = findIndex(['type']);
+        const priceIdx = findIndex(['price', 'list']);
+        const zestIdx = findIndex(['zest', 'zestimate']);
+
+        const results: SubjectProperty[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            const row: string[] = [];
+            let inQuotes = false;
+            let current = '';
+            for (let charIdx = 0; charIdx < line.length; charIdx++) {
+                const char = line[charIdx];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    row.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            row.push(current.trim());
+
+            if (row.length === 0 || !row[0]) continue;
+
+            const getNum = (idx: number) => {
+                if (idx === -1 || idx >= row.length) return undefined;
+                const val = parseFloat(row[idx].replace(/[^0-9.-]/g, ''));
+                return isNaN(val) ? undefined : val;
+            };
+
+            const getStr = (idx: number) => {
+                if (idx === -1 || idx >= row.length) return undefined;
+                return row[idx].replace(/^"|"$/g, '') || undefined;
+            };
+
+            results.push({
+                address: getStr(addrIdx) || row[0] || 'Unknown Address',
+                bedrooms: getNum(bedsIdx),
+                bathrooms: getNum(bathsIdx),
+                squareFootage: getNum(sqftIdx),
+                lotSize: getNum(lotIdx),
+                yearBuilt: getNum(yearIdx),
+                homeType: getStr(typeIdx),
+                listPrice: getNum(priceIdx),
+                zestimate: getNum(zestIdx),
+            });
+        }
+
+        return results;
+    };
+
+    const handleSelectSubject = (subj: SubjectProperty) => {
+        setActiveSubject(subj);
+        setAddress(subj.address);
+        setCompAnalysisResult(null);
+        setCompAnalysisError(null);
+        setCompAnalysisLoading(false);
+        fetchComps(subj.address);
+    };
 
 
     const fetchComps = useCallback(async (addrOverride?: string) => {
@@ -526,10 +660,10 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
         console.log(`[CompAnalysis] 🚀 Running modular comp service findComps pipeline...`);
         try {
             const subject: SubjectProperty = {
-                zpid: subjectZpid,
-                address: address || initialAddress,
-                latitude: subjectLat ?? undefined,
-                longitude: subjectLng ?? undefined,
+                zpid: activeSubject ? undefined : subjectZpid,
+                address: activeAddress,
+                latitude: activeSubject ? undefined : subjectLat ?? undefined,
+                longitude: activeSubject ? undefined : subjectLng ?? undefined,
                 bedrooms: subjectBedrooms ?? undefined,
                 bathrooms: subjectBathrooms ?? undefined,
                 squareFootage: subjectSqft ?? undefined,
@@ -558,7 +692,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
         } finally {
             setCompAnalysisLoading(false);
         }
-    }, [address, subjectSqft, subjectBedrooms, subjectBathrooms, subjectHomeType, subjectYearBuilt, subjectListPrice, subjectLotSize, subjectZpid, compAnalysisLoading, subjectLat, subjectLng, subjectZestimate, initialAddress]);
+    }, [activeAddress, subjectSqft, subjectBedrooms, subjectBathrooms, subjectHomeType, subjectYearBuilt, subjectListPrice, subjectLotSize, subjectZpid, compAnalysisLoading, subjectLat, subjectLng, subjectZestimate, initialAddress, activeSubject]);
 
     const saleComps = cached?.valueEstimate?.comps ?? [];
 
@@ -680,6 +814,110 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                         <span className="text-xs font-black text-white uppercase tracking-widest">Property Comps</span>
                     </div>
                 </div>
+            </div>
+ 
+            {/* ── CSV Uploader & Parsed Subjects Selection ── */}
+            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <i className="fa-solid fa-file-csv text-indigo-600 text-base" />
+                            Dynamic Subject Property CSV Parser
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-semibold mt-1">
+                            Upload a CSV containing property profiles. We will parse the top 2 properties for direct comps analysis.
+                        </p>
+                    </div>
+
+                    <div className="relative">
+                        <label className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-md shadow-indigo-100 transition-all">
+                            <i className="fa-solid fa-cloud-arrow-up" />
+                            Upload CSV File
+                            <input 
+                                type="file" 
+                                accept=".csv" 
+                                onChange={handleCsvUpload} 
+                                className="hidden" 
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                {csvUploadError && (
+                    <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2 flex items-center gap-2">
+                        <i className="fa-solid fa-triangle-exclamation" />
+                        {csvUploadError}
+                    </div>
+                )}
+
+                {parsedSubjectProperties.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Parsed Properties (Top 2 selected)
+                            </span>
+                            <button
+                                onClick={() => {
+                                    setParsedSubjectProperties([]);
+                                    setActiveSubject(null);
+                                    setAddress(initialAddress);
+                                    setCompAnalysisResult(null);
+                                    setCompAnalysisError(null);
+                                    fetchComps(initialAddress);
+                                }}
+                                className="text-[9px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-widest transition-colors"
+                            >
+                                <i className="fa-solid fa-trash-can mr-1" />
+                                Clear Uploaded Properties
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {parsedSubjectProperties.map((subj, idx) => {
+                                const isActive = activeSubject?.address === subj.address;
+                                return (
+                                    <div
+                                        key={idx}
+                                        onClick={() => handleSelectSubject(subj)}
+                                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                                            isActive
+                                                ? 'border-teal-500 bg-gradient-to-br from-teal-50/50 to-emerald-50/50 shadow-sm animate-pulse'
+                                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                        style={{ animationDuration: '2.5s' }}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                    <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-black text-white ${isActive ? 'bg-teal-500' : 'bg-slate-300'}`}>
+                                                        {idx + 1}
+                                                    </span>
+                                                    Property Specs
+                                                </div>
+                                                <div className="text-[12px] font-black text-slate-800 truncate leading-snug">
+                                                    {subj.address}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500 font-bold flex-wrap">
+                                                    <span>{subj.bedrooms ?? '—'} bd · {subj.bathrooms ?? '—'} ba</span>
+                                                    <span>{subj.squareFootage ? `${subj.squareFootage.toLocaleString()} sf` : '—'}</span>
+                                                    {subj.listPrice && <span>${subj.listPrice.toLocaleString()}</span>}
+                                                    {subj.homeType && <span>{subj.homeType}</span>}
+                                                </div>
+                                            </div>
+
+                                            {isActive && (
+                                                <div className="flex-shrink-0 text-teal-600 bg-teal-100/80 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                                    <i className="fa-solid fa-circle-check text-[10px]" />
+                                                    Active
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── Unified Subject Property Card ─────────────────────────── */}
