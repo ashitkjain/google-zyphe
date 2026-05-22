@@ -406,6 +406,7 @@ const VisionAnalysisPage: React.FC<Props> = ({ propertyData, customAnalysis, onC
                             groups={extGroups}
                             propertyImages={propertyData?.images}
                             onEnlargeImage={(url) => setEnlargedImage(url)}
+                            onRefresh={handleRun}
                         />
                         
                         <EyesOnTheStreet data={propertyData} docData={docData} onEnlargeImage={setEnlargedImage} />
@@ -521,7 +522,7 @@ function ScoreDial({ label, value, hint, color }: { label: string; value: number
     );
 }
 
-function FacetCard({ num, title, chip, body, theme = 'indoor' }: { num: number; title: string; chip?: string; body: string; theme?: 'indoor' | 'outdoor' }) {
+function FacetCard({ num, title, chip, body, theme = 'indoor', onRefresh }: { num: number; title: string; chip?: string; body: string; theme?: 'indoor' | 'outdoor'; onRefresh?: () => void }) {
     const bgClass = theme === 'outdoor'
         ? 'bg-gradient-to-b from-emerald-50/60 to-white border border-emerald-100/60'
         : 'bg-gradient-to-b from-indigo-50/60 to-white border border-indigo-100/60';
@@ -531,7 +532,15 @@ function FacetCard({ num, title, chip, body, theme = 'indoor' }: { num: number; 
     return (
         <div className={`${bgClass} rounded-xl p-5 relative`}>
             <div className="absolute top-3 right-4 text-[10px] font-mono text-slate-300 font-bold">0{num}</div>
-            <h4 className="font-serif text-lg text-slate-900 mb-2 leading-tight">{title}</h4>
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="font-serif text-lg text-slate-900 leading-tight m-0">{title}</h4>
+                {title === 'Backyard' && onRefresh && (
+                    <button onClick={onRefresh} className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold uppercase hover:bg-emerald-700 transition-colors flex items-center gap-1">
+                        <i className="fa-solid fa-arrows-rotate text-[8px]" />
+                        Refresh
+                    </button>
+                )}
+            </div>
             {chip && chip !== '—' && (
                 <span className={`inline-flex items-center ${chipBg} px-2 py-0.5 rounded-full text-[11px] font-bold border mb-2`}>{chip}</span>
             )}
@@ -913,7 +922,6 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
                             <h3 className="font-serif text-2xl text-slate-900">{group.label}</h3>
                         </div>
                     </div>
-
                 </div>
 
                 {/* AI Narrative — full width, right below header border */}
@@ -1055,7 +1063,7 @@ function RoomsWalkthrough({ groups, orphans, selectedIdx, onSelectIdx, onEnlarge
 }
 
 function SynthesisOutdoor({
-    synthesis: s, error, inputCount, groups, propertyImages, onEnlargeImage
+    synthesis: s, error, inputCount, groups, propertyImages, onEnlargeImage, onRefresh
 }: {
     synthesis: ExteriorSynthesis | null;
     error: string | null;
@@ -1063,6 +1071,7 @@ function SynthesisOutdoor({
     groups: GroupView[];
     propertyImages?: string[];
     onEnlargeImage: (url: string) => void;
+    onRefresh?: () => void;
 }) {
     if (!s) return <SynthesisEmpty kind="outdoor" error={error} inputCount={inputCount} />;
     return (
@@ -1161,7 +1170,7 @@ function SynthesisOutdoor({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <FacetCard num={1} title="Style" chip={s.facet_tags.style_tag} body={s.exterior_and_lot_appeal.architecture_style} theme="outdoor" />
                     <FacetCard num={2} title="Curb Appeal" body={s.exterior_and_lot_appeal.curb_appeal} theme="outdoor" />
-                    <FacetCard num={3} title="Backyard" body={s.exterior_and_lot_appeal.backyard_and_patio} theme="outdoor" />
+                    <FacetCard num={3} title="Backyard" body={s.exterior_and_lot_appeal.backyard_and_patio} theme="outdoor" onRefresh={onRefresh} />
                     <FacetCard num={4} title="Privacy" chip={s.facet_tags.privacy_tag} body={s.views_privacy_orientation.privacy} theme="outdoor" />
                     <FacetCard num={5} title="Views" chip={s.facet_tags.views_tag} body={s.views_privacy_orientation.views} theme="outdoor" />
                     <FacetCard num={6} title="Lot Coverage" chip={s.facet_tags.lot_coverage_tag} body={`Inferred coverage: ${s.facet_tags.lot_coverage_tag}. ${s.objective_tags.length > 0 ? 'Notable lot features: ' + s.objective_tags.slice(0, 6).join(', ') + '.' : ''}`} theme="outdoor" />

@@ -56,6 +56,8 @@ async function downloadPhotosFromSources(siteUrls) {
 function scrapePhotosFromSource(source, url) {
   // Zillow: direct listing URL, single step
   if (source === 'zillow') return scrapeListingPage(url, source);
+  // Paragon: results page → find card by address text → listing detail page
+  if (source === 'paragon') return scrapeViaParagon(url, source);
   // Others: search results → listing detail page
   return scrapeViaSearch(url, source);
 }
@@ -86,6 +88,36 @@ async function scrapeViaSearch(searchUrl, source) {
     await chrome.tabs.update(tabId, { url: listingUrl });
     await waitForTabLoad(tabId);
     await delay(3000); // wait for listing gallery to render
+
+    return await injectExtractPhotos(tabId, source);
+  } finally {
+    chrome.tabs.remove(tabId).catch(() => {});
+  }
+}
+
+async function scrapeViaParagon(rawUrl, source) {
+  // Address is passed via ?search= param — strip it before navigating so
+  // Paragon doesn't reject the URL, but keep it for DOM text matching.
+  const parsed = new URL(rawUrl);
+  const address = parsed.searchParams.get('search') || '';
+  parsed.searchParams.delete('search');
+  const resultsUrl = parsed.toString();
+
+  const tabId = await openBackgroundTab(resultsUrl);
+  try {
+    await waitForTabLoad(tabId);
+    await delay(4000); // Paragon is a heavy JS app
+
+    const listingUrl = await injectFindParagonListing(tabId, address);
+    if (!listingUrl) {
+      console.warn(`[PhotoDownload] paragon: no listing card found for "${address}"`);
+      return [];
+    }
+
+    console.log(`[PhotoDownload] paragon: navigating to listing ${listingUrl}`);
+    await chrome.tabs.update(tabId, { url: listingUrl });
+    await waitForTabLoad(tabId);
+    await delay(4000); // wait for photo gallery to render
 
     return await injectExtractPhotos(tabId, source);
   } finally {
@@ -143,6 +175,13 @@ async function injectFindListingUrl(tabId, source) {
   return results?.[0]?.result || null;
 }
 
+async function injectFindParagonListing(tabId, address) {
+  const results = await chrome.scripting
+    .executeScript({ target: { tabId }, func: findParagonListingUrl, args: [address] })
+    .catch(() => null);
+  return results?.[0]?.result || null;
+}
+
 async function injectExtractPhotos(tabId, source) {
   const results = await chrome.scripting
     .executeScript({ target: { tabId }, func: extractFullResPhotos, args: [source] })
@@ -154,4 +193,4 @@ async function injectExtractPhotos(tabId, source) {
 // Defined in pageExtractors.js — webpack inlines them here at build time.
 // chrome.scripting.executeScript serializes each via .toString(); they are
 // self-contained and safe to inject into any tab context.
-import { findFirstListingUrl, extractFullResPhotos } from './pageExtractors.js';
+import { findFirstListingUrl, findParagonListingUrl, extractFullResPhotos } from './pageExtractors.js';

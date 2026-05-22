@@ -59,8 +59,6 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
             subItems: [
                 { id: 'mls-data', label: 'MLS Data', icon: 'fa-table-cells-large', visible: true, isPageLink: true },
                 { id: 'lifestyle-vastu', label: 'Lifestyle', icon: 'fa-people-roof', visible: vis.hasLifestyle || vis.hasSchools || vis.hasOrientation, isPageLink: true },
-                { id: 'indoor', label: 'Indoor (old)', icon: 'fa-couch', visible: true, isPageLink: true },
-                { id: 'outdoor', label: 'Outdoor (old)', icon: 'fa-house-chimney', visible: true, isPageLink: true },
                 { id: 'indoor-ai', label: 'Indoor (AI)', icon: 'fa-couch', visible: true, isPageLink: true },
                 { id: 'outdoor-ai', label: 'Outdoor (AI)', icon: 'fa-house-chimney', visible: true, isPageLink: true },
             ],

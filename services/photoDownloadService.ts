@@ -1,7 +1,7 @@
 // Centralized photo download service.
-// Randomizes across Zillow, Realtor.com, Redfin, Homes.com, and Trulia via
-// the Chrome extension's 2-step tab navigation. Falls back to RapidAPI when
-// the extension is unavailable. See docs/photo-download-architecture.md.
+// Randomizes across Realtor.com, Redfin, Homes.com, and Trulia, with Zillow
+// as last fallback, via the Chrome extension's 2-step tab navigation.
+// Falls back to RapidAPI when the extension is unavailable. See docs/photo-download-architecture.md.
 
 export interface PhotoDownloadResult {
     photos: string[];
@@ -48,6 +48,13 @@ const PHOTO_SITES: SiteConfig[] = [
             ? `https://www.trulia.com/search#searchType=properties&searchQuery=${encodeURIComponent(address)}`
             : null,
     },
+    {
+        id: 'paragon',
+        name: 'Paragon MLS',
+        buildUrl: (_, address) => address
+            ? `https://maxebrdi.paragonrels.com/CCR/shivaniyadav/listings/results?contactToken=2bac1e9a-8829-4fba-8d09-ac0991ae8b23&m=ZmFsc2U%3D&search=${encodeURIComponent(address)}`
+            : null,
+    },
 ];
 
 function shuffle<T>(arr: T[]): T[] {
@@ -59,10 +66,10 @@ function shuffle<T>(arr: T[]): T[] {
     return a;
 }
 
-// Zillow first (direct zpid URL), remaining sources randomized.
+// Randomize all sources, with Zillow as last fallback.
 function buildSiteUrls(zpid: string, address?: string): Record<string, string> {
     const [zillow, ...rest] = PHOTO_SITES;
-    const ordered = [zillow, ...shuffle(rest)];
+    const ordered = [...shuffle(rest), zillow];
     const result: Record<string, string> = {};
     for (const site of ordered) {
         const url = site.buildUrl(zpid, address);

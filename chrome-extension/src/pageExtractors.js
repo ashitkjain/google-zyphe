@@ -26,6 +26,52 @@ export function findFirstListingUrl(source) {
 }
 
 /**
+ * Finds a Paragon MLS listing URL by matching address text in listing cards.
+ * Tries progressively looser matches: full street → street number + name only.
+ * @param {string} address - Full property address to search for
+ * @returns {string|null} Absolute listing URL or null if not found
+ */
+export function findParagonListingUrl(address) {
+  // Extract just the street portion: "3749 Platt Ct N" from full address
+  const streetMatch = address.match(/^(\d+\s+.+?)(?:,|$)/);
+  const street = (streetMatch ? streetMatch[1] : address).toLowerCase().trim();
+
+  const links = Array.from(document.querySelectorAll('a[href]'))
+    .filter((a) => a.href && !a.href.startsWith('javascript:') && a.href.includes('paragonrels.com'));
+
+  // 1. Link text itself contains street address
+  const direct = links.find((a) => a.textContent.toLowerCase().includes(street));
+  if (direct) return direct.href;
+
+  // 2. Nearest ancestor card/list-item contains street address
+  for (const link of links) {
+    const card = link.closest('li, article, tr, [class*="card"], [class*="listing"], [class*="result"], [class*="property"]');
+    if (card && card.textContent.toLowerCase().includes(street)) return link.href;
+  }
+
+  // 3. Any element on the page containing the street is near a link — walk up to find it
+  const allEls = Array.from(document.querySelectorAll('*'));
+  const matchEl = allEls.find((el) =>
+    el.children.length === 0 && el.textContent.toLowerCase().includes(street)
+  );
+  if (matchEl) {
+    let node = matchEl;
+    for (let i = 0; i < 6; i++) {
+      const nearby = node.querySelector?.('a[href]') || node.closest?.('a[href]');
+      if (nearby && nearby.href.includes('paragonrels.com')) return nearby.href;
+      node = node.parentElement;
+      if (!node) break;
+    }
+  }
+
+  // Debug: log what text content is visible so we can tune the matcher
+  console.warn('[Paragon] Could not find listing for:', address);
+  console.warn('[Paragon] All link hrefs:', links.slice(0, 20).map((a) => a.href));
+  console.warn('[Paragon] Page text sample:', document.body?.innerText?.slice(0, 500));
+  return null;
+}
+
+/**
  * Extracts full-resolution property photos from a listing detail page.
  * Scans <img> tags, CSS background-images, and lazy-load attributes.
  * Upgrades CDN URLs to maximum available resolution per site.
@@ -40,6 +86,7 @@ export function extractFullResPhotos(source) {
     redfin: ['ssl.cdn-redfin.com', 'ssl.redfin.com'],
     homes: ['homes.com/photos', 'photos.homes.com', 'static.homes.com'],
     trulia: ['zillowstatic.com', 'trulia-cdn.com'],
+    paragon: ['zimg.paragon.ice.com'],
   };
   const EXCLUDE = [
     'logo', 'icon', 'favicon', 'avatar', 'badge', 'sprite',
@@ -69,6 +116,11 @@ export function extractFullResPhotos(source) {
     if (source === 'redfin') {
       // genThumb. / genMid. / genSmall. → genFullScreen.
       return url.replace(/gen(Thumb|Mid|Small)\./i, 'genFullScreen.');
+    }
+    if (source === 'paragon') {
+      // URL pattern: /ParagonImages/Property/PD/MAXEBRDI/{id}/{n}/{width}/{height}/...
+      // Replace thumbnail dimensions with full resolution
+      return url.replace(/(\/\d+\/)\d+(\/)\d+(\/[a-f0-9]{32}\/)/, '$12048$21536$3');
     }
     return url;
   }

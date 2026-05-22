@@ -10,7 +10,7 @@ OUTPUT — STRICT JSON, no prose around it. Match this exact shape (used by down
   "exterior_and_lot_appeal": {
     "architecture_style": "1 paragraph (4-6 sentences) describing the architectural style and execution — era, roofline, facade materials, color palette, signature details, two-story vs single-story, and how the style reads from the street.",
     "curb_appeal": "1 paragraph (4-6 sentences) describing the front-yard impression — landscaping maturity, hardscape, driveway/approach, gates, lighting, condition, and overall first-impression quality.",
-    "backyard_and_patio": "2 paragraphs (8-12 sentences) describing the backyard as the lifestyle differentiator — distinct zones (pool, dining, lounge, fire, lawn, garden), specific materials and finishes, indoor-outdoor connection, privacy and atmosphere, recreation features, and how the space lives day-to-day vs. for entertaining."
+    "backyard_and_patio": "1 short paragraph (2-4 sentences) summarizing the backyard highlights — focus on unique features, materials, and overall feel. Keep it concise since details are in the spaces explored section."
   },
   "views_privacy_orientation": {
     "views": "3-5 sentences describing the views and view tier — what's visible (hills, water, city, trees, neighbors), how expansive, sunset/sunrise orientation if known, and view rooms/zones that benefit most.",
@@ -42,7 +42,7 @@ OUTPUT — STRICT JSON, no prose around it. Match this exact shape (used by down
 
 RULES:
 1. Ground every claim in the space analyses provided. Do not invent features, views, or finishes that are not mentioned. If a field cannot be supported (e.g. no aerial view available), be honest: "Lot coverage cannot be estimated without an aerial view."
-2. backyard_and_patio is the most important field — it is the lifestyle differentiator. Lean into the backyard analysis and structure the prose as a mini-tour through the distinct zones with concrete details (materials, finishes, capacity, privacy cues).
+2. backyard_and_patio should be a concise summary of highlights, not a full tour. Avoid repeating details that are covered in the individual space analyses.
 3. view_score: derive directly from the "View Quality Tier" string in the space analyses if present (Landmark=95, Premium=80, Strong=65, Partial=45, None=20). Otherwise estimate from the prose.
 4. atmosphere scores must be calibrated against the price band given in PROPERTY_CONTEXT.
 5. Output JSON only. No commentary, no markdown fences.

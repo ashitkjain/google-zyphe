@@ -14,7 +14,7 @@
         <span class="header-icon">🏠</span>
         <div>
           <h1>Property Vision Analyzer</h1>
-          <p class="header-sub">Local AI · Runs 100% on your machine</p>
+          <p class="header-sub">AI-powered property photo analysis</p>
           <p id="build-stamp" class="build-stamp" title="Build timestamp — confirms which bundle is loaded"></p>
         </div>
       </div>
@@ -31,12 +31,21 @@
       <div class="card-body" style="padding-top: 10px;">
         <!-- Engine Mode Tabs -->
         <div class="engine-tabs">
-          <button id="tab-webgpu" class="tab-btn active">🌐 WebGPU (In-Browser)</button>
+          <button id="tab-gemini" class="tab-btn active">☁️ Gemini (Cloud)</button>
+          <button id="tab-webgpu" class="tab-btn">🌐 WebGPU (In-Browser)</button>
           <button id="tab-ollama" class="tab-btn">💻 Ollama (Local Server)</button>
         </div>
 
+        <!-- Gemini Controls -->
+        <div id="gemini-controls">
+          <p class="hint" style="margin-bottom: 8px;">
+            Uses Gemini 2.5 Flash via the cloud API. Fast, accurate, and handles many photos in parallel. Requires a signed-in account.
+          </p>
+          <span id="gemini-status-text" class="hint" style="font-size:11px; display: block;"></span>
+        </div>
+
         <!-- WebGPU Controls -->
-        <div id="webgpu-controls">
+        <div id="webgpu-controls" hidden>
           <p class="hint" style="margin-bottom: 8px;">
             Downloads a vision model and caches it in-browser. Runs fully sandbox-local.
           </p>

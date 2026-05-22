@@ -22,7 +22,9 @@
     "https://www.realtor.com/*",
     "https://www.redfin.com/*",
     "https://www.homes.com/*",
-    "https://www.trulia.com/*"
+    "https://www.trulia.com/*",
+    "https://*.paragonrels.com/*",
+    "https://zimg.paragon.ice.com/*"
   ],
   "externally_connectable": {
     "matches": [
@@ -39,7 +41,8 @@
       "matches": [
         "https://zyphe.ai/*",
         "http://localhost/*",
-        "http://localhost:3000/*"
+        "http://localhost:3000/*",
+        "https://*.paragonrels.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

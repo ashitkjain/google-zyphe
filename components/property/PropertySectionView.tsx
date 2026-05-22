@@ -27,6 +27,7 @@ import { CityNeighborhoodsView } from '../analysis/custom-ai/components/CityNeig
 import { DeepInvestmentView } from '../analysis/custom-ai/components/DeepInvestmentView';
 import { LifestyleSchoolsVastuSection } from './sections/LifestyleSchoolsVastuSection';
 import { MLSSectionPage } from './sections/MLSSectionPage';
+import { RentCastSectionPage } from './sections/RentCastSectionPage';
 import { IndoorSectionPage } from './sections/IndoorSectionPage';
 import { OutdoorSectionPage } from './sections/OutdoorSectionPage';
 import VisionAnalysisPage from './VisionAnalysisPage';
@@ -348,6 +349,16 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 description="Full technical specifications, listing remarks, and official property images from the Multiple Listing Service."
                                 color="text-indigo-500" {...headerProps} />
                             <MLSSectionPage data={data} />
+                        </div>
+                    );
+
+                    if (subId === 'rentcast-data') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-chart-line" title="RentCast Data"
+                                label="Market Intelligence"
+                                description="Property details, automated valuation model (AVM), long-term rent estimate, tax assessments, and ownership records from RentCast."
+                                color="text-violet-600" {...headerProps} />
+                            <RentCastSectionPage data={data} />
                         </div>
                     );
 

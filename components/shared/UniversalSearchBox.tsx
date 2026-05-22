@@ -13,6 +13,7 @@ interface UniversalSearchBoxProps {
     onTabChange?: (tab: 'search' | 'story' | 'browse') => void;
     onSaveSearch?: () => void;
     onViewSaved?: () => void;
+    hideTabs?: boolean;
 }
 
 const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
@@ -26,7 +27,8 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
     activeTab = 'search',
     onTabChange,
     onSaveSearch,
-    onViewSaved
+    onViewSaved,
+    hideTabs = false
 }) => {
     const [showDropdown, setShowDropdown] = useState(false);
     const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
@@ -135,7 +137,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
     return (
         <div className="relative w-full max-w-6xl mx-auto flex items-center gap-4 px-2" ref={dropdownRef}>
             {/* 1. Left-aligned Navigation Tabs */}
-            <div className="flex items-center gap-1 shrink-0">
+            {!hideTabs && <div className="flex items-center gap-1 shrink-0">
                 {[
                     { id: 'story', label: 'Story', icon: 'fa-book-open-reader' },
                     { id: 'browse', label: 'Browse', icon: 'fa-compass' }
@@ -161,7 +163,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                         <span className="hidden lg:inline">{tab.label}</span>
                     </button>
                 ))}
-            </div>
+            </div>}
 
             {/* 2. Central Search Input */}
             <form onSubmit={handleSubmit} className="flex-1 relative z-[70]">

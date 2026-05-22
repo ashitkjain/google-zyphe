@@ -8,6 +8,8 @@
     "clean": "rm -rf dist",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --testPathPattern=pageExtractors",
     "test:phase1": "node tests/phase1-classify.test.mjs",
+    "test:gemini": "node tests/gemini-helpers.test.mjs",
+    "test:gemini:classify": "node tests/phase1-classify-gemini.test.mjs",
     "bench:phase1": "node tests/phase1-bench-speed.mjs"
   },
   "dependencies": {

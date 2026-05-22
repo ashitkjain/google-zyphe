@@ -5,6 +5,8 @@
  * search feature. Extracted here for easy iteration and testing.
  */
 
+import type { TaxonomyEntry } from '../../types/contextGraph';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PropertySummary {
@@ -21,7 +23,8 @@ export interface PropertySummary {
         baths?: number;
         sqft?: number;
     };
-    factors: string[];
+    /** Full taxonomy entries — {name, tags, value} triplets for buyer matching */
+    factors: TaxonomyEntry[];
     /** Factor IDs that this property actually has computed in its context graph */
     computedFactorIds?: number[];
 }
@@ -111,7 +114,15 @@ export const formatPropertyBlock = (s: PropertySummary): string => {
     if (s.summary?.propertyHighlight) lines.push(`Highlight: ${s.summary.propertyHighlight}`);
     if (s.summary?.topStrengths?.length) lines.push(`Strengths: ${s.summary.topStrengths.join('; ')}`);
     if (s.summary?.topWeaknesses?.length) lines.push(`Weaknesses: ${s.summary.topWeaknesses.join('; ')}`);
-    if (s.factors.length > 0) lines.push(`Context Data:\n${s.factors.map(f => `  - ${f}`).join('\n')}`);
+
+    if (s.factors.length > 0) {
+        const factorLines = s.factors.map(f => {
+            const tagStr = f.tags.join(', ');
+            const line = tagStr ? `${f.name}: ${tagStr}` : f.name;
+            return f.value ? `  - ${line} — ${f.value}` : `  - ${line}`;
+        });
+        lines.push(`Context Data:\n${factorLines.join('\n')}`);
+    }
 
     return lines.join('\n');
 };

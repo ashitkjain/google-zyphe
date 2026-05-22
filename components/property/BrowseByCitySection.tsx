@@ -22,7 +22,7 @@ import { SaveSearchModal, SavedSearchesPanel, type SavedSearch } from './SaveSea
 
 import { trackCityBrowsed, trackPropertyViewed, trackStorySearchRun, trackViewModeChanged } from '../../services/analytics/idxTracking';
 
-import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS, expandFactor } from '../../constants/contextGraphFactors';
+import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS, expandFactor, resolveFactor } from '../../constants/contextGraphFactors';
 import {
     executeGeminiRequest,
     FLASH_LITE_MODEL,
@@ -983,7 +983,9 @@ const BrowseByCitySection: React.FC<{
 
             const chunkPromises = chunks.map((chunk) => {
                 const summaries = chunk.map(g => {
-                    const factorStrings = (g.factors || []).map((f: any) => `${f.name || 'Feature'}: ${(f.tags || f.t || []).join(', ')}`);
+                    const factors = (g.factors || [])
+                        .map((f: any) => resolveFactor(f))
+                        .filter((f): f is NonNullable<ReturnType<typeof resolveFactor>> => f !== null);
                     return {
                         zpid: g.zpid,
                         address: g.address,
@@ -993,7 +995,7 @@ const BrowseByCitySection: React.FC<{
                             baths: g.detail?.bathrooms || g.detail?.baths || 0,
                             sqft: g.detail?.livingAreaValue || g.detail?.sqft || 0
                         },
-                        factors: factorStrings
+                        factors
                     };
                 });
 

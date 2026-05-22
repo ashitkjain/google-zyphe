@@ -22,7 +22,10 @@ export const FACTOR_NAMES: Record<number, string> = {
     100: 'Agent Highlights', 101: 'Schools', 102: 'Sentiment', 103: 'Market Narrative', 104: 'Condition', 105: 'Convenience',
     106: 'Seismic', 107: 'Flood Zone', 108: 'Sqft Discrepancy', 109: 'Lot Verification', 110: 'Listing Flags', 111: 'Distressed Signal',
     113: 'Room Character', 114: 'Interior Vibe', 115: 'Materials', 116: 'Layout', 120: 'Nearby Places Profile', 112: 'FEMA',
-    121: 'Microclimate', 122: 'City Economic Profile'
+    121: 'Microclimate', 122: 'City Economic Profile',
+    123: 'Lot Position', 124: 'Water Feature', 125: 'Trail & Nature Access',
+    126: 'Community Amenities', 127: 'HOA Inclusions', 128: 'Smart Home',
+    129: 'Specialty Rooms', 130: 'Investment Use Case', 131: 'Road Access'
 };
 
 /** Unique factor names as an array (for use in prompts) */
@@ -90,6 +93,9 @@ export const FACTOR_TYPES: Record<number, FactorType> = {
     113: 'tag_list', 114: 'narrative', 115: 'tag_list', 116: 'tag_list',
     // ── Location Logistics ────────────────────────────────────────────────
     120: 'tag_list', 121: 'narrative', 122: 'narrative',
+    // ── Property & Lifestyle Detail ───────────────────────────────────────
+    123: 'tag_list', 124: 'tag_list', 125: 'tag_list', 126: 'tag_list',
+    127: 'tag_list', 128: 'tag_list', 129: 'tag_list', 130: 'tag_list', 131: 'tag_list',
 };
 
 /**
@@ -143,7 +149,8 @@ export interface ContextGraphExtractionResult {
 export interface ExtractedFactor {
     id: number;
     name: string;
-    value?: string;
+    type: FactorType;
+    value: string;
     tags: string[];
 }
 
@@ -153,20 +160,22 @@ export interface ExtractedFactor {
  */
 export const resolveFactor = (f: any): ExtractedFactor | null => {
     if (!f) return null;
-    
+
     // Support both compact format {i, t, v} and legacy format {id, name, tags}
-    const id = f.i || f.id;
+    const id = f.i ?? f.id;
     if (id == null) return null;
-    
+
     const tags = f.t || f.tags || [];
     const value = f.v || f.value || '';
     const name = f.name || FACTOR_NAMES[id] || `Factor ${id}`;
-    
+    const type: FactorType = f.type || FACTOR_TYPES[id] || 'tag_list';
+
     return {
         id,
         name,
+        type,
         value: typeof value === 'object' && value !== null ? JSON.stringify(value) : value,
-        tags: Array.isArray(tags) ? tags.map((t: any) => typeof t === 'object' ? JSON.stringify(t) : String(t)) : []
+        tags: Array.isArray(tags) ? tags.map((t: any) => typeof t === 'object' ? JSON.stringify(t) : String(t)) : [],
     };
 };
 
@@ -177,13 +186,13 @@ export const resolveFactor = (f: any): ExtractedFactor | null => {
 export const expandFactor = (f: any): string => {
     const resolved = resolveFactor(f);
     if (!resolved) return typeof f === 'string' ? f : '';
-    
-    if (resolved.tags.length > 0) {
-        return `${resolved.name}: ${resolved.tags.join(', ')}`;
-    }
-    if (resolved.value) {
-        return `${resolved.name}: ${resolved.value}`;
-    }
+
+    const tagStr = resolved.tags.length > 0 ? resolved.tags.join(', ') : '';
+    const valStr = resolved.value || '';
+
+    if (tagStr && valStr) return `${resolved.name}: ${tagStr} — ${valStr}`;
+    if (tagStr) return `${resolved.name}: ${tagStr}`;
+    if (valStr) return `${resolved.name}: ${valStr}`;
     return resolved.name;
 };
 

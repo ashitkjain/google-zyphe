@@ -229,7 +229,7 @@ Given the property data below, extract structured decision factors. For each fac
 33. **Privacy Level**: From lot layout and neighbor proximity.
 34. **Curb Appeal**: Synthesize from streetViewAnalysis, visual analysis exterior_and_lot_appeal, and listing description. Value = overall rating (e.g. "Excellent — 9/10", "Good — 7/10", "Average — 5/10"). Tags = descriptive concepts like "Well-Maintained", "Mature Landscaping", "Fresh Paint", "Dated Exterior", "Overgrown", "Attractive Entry". Generate 3-6 tags.
 35. **Topography**: "Flat" vs "Hillside" from neighborhood analysis or description.
-36. **View Quality**: Hills, City Lights, Water, or None.
+36. **View Quality**: Extract all view types from listingDescription, visualAnalysis, or room_highlights. Tags = view concepts like "Mountain Views", "Named Peak Views" (e.g. "Mt. Tam Views"), "City Lights Views", "Bay Views", "Ocean Views", "Valley Views", "Greenbelt Views", "Panoramic Views", "No View", "Architecturally Framed Views" (when floor-to-ceiling windows or walls of glass are described as capturing a view). Value = most prominent view type. Generate 1-4 tags.
 38. **Visual Clutter**: Overhead wires, messy neighbors, or busy streetscape (from streetViewAnalysis).
 39. **Yard Space**: "Large Backyard", "Courtyard", "Zero Lot Line".
 40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
@@ -244,7 +244,7 @@ Given the property data below, extract structured decision factors. For each fac
 ### Environmental & Efficiency (46-50)
 46. **Wildfire Risk**: Determine if "High Risk" or "Urban Safety Zone".
 47. **Flood Risk**: Check for "Flood zone" or "Near creek".
-48. **Solar Potential / Efficiency**: Look for panels or "Southern exposure".
+48. **Solar & Energy Efficiency**: From listingDescription or resoFacts. Distinguish ownership: tag "Solar Panels Owned" vs "Solar Panels Leased" based on explicit language ("owned solar", "leased solar", "solar lease"). Also tag: "Tesla Powerwall" or "Battery Backup System" if mentioned, "HERS Rating: [N]" if a score appears, "Net-Zero Energy Home" if stated, "Southern Exposure Solar Potential" if no panels but favorable orientation noted. Value = ownership type + size if known (e.g. "Owned 7.2kW with Powerwall"). Omit if no solar/efficiency data present. Generate 1-4 tags.
 49. **Pollen & Allergy Profile**: High if "Mature pines/oaks" mentioned.
 50. **HVAC Quality**: "Central Air", "Split system", or "No AC".
 
@@ -258,7 +258,7 @@ Given the property data below, extract structured decision factors. For each fac
 57. **Work-From-Home Score**: Dedicated office + Fiber/High-speed internet mentions.
 58. **Multi-Gen Utility**: Downstairs Bed/Bath or separate entry for in-laws.
 59. **Laundry Logistics**: "Inside Laundry Room", "Hookups Only", or "Garage Shared".
-60. **Water / Air Systems**: Softeners, RO filters, or Zoned HVAC mentioned.
+60. **Water & Air Systems**: Scan listingDescription and resoFacts for mechanical system upgrades beyond standard HVAC. Tags = concepts like "Water Softener", "RO Filtration System", "Zoned HVAC", "Radiant Floor Heat", "Mini-Split HVAC", "Backup Generator", "Tankless Water Heater", "Boiler Zone Heat", "Whole-House Fan", "ERV/HRV Ventilation". Value = most notable system upgrade. Generate 1-5 tags.
 61. **Security Infrastructure**: Gated, Security system, or Cameras.
 65. **Any nearby development**: Nearby construction, new developments, or zoning changes.
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
@@ -308,8 +308,10 @@ Given the property data below, extract structured decision factors. For each fac
   - **Income/ADU potential**: "ADU Permitted", "Separate Entrance", "Casita", "Home Office Suite", "Permitted Addition"
   - **Seller signals**: "Motivated Seller", "Estate Sale", "Relocating", "Price Reduced", "Bring All Offers"
   - **Lifestyle cues**: "Entertainer's Backyard", "Chef's Kitchen", "Resort-Style Pool", "Indoor-Outdoor Living"
+  - **Accessibility features**: "Elevator", "ADA Accessible", "Roll-In Shower", "Wide Doorways", "Step-Free Entry"
+  - **Road & community access**: "County-Maintained Road", "Year-Round Paved Access", "Gated Entry", "Private Road", "Guarded Gate"
   - **Red flags in agent language**: "As-Is", "Investor Special", "Needs TLC", "Deferred Maintenance", "Cash Only"
-  Value = single most impactful highlight. Generate 15-25 tags — be thorough, this is the richest text source.
+  Value = single most impactful highlight. Generate 15-30 tags — be thorough, this is the richest text source.
 
 ### School Intelligence (101)
 101. **School Concepts**: From the provided 'schools' array. For each school, generate tags with name + rating (e.g. "Amador Valley 10/10"). Include "Desirable School Zone" if ratings are 8+, and proximity tags ("Walking Distance", "Under 1mi"). Value = Overall district quality + top school name. Generate 5-12 tags.
@@ -331,7 +333,7 @@ Given the property data below, extract structured decision factors. For each fac
 113. **Room-by-Room Character & Luxury Signals**: Scan the 'visionExtension' and 'room_highlights' data. For EACH room, generate 2-3 descriptive concept tags prefixed with the room name (e.g. "Kitchen: Premium appliance brand", "Living Room: Floor-to-Ceiling Windows", "Primary Bed: Spa-Style Ensuite", "Backyard: Infinity Pool & Outdoor Kitchen"). Explicitly look for high-value premium features (waterfall islands, premium/professional appliance brands, custom millwork, indoor-outdoor flow, retractable glass walls, luxury hardware, smart tech, architectural lighting, mature landscaping). Use generic phrasing like "Premium appliance brand" rather than naming a single brand in the tag — surface the specific brand name in a separate tag only if it's especially noteworthy. Do NOT repeat the same feature across multiple rooms. Value = overall impression of home's luxury/feature level. Generate 8-20 tags total.
 114. **Interior Vibe & Quality**: Synthesize across ALL room_highlights + condition_and_finish + design overview. Value = a single-sentence interior vibe statement (e.g. "Clean transitional style with neutral tones and modern updates throughout" or "Classic suburban home with original finishes showing their age"). Tags = quality + style concepts like "Turn-Key", "Recently Updated", "Neutral Palette", "Cohesive Design", "Mixed Quality", "Transitional Style", "Modern Finishes", "Move-In Ready". Generate 5-10 tags.
 115. **Flooring & Materials Palette**: From room_highlights + condition_and_finish. Tags = material concepts found across the home like "Vinyl Plank", "Hardwood", "Tile", "Carpet", "Granite Counters", "Wood Cabinets", "Stainless Steel", "Marble". Value = dominant flooring type. Generate 4-8 tags.
-116. **Spatial Flow & Layout**: From room_highlights + spatial descriptions. Tags = layout concepts like "Open Floor Plan", "Split Bedrooms", "Indoor-Outdoor Flow", "Single Story", "Two-Story", "Formal Dining Separate", "Kitchen Open to Living", "Jack-and-Jill Bath", "En-Suite Primary". Value = layout summary. Generate 4-8 tags.
+116. **Spatial Flow & Layout**: From room_highlights, listingDescription, and spatial descriptions. Tags = layout concepts like "Open Floor Plan", "Split Bedrooms", "Indoor-Outdoor Flow", "Single Story", "Two-Story", "Formal Dining Separate", "Kitchen Open to Living", "Jack-and-Jill Bath", "En-Suite Primary", "Main-Level Primary Suite", "Walkout Lower Level", "In-Law Suite", "Separate In-Law Unit", "Two Full Kitchens", "Flexible Multi-Gen Layout". Value = layout summary. Generate 4-10 tags.
 
 108. **Sqft Discrepancy**: Compare 'taxSqft' field vs 'property.livingAreaValue'. If diff > 100, tag as "Discrepancy: [X] sqft". Also look for "Addition not permitted" or "Buyer to verify sqft" in listingDescription.
 109. **Lot Boundary Verification**: Check listingDescription for "Encroachments", "Easements", "Fenced past property line", or "Shared driveway". Value = status of boundaries.
@@ -341,6 +343,17 @@ Given the property data below, extract structured decision factors. For each fac
 120. **Nearby Places Profile**: Highlight specific key brands nearby (Costco, Target, Starbucks).
 121. **Microclimate Profile**: "Fog belt", "Sun-drenched", or "Windy ridge" details.
 122. **City Economic Profile**: Wealth, education, or age trends in the immediate tract.
+
+### Property & Lifestyle Detail (123-131) — All sourced from listingDescription. Tags are the primary output. Omit any factor entirely if no relevant signal is found.
+123. **Lot Position**: Identify the lot's special positional characteristic. Tags = concepts like "Cul-de-sac Lot", "Corner Lot", "End Unit", "Private Court", "Quiet Dead-End Street", "Flag Lot". Generate 1-3 tags.
+124. **Water Feature**: Look for natural or constructed water features on or adjacent to the property. Tags = concepts like "Creek Frontage", "Lake Access", "Seasonal Stream", "Live Springs On-Site", "Pond On Property", "Waterfront", "Riparian Access". Generate 1-4 tags.
+125. **Trail & Nature Access**: Identify proximity to trails, open space, or protected land. Tags = concepts like "Direct Trail Access", "Borders Open Space", "Adjacent Nature Preserve", "Private Trails On-Site", "National Forest Adjacent", "Greenbelt Frontage", "State Park Nearby". Generate 1-4 tags.
+126. **Community Amenities**: Look for shared amenities from the HOA or community (NOT features of the home itself). Tags = concepts like "Community Clubhouse", "Community Gym", "Community Pool/Spa", "Guest Suite Available", "Community Sauna", "Bocce Courts", "Rooftop Deck Access", "Tennis Courts", "Community Dog Park". Generate 1-6 tags.
+127. **HOA Inclusions**: Extract what the HOA fee explicitly covers and any capital improvement or ground lease notes. Tags = concepts like "HOA Covers Hot Water", "HOA Covers AC", "HOA Covers Trash", "HOA Covers Exterior Insurance", "Capital Improvements Completed", "Ground Rent", "HOA Covers Water/Sewer". Value = brief summary of HOA coverage. Generate 1-5 tags.
+128. **Smart Home**: Look for pre-wired or installed smart/automation systems. Tags = concepts like "Lutron Lighting System", "Whole-House Audio", "Ring/Smart Security", "Motorized Auto Blinds", "Central Vacuum", "Smart Thermostat", "Home Automation Pre-Wired", "Integrated Speaker System". Generate 1-5 tags.
+129. **Specialty Rooms**: Look for dedicated-purpose bonus rooms beyond standard bedrooms and common areas. Tags = concepts like "Dedicated Media Room", "Wine Cellar", "Yoga Studio", "Game Room", "Dedicated Gym Room", "Dog Wash Room", "Art/Craft Studio", "Theater Room", "Safe Room". Generate 1-5 tags.
+130. **Investment Use Case**: Identify explicit investment signals in listingDescription. Tags = concepts like "Proven Rental History", "Pre-Leased Rental Income", "Lock-and-Leave Ready", "STR-Flexible", "Buildable Additional Lots", "Multiple Units On Parcel", "Owner-Occupy With Income Unit". Value = primary investment appeal in one sentence. Generate 1-4 tags.
+131. **Road Access**: Look for signals about road type, maintenance, or seasonal accessibility. Tags = concepts like "County-Maintained Road", "Regularly Plowed In Winter", "Year-Round Paved Access", "School Bus Route", "Private Road", "Shared Road Easement". Generate 1-3 tags.
 
 ## PROPERTY DATA
 

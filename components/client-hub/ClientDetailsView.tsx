@@ -4,6 +4,7 @@ import { getClientTasks, getClientCalendarEvents, saveCalendarEvent, addTask, up
 import { HubTab } from './hub/HubHeader';
 import ClientSelector from './ClientSelector';
 import ClientEditModal from './ClientEditModal';
+import ClientPortalModal from './ClientPortalModal';
 
 const formatDate = (date: any) => {
     if (!date) return '---';
@@ -71,6 +72,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (nonArchivedClients.length > 0 ? nonArchivedClients[0].id : (allClients.length > 0 ? allClients[0].id : null)));
     const [showEditModal, setShowEditModal] = useState(false);
     const [showTasksModal, setShowTasksModal] = useState(false);
+    const [showPortalModal, setShowPortalModal] = useState(false);
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskDate, setNewTaskDate] = useState('');
     const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Normal' | 'High' | 'Urgent'>('Normal');
@@ -639,6 +641,13 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
                                     >
                                         <i className="fa-solid fa-list-check text-amber-500"></i> Task
+                                    </button>
+
+                                    <button
+                                        onClick={() => setShowPortalModal(true)}
+                                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-globe text-emerald-500"></i> Client Portal
                                     </button>
 
                                     <button
@@ -1751,6 +1760,18 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             await persistChanges(selectedClient.id, updates);
                             setShowEditModal(false);
                         }}
+                    />
+                )
+            }
+
+            {/* Client Portal Modal */}
+            {
+                selectedClient && (
+                    <ClientPortalModal
+                        client={selectedClient}
+                        agentId={realtorId}
+                        isOpen={showPortalModal}
+                        onClose={() => setShowPortalModal(false)}
                     />
                 )
             }

@@ -6,7 +6,8 @@ const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_
 
 // ── State ──────────────────────────────────────────────────────────────────
 let engine = null;
-let engineMode = 'webgpu'; // 'webgpu' or 'ollama'
+let engineMode = 'gemini'; // 'gemini', 'webgpu', or 'ollama'
+let geminiApiKey = null;
 let ollamaSelectedModel = '';
 let ollamaInstalledModels = []; // cache of /api/tags model names
 let extractedImages = []; // [{ url, width, height, alt }]
@@ -59,9 +60,12 @@ modelSelect.addEventListener('change', () => {
   customModelRow.hidden = modelSelect.value !== 'custom';
 });
 
-// Ollama specific refs
+// Engine tab refs
+const tabGemini = document.getElementById('tab-gemini');
 const tabWebgpu = document.getElementById('tab-webgpu');
 const tabOllama = document.getElementById('tab-ollama');
+const geminiControls = document.getElementById('gemini-controls');
+const geminiStatusText = document.getElementById('gemini-status-text');
 const webgpuControls = document.getElementById('webgpu-controls');
 const ollamaControls = document.getElementById('ollama-controls');
 const ollamaModelSelect = document.getElementById('ollama-model-select');
@@ -70,22 +74,25 @@ const ollamaStatusText = document.getElementById('ollama-status-text');
 
 async function switchEngineMode(mode) {
   engineMode = mode;
-  if (mode === 'webgpu') {
-    tabWebgpu.classList.add('active');
-    tabOllama.classList.remove('active');
-    webgpuControls.hidden = false;
-    ollamaControls.hidden = true;
-    loadModelBtn.textContent = 'Load Model';
-    if (engine) {
+  tabGemini.classList.toggle('active', mode === 'gemini');
+  tabWebgpu.classList.toggle('active', mode === 'webgpu');
+  tabOllama.classList.toggle('active', mode === 'ollama');
+  geminiControls.hidden = mode !== 'gemini';
+  webgpuControls.hidden = mode !== 'webgpu';
+  ollamaControls.hidden = mode !== 'ollama';
+
+  if (mode === 'gemini') {
+    loadModelBtn.textContent = 'Connect to Gemini';
+    if (geminiApiKey) {
       setBadge('ready', 'Ready');
     } else {
-      setBadge('idle', 'Not loaded');
+      setBadge('idle', 'Not connected');
+      await connectGemini();
     }
+  } else if (mode === 'webgpu') {
+    loadModelBtn.textContent = 'Load Model';
+    setBadge(engine ? 'ready' : 'idle', engine ? 'Ready' : 'Not loaded');
   } else {
-    tabWebgpu.classList.remove('active');
-    tabOllama.classList.add('active');
-    webgpuControls.hidden = true;
-    ollamaControls.hidden = false;
     loadModelBtn.textContent = 'Connect to Ollama';
     setBadge('idle', 'Not connected');
     await checkOllamaConnection();
@@ -93,6 +100,7 @@ async function switchEngineMode(mode) {
   updateAnalyzeBtnState();
 }
 
+tabGemini.addEventListener('click', () => switchEngineMode('gemini'));
 tabWebgpu.addEventListener('click', () => switchEngineMode('webgpu'));
 tabOllama.addEventListener('click', () => switchEngineMode('ollama'));
 
@@ -158,6 +166,79 @@ ollamaModelSelect.addEventListener('change', () => {
   ollamaSelectedModel = ollamaModelSelect.value;
 });
 
+// Try GET_AUTH on the active tab, then on all tabs until one succeeds.
+// This handles the case where the user is on Zillow (no Firebase auth there)
+// but has zyphe.ai open in another tab.
+function fetchFirebaseAuth() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+      const activeId = activeTabs[0]?.id;
+
+      function tryTab(tabId, onDone) {
+        chrome.tabs.sendMessage(tabId, { type: 'GET_AUTH' }, (resp) => {
+          if (!chrome.runtime.lastError && resp?.auth) {
+            if (!firebaseAuth) {
+              firebaseAuth = resp.auth;
+              updateSaveStatus('auth-ok');
+            }
+          }
+          onDone();
+        });
+      }
+
+      if (activeId) {
+        tryTab(activeId, () => {
+          if (firebaseAuth?.token) { resolve(); return; }
+          // Active tab had no auth — try all other tabs
+          chrome.tabs.query({}, (allTabs) => {
+            const others = allTabs.filter(t => t.id !== activeId);
+            let remaining = others.length;
+            if (remaining === 0) { resolve(); return; }
+            for (const tab of others) {
+              tryTab(tab.id, () => {
+                remaining--;
+                if (remaining === 0) resolve();
+              });
+            }
+          });
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+async function connectGemini() {
+  geminiStatusText.style.color = 'var(--text-dim)';
+  geminiStatusText.textContent = 'Fetching API key from Firestore…';
+  try {
+    if (!firebaseAuth?.token) {
+      geminiStatusText.textContent = 'Looking for sign-in across open tabs…';
+      await fetchFirebaseAuth();
+    }
+    if (!firebaseAuth?.token) throw new Error('Not signed in — please open zyphe.ai and log in, then click Connect again');
+    const resp = await fetch(`${FIRESTORE_BASE}/app_config/api_keys`, {
+      headers: { 'Authorization': `Bearer ${firebaseAuth.token}` },
+    });
+    if (!resp.ok) throw new Error(`Firestore status ${resp.status}`);
+    const doc = await resp.json();
+    const key = doc.fields?.gemini_key?.stringValue;
+    if (!key || key.length < 5) throw new Error('gemini_key missing in app_config/api_keys');
+    geminiApiKey = key;
+    geminiStatusText.style.color = 'var(--success)';
+    geminiStatusText.textContent = 'Connected to Gemini API ✓';
+    setBadge('ready', 'Ready');
+    return true;
+  } catch (err) {
+    geminiApiKey = null;
+    geminiStatusText.style.color = 'var(--danger)';
+    geminiStatusText.textContent = `Failed: ${err.message}`;
+    setBadge('error', 'Not connected');
+    return false;
+  }
+}
+
 const scanSection = document.getElementById('scan-section');
 const scanBtn = document.getElementById('scan-btn');
 const scanCount = document.getElementById('scan-count');
@@ -207,6 +288,16 @@ function setBadge(state, text) {
 }
 
 loadModelBtn.addEventListener('click', async () => {
+  if (engineMode === 'gemini') {
+    const ok = await connectGemini();
+    if (!ok) return;
+    modelSection.querySelector('.card-body').style.opacity = '0.6';
+    scanSection.hidden = false;
+    if (extractedImages.length > 0) analysisSection.hidden = false;
+    updateAnalyzeBtnState();
+    return;
+  }
+
   if (engineMode === 'ollama') {
     const ok = await checkOllamaConnection();
     if (!ok) {
@@ -317,6 +408,17 @@ function runScan({ silent = false } = {}) {
         if (!chrome.runtime.lastError && authResponse?.auth) {
           firebaseAuth = authResponse.auth;
           updateSaveStatus('auth-ok');
+          // Auto-connect Gemini once auth is available
+          if (engineMode === 'gemini' && !geminiApiKey) {
+            connectGemini().then(ok => {
+              if (ok) {
+                modelSection.querySelector('.card-body').style.opacity = '0.6';
+                scanSection.hidden = false;
+                if (extractedImages.length > 0) analysisSection.hidden = false;
+                updateAnalyzeBtnState();
+              }
+            });
+          }
         }
       });
     });
@@ -333,6 +435,20 @@ function resetScanBtn() {
 // Auto-scan on side-panel open so a rebuild/reload doesn't force the user to
 // click "Scan" again to repopulate a property that's still on the page.
 runScan({ silent: true });
+
+// Eagerly fetch Firebase auth on startup so Gemini can auto-connect without
+// requiring a successful image scan first.
+fetchFirebaseAuth().then(() => {
+  if (engineMode === 'gemini' && !geminiApiKey && firebaseAuth?.token) {
+    connectGemini().then(ok => {
+      if (ok) {
+        modelSection.querySelector('.card-body').style.opacity = '0.6';
+        scanSection.hidden = false;
+        updateAnalyzeBtnState();
+      }
+    });
+  }
+});
 
 // Also receive live updates when the page DOM changes
 chrome.runtime.onMessage.addListener((message) => {
@@ -385,7 +501,7 @@ function handleImagesFound(images, zpid) {
 
 function updateAnalyzeBtnState() {
   const selectedCount = getSelectedIndices().length;
-  const isEngineReady = engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   analyzeAllBtn.disabled = !isEngineReady || isAnalyzing || extractedImages.length === 0;
   analyzeSelectedBtn.disabled = !isEngineReady || isAnalyzing || selectedCount === 0;
   if (selectedCount > 0) {
@@ -417,7 +533,7 @@ function buildImageCard(img, idx) {
   card.className = 'image-card';
   card.id = `card-${idx}`;
 
-  const isEngineReady = engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
 
   card.innerHTML = `
     <div class="image-thumb-wrapper">
@@ -1079,7 +1195,7 @@ function renderSkippedSummary(entries) {
 }
 
 async function analyzeImages(indices) {
-  const isEngineReady = engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   if (!isEngineReady || isAnalyzing || indices.length === 0) return;
 
   isAnalyzing = true;
@@ -1120,7 +1236,7 @@ async function analyzeImages(indices) {
     const PHASE1_THUMB_PX = 224;
     console.log(
       `[ZypheVision][phase1-config] concurrency=${PHASE1_CONCURRENCY} thumb_px=${PHASE1_THUMB_PX} ` +
-      `num_ctx=1024 num_predict=30 model=${ollamaSelectedModel || 'webllm'}`
+      `num_ctx=1024 num_predict=30 model=${engineMode === 'gemini' ? 'gemini-2.5-flash' : engineMode === 'ollama' ? ollamaSelectedModel : 'webllm'}`
     );
     const t4Start = performance.now();
     analysisProgressText.textContent = `Classifying spaces… (0/${indices.length})`;
@@ -1307,7 +1423,7 @@ async function analyzeImages(indices) {
       analysisProgressText.textContent = `Analyzing… (${analyzed}/${numSemantic} unique spaces)`;
     };
 
-    const CONCURRENCY = engineMode === 'ollama' ? 3 : 1;
+    const CONCURRENCY = engineMode === 'gemini' ? 4 : engineMode === 'ollama' ? 3 : 1;
     let cursor = 0;
     const worker = async () => {
       while (!signal.aborted) {
@@ -1536,7 +1652,25 @@ Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's
 async function classifyPhotoSpace(idx, dataUrl, signal) {
   try {
     let text = '';
-    if (engineMode === 'ollama') {
+    if (engineMode === 'gemini') {
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      const mimeType = dataUrl.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+      const body = {
+        contents: [{ parts: [
+          { inline_data: { mime_type: mimeType, data: base64 } },
+          { text: CLASSIFY_PROMPT },
+        ]}],
+        generationConfig: { temperature: 0, maxOutputTokens: 50, thinkingConfig: { thinkingBudget: 0 } },
+      };
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+      );
+      if (!resp.ok) throw new Error(`Gemini API status ${resp.status}`);
+      const data = await resp.json();
+      const allParts = data.candidates?.[0]?.content?.parts || [];
+      text = (allParts.find(p => !p.thought)?.text || '').trim();
+    } else if (engineMode === 'ollama') {
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1742,7 +1876,7 @@ async function analyzeImageGroup_DELETED(indices, prompt, signal, dataUrls) {
 }
 
 async function analyzeMultipleImages(indices) {
-  const isEngineReady = engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   if (!isEngineReady || isAnalyzing || indices.length === 0) return;
   if (indices.length > 5) {
     alert("Please select at most 5 images for collective analysis to avoid VRAM limits.");
@@ -1791,7 +1925,49 @@ async function analyzeMultipleImages(indices) {
     collectiveResult.innerHTML = '<span class="stream-cursor"></span>';
     let fullText = '';
 
-    if (engineMode === 'ollama') {
+    if (engineMode === 'gemini') {
+      const parts = dataUrls.map(url => {
+        const base64 = url.includes(',') ? url.split(',')[1] : url;
+        const mimeType = url.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+        return { inline_data: { mime_type: mimeType, data: base64 } };
+      });
+      parts.push({ text: userPrompt });
+      const body = {
+        contents: [{ parts }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 800 },
+      };
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${geminiApiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+      );
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Gemini API status ${resp.status}: ${errText.slice(0, 200)}`);
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let sseCollectiveBuf = '';
+      while (true) {
+        if (signal.aborted) { reader.cancel(); break; }
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseCollectiveBuf += decoder.decode(value, { stream: true });
+        const lines = sseCollectiveBuf.split('\n');
+        sseCollectiveBuf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const parts = parsed.candidates?.[0]?.content?.parts || [];
+            const delta = parts.find(p => !p.thought)?.text || '';
+            fullText += delta;
+            collectiveResult.textContent = fullText;
+          } catch {}
+        }
+      }
+    } else if (engineMode === 'ollama') {
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1920,7 +2096,50 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
     resultEl.appendChild(streamTextNode);
     resultEl.appendChild(streamCursor);
 
-    if (engineMode === 'ollama') {
+    if (engineMode === 'gemini') {
+      const parts = imagesPayload.map(url => {
+        const base64 = url.includes(',') ? url.split(',')[1] : url;
+        const mimeType = url.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+        return { inline_data: { mime_type: mimeType, data: base64 } };
+      });
+      parts.push({ text: prompt });
+      const body = {
+        contents: [{ parts }],
+        systemInstruction: { parts: [{ text: 'You are a real estate photo analyst. Fill in ALL fields of EXACTLY ONE matching template. Stop immediately after the final "Description:" field. Never start a second template.' }] },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
+      };
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${geminiApiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+      );
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Gemini API status ${resp.status}: ${errText.slice(0, 200)}`);
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        if (signal.aborted) { reader.cancel(); break; }
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const parts = parsed.candidates?.[0]?.content?.parts || [];
+            const delta = parts.find(p => !p.thought)?.text || '';
+            fullText += delta;
+            if (streamTextNode) streamTextNode.data = fullText;
+          } catch {}
+        }
+      }
+    } else if (engineMode === 'ollama') {
       const imgDiag = imagesPayload.map((u, i) => {
         const head = u.slice(0, 30);
         const b64 = u.includes(',') ? u.split(',')[1] : u;

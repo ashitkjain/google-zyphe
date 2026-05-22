@@ -36,6 +36,7 @@ import PropertyOverviewDashboard from './PropertyOverviewDashboard';
 import PropertySidebar, { NavItem } from './PropertySidebar';
 import PropertyNav, { MobileNavBar } from './PropertyNav';
 import { PropertySectionView } from './PropertySectionView';
+import AddToPortalModal from './AddToPortalModal';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -130,6 +131,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
     // ── City browse via prop (event listener lives here so it survives loading spinner remounts) ──
     const [pendingBrowse, setPendingBrowse] = React.useState<{ city: string; zip?: string; viewMode?: string } | null>(null);
+    const [showAddToPortal, setShowAddToPortal] = React.useState(false);
     React.useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent).detail;
@@ -394,11 +396,21 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         }
                                     />
                                 </div>
-                                {searchBar && (
-                                    <div className="lg:w-[560px] xl:w-[680px] shrink-0">
-                                        {searchBar}
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {['realtor', 'investor', 'admin', 'auditor'].includes(userRole || '') && (
+                                        <button
+                                            onClick={() => setShowAddToPortal(true)}
+                                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 flex items-center gap-1.5 shadow-lg shadow-emerald-100 cursor-pointer"
+                                        >
+                                            <i className="fa-solid fa-share-nodes text-[10px]"></i> Recommend
+                                        </button>
+                                    )}
+                                    {searchBar && (
+                                        <div className="lg:w-[560px] xl:w-[680px] shrink-0">
+                                            {searchBar}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -496,6 +508,16 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 </>
             )
             }
+
+            {showAddToPortal && propertyData && (
+                <AddToPortalModal
+                    isOpen={showAddToPortal}
+                    onClose={() => setShowAddToPortal(false)}
+                    realtorId={realtorId || ''}
+                    zpid={String(propertyData.zpid || '')}
+                    address={propertyData.address || ''}
+                />
+            )}
         </>
     );
 };

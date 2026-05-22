@@ -2,9 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
 import { APP_CONFIG } from '../../config';
-import { COMP_NORMALIZATION_PROMPT, COMP_NORMALIZATION_SYSTEM_INSTRUCTION } from '../../prompts/property/compNormalization';
-import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
-import { executeLandUtilityAnalysis } from '../../prompts/property/landUtility';
+import { findComps, SubjectProperty } from '../../services/compService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -525,349 +523,34 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
         if (compAnalysisLoading) return;
         setCompAnalysisLoading(true);
         setCompAnalysisError(null);
-        console.log(`[CompAnalysis] 🚀 Running Gemini comp normalization for ${comps.length} comps...`);
+        console.log(`[CompAnalysis] 🚀 Running modular comp service findComps pipeline...`);
         try {
-            const eligible = comps
-                .filter(c => !c.isOutlier && !c.priceUnverified && (c.tier === 1 || c.tier === 2 || c.tier === 3))
-                .sort((a, b) => (a.tier ?? 4) - (b.tier ?? 4) || (a.distance ?? 99) - (b.distance ?? 99))
-                .slice(0, 10);
-            if (eligible.length === 0) {
-                setCompAnalysisError('No eligible comps found (need tier 1-3, non-outlier)');
-                return;
-            }
-            // Enrich comp properties: check sold_or_unlisted_properties cache, fetch from RapidAPI if missing
-            const compDataMap = new Map<string, { description?: string; resoFacts?: any; homeType?: string }>();
-            const config = APP_CONFIG.usHousingApi;
-            await Promise.all(eligible.map(async (c) => {
-                try {
-                    // 1. Check if property data is already cached
-                    const snap = await getDoc(doc(db, 'sold_or_unlisted_properties', c.id));
-                    if (snap.exists()) {
-                        const d = snap.data();
-                        if (d?.description && typeof d.description === 'string') {
-                            compDataMap.set(c.id, { description: d.description.slice(0, 500), resoFacts: d.resoFacts, homeType: d.homeType || d.propertyType });
-                            return;
-                        }
-                    }
-
-                    // 2. Also check active properties cache
-                    const propSnap = await getDoc(doc(db, 'properties', c.id));
-                    if (propSnap.exists()) {
-                        const d = propSnap.data();
-                        if (d?.description && typeof d.description === 'string') {
-                            compDataMap.set(c.id, { description: d.description.slice(0, 500), resoFacts: d.resoFacts, homeType: d.homeType || d.propertyType });
-                            return;
-                        }
-                    }
-
-                    // 3. Fetch from RapidAPI and cache
-                    console.log(`[CompEnrich] Fetching property data for comp ${c.id} from RapidAPI...`);
-                    const url = `https://${config.host}/property?zpid=${c.id}`;
-                    const resp = await fetch(url, {
-                        method: 'GET',
-                        headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
-                        cache: 'no-store',
-                    });
-                    if (!resp.ok) {
-                        console.warn(`[CompEnrich] RapidAPI returned ${resp.status} for zpid ${c.id}`);
-                        return;
-                    }
-                    const data = await resp.json();
-                    const root = data.property || data.props || data;
-                    const addrRoot = root.address || data.address;
-                    const description = root.description || null;
-                    const resoFacts = root.resoFacts || null;
-
-                    // Cache to sold_or_unlisted_properties for future use
-                    const cacheData: any = {
-                        zpid: String(c.id),
-                        address: c.formattedAddress,
-                        city: addrRoot?.city || c.city,
-                        state: addrRoot?.state || c.state,
-                        description: description || null,
-                        homeType: root.homeType || null,
-                        bedrooms: root.bedrooms || c.bedrooms || null,
-                        bathrooms: root.bathrooms || c.bathrooms || null,
-                        livingAreaValue: root.livingAreaValue || root.livingArea || c.squareFootage || null,
-                        yearBuilt: root.yearBuilt || c.yearBuilt || null,
-                        lotSize: root.resoFacts?.lotSize || root.lotSize || null,
-                        lastSalePrice: c.lastSalePrice || null,
-                        lastSaleDate: c.lastSaleDate || null,
-                        zestimate: root.zestimate || null,
-                        resoFacts: resoFacts || null,
-                        cachedAt: Timestamp.now(),
-                        source: 'comp_enrichment',
-                    };
-                    await setDoc(doc(db, 'sold_or_unlisted_properties', c.id), cacheData, { merge: true });
-                    console.log(`[CompEnrich] ✅ Cached property data for ${c.formattedAddress}`);
-
-                    if (description) {
-                        compDataMap.set(c.id, { description: description.slice(0, 500), resoFacts, homeType: root.homeType || undefined });
-                    }
-                } catch (e: any) {
-                    console.warn(`[CompEnrich] Failed to enrich comp ${c.id}:`, e.message);
-                }
-            }));
-
-            const compsList = eligible.map(c => ({
-                address: c.formattedAddress,
-                city: c.city,
-                state: c.state,
-                zpid: c.id,
-                latitude: c.latitude,
-                longitude: c.longitude,
-                soldPrice: c.lastSalePrice,
-                soldDate: c.lastSaleDate,
-                listingSqFt: c.squareFootage,
-                beds: c.bedrooms,
-                baths: c.bathrooms,
-                yearBuilt: c.yearBuilt,
-                lotSize: c.lotSize,
-                distance: c.distance,
-                tier: c.tier,
-                zestimate: c.zestimate,
-                description: compDataMap.get(c.id)?.description ?? null,
-                homeType: c.propertyType || compDataMap.get(c.id)?.homeType || null,
-            }));
-            // Fetch subject property description for feature extraction
-            let subjectDescription = '';
-            let subjectTaxSqft: number | undefined;
-            if (subjectZpid) {
-                try {
-                    const subjSnap = await getDoc(doc(db, 'properties', subjectZpid));
-                    if (subjSnap.exists()) {
-                        const subjData = subjSnap.data();
-                        subjectDescription = (subjData?.description || subjData?.homeDescription || '').slice(0, 600);
-                        subjectTaxSqft = subjData?.livingAreaValue || subjData?.livingArea || undefined;
-                    }
-                } catch { /* ignore */ }
-            }
-
-            const subjectInfo = `${address}, ${subjectSqft ?? '?'} sqft, ${subjectBedrooms ?? '?'} bed, ${subjectBathrooms ?? '?'} bath, ${subjectHomeType ?? 'Single Family'}, Built ${subjectYearBuilt ?? '?'}, Listed at $${subjectListPrice?.toLocaleString() ?? '?'}, Lot ${subjectLotSize?.toLocaleString() ?? '?'} sqft`;
-
-            const prompt = COMP_NORMALIZATION_PROMPT(eligible.length, subjectInfo, subjectDescription, JSON.stringify(compsList, null, 2));
-
-            console.log('[CompAnalysis] 🔄 Running normalization + land utility in parallel...');
-            // Run both Gemini calls in parallel
-            const [normResult, landResult] = await Promise.allSettled([
-                executeGeminiRequest<any>({
-                    model: FLASH_MODEL,
-                    contents: prompt,
-                    config: {
-                        tools: [{ googleSearch: {} }],
-                        systemInstruction: COMP_NORMALIZATION_SYSTEM_INSTRUCTION,
-                        maxOutputTokens: 8192,
-                    },
-                    userId: 'unknown',
-                    promptFilename: 'compNormalization',
-                    zpid: subjectZpid,
-                    address: address,
-                    extractResultJson: true,
-                }),
-                // Land Utility — uses Gemini function calling with USGS/Google elevation tools
-                (async () => {
-                    return executeLandUtilityAnalysis(eligible.length, subjectInfo, compsList, subjectZpid, address, subjectLat, subjectLng, subjectLotSize, subjectDescription, subjectTaxSqft);
-                })(),
-            ]);
-
-            // Process normalization result
-            const normData = normResult.status === 'fulfilled' ? normResult.value.data : null;
-            const landData = landResult.status === 'fulfilled' ? landResult.value.data : null;
-
-            if (normResult.status === 'rejected') console.warn('[CompAnalysis] Normalization failed:', normResult.reason);
-            if (landResult.status === 'rejected') console.warn('[CompAnalysis] Land utility failed:', landResult.reason);
-
-            if (!normData && !landData) throw new Error('Both analysis calls failed');
-
-            // Helper: check if property type is single-family (lot calc only applies to SFR)
-            const isSingleFamily = (homeType: string | null | undefined): boolean => {
-                if (!homeType) return true; // assume SFR if unknown
-                const ht = homeType.toLowerCase();
-                const nonSFR = ['townhouse', 'townhome', 'condo', 'condominium', 'co-op', 'coop', 'apartment', 'multi', 'duplex', 'triplex', 'fourplex', 'manufactured', 'mobile'];
-                return !nonSFR.some(t => ht.includes(t));
+            const subject: SubjectProperty = {
+                zpid: subjectZpid,
+                address: address || initialAddress,
+                latitude: subjectLat ?? undefined,
+                longitude: subjectLng ?? undefined,
+                bedrooms: subjectBedrooms ?? undefined,
+                bathrooms: subjectBathrooms ?? undefined,
+                squareFootage: subjectSqft ?? undefined,
+                lotSize: subjectLotSize ?? undefined,
+                yearBuilt: subjectYearBuilt ?? undefined,
+                homeType: subjectHomeType ?? undefined,
+                listPrice: subjectListPrice ?? undefined,
+                zestimate: subjectZestimate ?? undefined,
             };
 
-            // Merge land utility data into normalization results by zpid
-            // Calculate usable lot in code (not relying on Gemini)
-            const calcUsableLot = (grossSqft: number | null | undefined, slopeCategory: string | null | undefined, slopePct: number | null | undefined) => {
-                if (typeof grossSqft !== 'number' || grossSqft <= 0) return null;
-
-                // Step 1: Setback deduction
-                const cappedLot = Math.min(grossSqft, 30000);
-                let setbackDeduction: number;
-                if (cappedLot <= 12000) {
-                    setbackDeduction = cappedLot * 0.25;
-                } else {
-                    setbackDeduction = 3000 + (cappedLot - 12000) * 0.01;
+            const res = await findComps(subject, {
+                forceRefresh: false,
+                onProgress: (step) => {
+                    console.log(`[CompAnalysis Progress] ${step}`);
                 }
-                const afterSetback = grossSqft - setbackDeduction;
-
-                // Step 2: Slope deduction (applied to post-setback area)
-                let slopeDeductionPct = 0;
-                if (typeof slopePct === 'number') {
-                    if (slopePct > 30) slopeDeductionPct = 85;
-                    else if (slopePct >= 16) slopeDeductionPct = 60;
-                    else if (slopePct >= 6) slopeDeductionPct = 10;
-                } else {
-                    const cat = (slopeCategory ?? '').toLowerCase();
-                    if (cat.includes('heavy')) slopeDeductionPct = 85;
-                    else if (cat.includes('steep')) slopeDeductionPct = 60;
-                    else if (cat.includes('moderate')) slopeDeductionPct = 10;
-                }
-                const slopeDeduction = afterSetback * (slopeDeductionPct / 100);
-                const usable = Math.round(afterSetback - slopeDeduction);
-
-                return {
-                    gross: Math.round(grossSqft),
-                    setback_deduction: Math.round(setbackDeduction),
-                    after_setback: Math.round(afterSetback),
-                    slope_deduction_pct: slopeDeductionPct,
-                    slope_deduction: Math.round(slopeDeduction),
-                    usable,
-                };
-            };
-
-            if (!normData?.comp_analysis || normData.comp_analysis.length === 0) {
-                console.error('[CompAnalysis] ❌ Normalization response missing comp_analysis');
-                setCompAnalysisError('AI response was incomplete — comp analysis missing. Try refreshing.');
-                setCompAnalysisLoading(false);
-                return;
-            }
-
-            const mergedComps = (normData.comp_analysis).map((ca: any) => {
-                const landComp = (landData?.properties ?? []).find((lp: any) => lp.zpid === ca.zpid || lp.address === ca.address);
-                const compHomeType = ca.homeType || compsList.find((cl: any) => cl.zpid === ca.zpid || cl.address === ca.address)?.homeType || null;
-                const sfOnly = isSingleFamily(compHomeType);
-                const lotCalc = (sfOnly && landComp?.lot_utility) ? calcUsableLot(landComp.lot_utility.gross_lot_sqft, landComp.lot_utility.slope_category, landComp.lot_utility.slope_percent) : null;
-                const lotUtil = landComp?.lot_utility ? {
-                    ...landComp.lot_utility,
-                    usable_sqft: lotCalc?.usable ?? null,
-                    lot_calc: lotCalc,
-                } : null;
-                return {
-                    ...ca,
-                    lot_utility: lotUtil,
-                    land_valuation: landComp?.valuation ?? null,
-                    _homeType: compHomeType,
-                };
             });
 
-            // Apply usable lot calc to subject audit too (only for single-family)
-            const subjectIsSF = isSingleFamily(subjectHomeType);
-            const subjectLotCalc = subjectIsSF ? calcUsableLot(subjectLotSize ?? null, landData?.subject_audit?.slope_category, landData?.subject_audit?.slope_percent) : null;
-            const normSubjectAudit = normData?.subject_audit;
-            const landSubjectAudit = landData?.subject_audit;
-            const subjectAudit = (landSubjectAudit || normSubjectAudit) ? {
-                ...(landSubjectAudit ?? {}),
-                // Merge tax_sqft from normalization prompt (preferred) or land prompt
-                tax_sqft: normSubjectAudit?.tax_sqft ?? landSubjectAudit?.tax_sqft ?? null,
-                // Merge adjustments: combine from both prompts, deduplicate (case-insensitive, substring-aware)
-                adjustments: (() => {
-                    const raw = [
-                        ...(landSubjectAudit?.adjustments ?? []),
-                        ...(normSubjectAudit?.adjustments ?? []),
-                    ].filter(Boolean);
-                    // Deduplicate: case-insensitive, keep shorter label when one contains another
-                    const deduped: string[] = [];
-                    for (const item of raw) {
-                        const lower = item.toLowerCase().trim();
-                        const existingIdx = deduped.findIndex(d => {
-                            const dl = d.toLowerCase().trim();
-                            return dl === lower || dl.includes(lower) || lower.includes(dl);
-                        });
-                        if (existingIdx === -1) {
-                            deduped.push(item.trim());
-                        } else if (item.trim().length < deduped[existingIdx].length) {
-                            // Keep the shorter (more concise) label
-                            deduped[existingIdx] = item.trim();
-                        }
-                    }
-                    return deduped.slice(0, 8); // cap at 8
-                })().filter(f => {
-                    const fl = f.toLowerCase();
-                    const banned = ['year built', 'lot size', 'square footage', 'sqft', 'sq ft', 'bedrooms', 'bathrooms', 'beds', 'baths', 'built in'];
-                    return !banned.some(b => fl.includes(b));
-                }),
-                usable_lot: subjectLotCalc?.usable ?? null,
-                lot_calc: subjectLotCalc,
-            } : null;
-            // ── Post-Gemini statistical outlier detection (median deviation) ──
-            // After Gemini returns, apply a code-side filter on normalized_psf
-            // to catch any remaining outlier that skews the average.
-            const MEDIAN_DEV_THRESHOLD = 0.20; // flag if >20% from median
-            const includedComps = mergedComps.filter((c: any) => c.include_in_avg && typeof c.normalized_psf === 'number');
-            if (includedComps.length >= 3) {
-                const psfValues = includedComps.map((c: any) => c.normalized_psf as number).sort((a: number, b: number) => a - b);
-                const median = psfValues[Math.floor(psfValues.length / 2)];
-                for (const c of mergedComps) {
-                    if (c.include_in_avg && typeof c.normalized_psf === 'number') {
-                        const deviation = Math.abs(c.normalized_psf - median) / median;
-                        if (deviation > MEDIAN_DEV_THRESHOLD) {
-                            c.zyphe_excluded = true;
-                            c.zyphe_exclude_reason = `$/sqft ($${Math.round(c.normalized_psf)}) deviates ${Math.round(deviation * 100)}% from median ($${Math.round(median)})`;
-                        }
-                    }
-                }
-                // Recalculate average using only top 3 non-excluded comps (by tier, then distance)
-                const finalComps = mergedComps
-                    .filter((c: any) => c.include_in_avg && !c.zyphe_excluded && typeof c.normalized_psf === 'number')
-                    .sort((a: any, b: any) => {
-                        // Match the comp by zpid to get tier + distance from saleComps
-                        const scA = comps.find(sc => String(sc.id) === String(a.zpid));
-                        const scB = comps.find(sc => String(sc.id) === String(b.zpid));
-                        return ((scA?.tier ?? 4) - (scB?.tier ?? 4)) || ((scA?.distance ?? 99) - (scB?.distance ?? 99));
-                    })
-                    .slice(0, 3);
-                if (finalComps.length > 0) {
-                    // Mark which comps are actually used in the average
-                    for (const fc of finalComps) {
-                        fc.zyphe_in_avg = true;
-                    }
-                    const zypheAvgPsf = finalComps.reduce((sum: number, c: any) => sum + c.normalized_psf, 0) / finalComps.length;
-                    const zypheValuation = typeof subjectSqft === 'number' ? Math.round(zypheAvgPsf * subjectSqft) : null;
-                    normData.final_summary = {
-                        ...normData.final_summary,
-                        recommended_avg_psf: Math.round(zypheAvgPsf),
-                        subject_valuation: zypheValuation,
-                        outliers_dropped: mergedComps.filter((c: any) => c.zyphe_excluded).length,
-                        comps_in_avg: finalComps.length,
-                    };
-                }
-            }
-
-            const merged = {
-                ...normData,
-                comp_analysis: mergedComps,
-                subject_audit: subjectAudit,
-                land_confidence: landData?.confidence_score ?? null,
-                land_avg_psf: landData?.final_average_psf ?? null,
-            };
-
-            console.log(`[CompAnalysis] ✅ Merged — ${mergedComps.length} comps, subject audit: ${landData?.subject_audit ? 'yes' : 'no'}`);
-            setCompAnalysisResult(merged);
-            // Cache to distress_analysis
-            if (subjectZpid) {
-                try {
-                    // Firestore rejects `undefined` values — strip them before saving
-                    const sanitize = (obj: any): any => {
-                        if (obj === null || obj === undefined) return null;
-                        if (Array.isArray(obj)) return obj.map(sanitize);
-                        if (typeof obj === 'object') {
-                            const clean: any = {};
-                            for (const [k, v] of Object.entries(obj)) {
-                                if (v !== undefined) clean[k] = sanitize(v);
-                            }
-                            return clean;
-                        }
-                        return obj;
-                    };
-                    await setDoc(doc(db, 'distress_analysis', subjectZpid), {
-                        compNormalization: sanitize(merged),
-                        compNormalizationAt: new Date().toISOString(),
-                    }, { merge: true });
-                } catch (cacheErr) {
-                    console.warn('[CompAnalysis] Failed to cache:', cacheErr);
-                }
+            if (res.geminiResult) {
+                setCompAnalysisResult(res.geminiResult);
+            } else {
+                setCompAnalysisError('No eligible comps found (need tier 1-3, non-outlier)');
             }
         } catch (e: any) {
             console.error('[CompAnalysis] Error:', e);
@@ -875,7 +558,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
         } finally {
             setCompAnalysisLoading(false);
         }
-    }, [address, subjectSqft, subjectBedrooms, subjectBathrooms, subjectHomeType, subjectYearBuilt, subjectListPrice, subjectLotSize, subjectZpid, compAnalysisLoading]);
+    }, [address, subjectSqft, subjectBedrooms, subjectBathrooms, subjectHomeType, subjectYearBuilt, subjectListPrice, subjectLotSize, subjectZpid, compAnalysisLoading, subjectLat, subjectLng, subjectZestimate, initialAddress]);
 
     const saleComps = cached?.valueEstimate?.comps ?? [];
 

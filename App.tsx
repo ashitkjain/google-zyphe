@@ -61,6 +61,8 @@ import IDXSearchTab from './components/client-hub/IDXSearchTab';
 import PipelineRunsTab from './components/admin/PipelineRunsTab';
 import { useSearchTrie } from './hooks/useSearchTrie';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
+import ClientPortalView from './components/portal/ClientPortalView';
+import { getPortalByToken } from './services/portalService';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor' | 'idx_search' | 'pipeline';
 
@@ -155,6 +157,8 @@ const App: React.FC = () => {
     { label: 'currentUser', value: currentUser },
   ], [propertyData, customAnalysis, comprehensiveAnalysis, logs, cloudHistory, favorites, currentUser]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [portalToken, setPortalToken] = useState<string | null>(null);
+  const [isPortalGuest, setIsPortalGuest] = useState(false);
   const [activeSearchTab, setActiveSearchTab] = useState<'search' | 'story' | 'browse'>('search');
   const [onSaveHandler, setOnSaveHandler] = useState<(() => void) | null>(null);
   const [onSavedHandler, setOnSavedHandler] = useState<(() => void) | null>(null);
@@ -200,27 +204,41 @@ const App: React.FC = () => {
     // Handle Direct Property Search via Query Param
     const queryAddr = params.get('q');
     const queryZpid = params.get('zpid');
+    const queryPortalToken = params.get('portalToken');
 
-    if (queryZpid || queryAddr) {
-      if (queryAddr) setAddress(queryAddr);
-
-      // If we are already on a realtor path, we might want to stay there, 
-      // but usually direct queries should land on the main explore view
-      if (window.location.pathname.startsWith('/realtor')) {
-        setViewMode('explore');
-      } else {
-        setViewMode('main');
+    // Validate portal token and enable guest mode
+    const handlePortalGuestSearch = async () => {
+      if (queryPortalToken) {
+        try {
+          const portal = await getPortalByToken(queryPortalToken);
+          if (portal) {
+            setIsPortalGuest(true);
+          }
+        } catch (e) {
+          console.warn('[App] portalToken validation failed:', e);
+        }
       }
 
-      if (queryZpid) {
-        performSearch(queryZpid, false, queryAddr || undefined);
-      } else {
-        performSearch(queryAddr!);
-      }
+      if (queryZpid || queryAddr) {
+        if (queryAddr) setAddress(queryAddr);
 
-      // Clean URL to prevent re-triggering on refresh while keeping state
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+        if (window.location.pathname.startsWith('/realtor')) {
+          setViewMode('explore');
+        } else {
+          setViewMode('main');
+        }
+
+        if (queryZpid) {
+          performSearch(queryZpid, false, queryAddr || undefined);
+        } else {
+          performSearch(queryAddr!);
+        }
+
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    };
+
+    handlePortalGuestSearch();
   }, [currentUser, performSearch]); // currentUser added since performSearch might need auth context
 
   useEffect(() => {
@@ -359,6 +377,13 @@ const App: React.FC = () => {
     const handleUrlChange = () => {
       const path = window.location.pathname;
       const parts = path.split('/').filter(Boolean);
+
+      if (parts[0] === 'portal' && parts.length === 2) {
+        setPortalToken(parts[1]);
+        setViewMode('portal' as any);
+        return;
+      }
+
       const isRealtorPath = parts[0] === 'realtor';
       const subPath = isRealtorPath ? parts.slice(1) : parts;
 
@@ -420,9 +445,8 @@ const App: React.FC = () => {
 
   // Wrapper for setViewMode to handle URL updates
   const transitionToView = (newMode: ViewMode, customPath?: string) => {
-    // Prevent unauthenticated users from leaving educational areas
-    // Prevent unauthenticated users from leaving educational areas
-    if (!currentUser && newMode !== 'main' && newMode !== 'guides' && newMode !== 'knowledge_center' && newMode !== 'legal-disclaimer' && newMode !== 'terms' && newMode !== 'privacy') {
+    // Prevent unauthenticated users from leaving educational areas (portal guests bypass this)
+    if (!currentUser && !isPortalGuest && newMode !== 'main' && newMode !== 'guides' && newMode !== 'knowledge_center' && newMode !== 'legal-disclaimer' && newMode !== 'terms' && newMode !== 'privacy') {
       setAuthModalOpen(true);
       return;
     }
@@ -584,6 +608,7 @@ const App: React.FC = () => {
       onSaveSearch={onSaveHandler || undefined}
       onViewSaved={onSavedHandler || undefined}
       activeTab={activeSearchTab}
+      hideTabs={isPortalGuest}
       onTabChange={(tab) => {
         setActiveSearchTab(tab);
         if (tab === 'story' || tab === 'browse') {
@@ -621,7 +646,7 @@ const App: React.FC = () => {
       }}
       addLog={addLog}
       logs={logs}
-      userRole={currentUser?.role}
+      userRole={currentUser?.role ?? (isPortalGuest ? 'buyer' : undefined)}
       realtorId={currentUser?.role === 'buyer' ? currentUser?.realtorId : currentUser?.uid}
       onRegisterSaveAction={setOnSaveHandler}
       onRegisterSavedAction={setOnSavedHandler}
@@ -629,7 +654,7 @@ const App: React.FC = () => {
           setFromBrowse(false);
           transitionToView('idx_search' as any);
       } : undefined}
-      searchBar={searchBar}
+      searchBar={isPortalGuest ? null : searchBar}
       address={address}
       onRefreshEnvironment={handleRefreshEnvironment}
       environmentRefreshing={envRefreshing}
@@ -641,6 +666,14 @@ const App: React.FC = () => {
   );
 
   /* ------------------- Render Logic ------------------- */
+
+  if (viewMode === 'portal' as any && portalToken) {
+    return (
+      <div className="min-h-screen bg-[#eef2ff] flex flex-col">
+        <ClientPortalView token={portalToken} />
+      </div>
+    );
+  }
 
   if (viewMode === 'legal-disclaimer') {
     return (
@@ -864,7 +897,7 @@ const App: React.FC = () => {
               performSearch(zpid);
             }} />
           </div>
-        ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
+        ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || (!currentUser && !isPortalGuest) ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
             <React.Suspense fallback={
               <div className="flex-1 flex flex-col items-center justify-center space-y-4">

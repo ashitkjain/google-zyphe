@@ -18,6 +18,7 @@ function isPropertyPhotoUrl(url) {
     'ap.rdcpix.com', 'rdcpix.com', 'nad.realtor.com',
     'photos.homes.com', 'static.homes.com',
     'trulia-cdn.com',
+    'zimg.paragon.ice.com',
     'cloudfront.net', 'amazonaws.com',
     'imgix.net', 'firebasestorage.googleapis.com',
   ];
