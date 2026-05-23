@@ -87,6 +87,7 @@ export function extractFullResPhotos(source) {
     homes: ['homes.com/photos', 'photos.homes.com', 'static.homes.com'],
     trulia: ['zillowstatic.com', 'trulia-cdn.com'],
     paragon: ['zimg.paragon.ice.com'],
+    realestateapi: ['imagecdn.realty.dev', 'realty.dev', 'realty.com', 'realestateapi.com'],
   };
   const EXCLUDE = [
     'logo', 'icon', 'favicon', 'avatar', 'badge', 'sprite',

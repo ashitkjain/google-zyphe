@@ -158,6 +158,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         const subToSectionId: Record<string, string> = {
             'lifestyle-vastu': 'property-section-top',
             'mls-data': 'property-section-top',
+            'realestateapi-data': 'property-section-top',
             'indoor': 'property-section-top',
             'outdoor': 'property-section-top',
             'rooms': 'property-section-top',

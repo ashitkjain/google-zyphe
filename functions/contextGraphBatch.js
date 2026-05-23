@@ -62,7 +62,7 @@ async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
         propRef.get(),
         propRef.collection('analysis').doc('visual').get(),
         propRef.collection('analysis').doc('investment').get(),
-        propRef.collection('analysis').doc('vision_extension').get(),
+        propRef.collection('analysis').doc('vision_v2').get(),
     ]);
 
     if (!propSnap.exists) {

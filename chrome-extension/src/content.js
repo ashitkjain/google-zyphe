@@ -21,6 +21,7 @@ function isPropertyPhotoUrl(url) {
     'zimg.paragon.ice.com',
     'cloudfront.net', 'amazonaws.com',
     'imgix.net', 'firebasestorage.googleapis.com',
+    'imagecdn.realty.dev', 'realty.dev', 'realty.com', 'realestateapi.com',
   ];
   const excludePatterns = [
     'logo', 'icon', 'favicon', 'avatar', 'profile', 'badge',
@@ -37,11 +38,13 @@ function extractPropertyImages() {
   const results = [];
 
   document.querySelectorAll('img').forEach((img) => {
-    const src = img.src || img.currentSrc;
+    const src = img.currentSrc || img.src;
     if (!src || seen.has(src)) return;
-    const { width, height } = getImageSize(img);
-    if (width < MIN_IMAGE_DIMENSION && height < MIN_IMAGE_DIMENSION) return;
     if (!isPropertyPhotoUrl(src)) return;
+    const { width, height } = getImageSize(img);
+    // lazy images that haven't loaded yet have naturalWidth=0 and unreliable
+    // layout dimensions — if the URL passed the filter above, trust it
+    if (img.naturalWidth > 0 && width < MIN_IMAGE_DIMENSION && height < MIN_IMAGE_DIMENSION) return;
     seen.add(src);
     results.push({ url: src, width, height, alt: img.alt || '' });
   });
@@ -251,17 +254,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // MutationObserver for SPA navigation
 let extractionTimeout = null;
-const observer = new MutationObserver(() => {
+let extractionMaxTimeout = null;
+
+function scheduleExtraction() {
   clearTimeout(extractionTimeout);
-  extractionTimeout = setTimeout(() => {
-    const images = extractPropertyImages();
-    if (images.length > 0) {
-      const zpid = extractZpid();
-      const property = extractPropertyMetadata();
-      chrome.runtime.sendMessage({ type: 'IMAGES_UPDATED', images, zpid, property }).catch(() => {});
-    }
-  }, 800);
-});
+  extractionTimeout = setTimeout(runExtraction, 800);
+  // Guarantee a scan even during continuous mutations (e.g. lazy images loading one by one)
+  if (!extractionMaxTimeout) {
+    extractionMaxTimeout = setTimeout(() => {
+      clearTimeout(extractionTimeout);
+      runExtraction();
+    }, 3000);
+  }
+}
+
+function runExtraction() {
+  clearTimeout(extractionTimeout);
+  clearTimeout(extractionMaxTimeout);
+  extractionTimeout = null;
+  extractionMaxTimeout = null;
+  const images = extractPropertyImages();
+  if (images.length > 0) {
+    const zpid = extractZpid();
+    const property = extractPropertyMetadata();
+    chrome.runtime.sendMessage({ type: 'IMAGES_UPDATED', images, zpid, property }).catch(() => {});
+  }
+}
+
+const observer = new MutationObserver(scheduleExtraction);
 
 observer.observe(document.body, { childList: true, subtree: true });
 

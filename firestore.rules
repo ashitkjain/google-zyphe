@@ -493,6 +493,12 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // RealEstateAPI property detail cache — keyed by zpid, 24h TTL enforced client-side
+    match /realestateapi_cache/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
     match /zyphe_valuations/{valuationId} {
       allow read: if true;
       allow write: if request.auth != null;

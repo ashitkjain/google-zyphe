@@ -2483,7 +2483,9 @@ async function saveAnalysisToFirestore(results) {
     }),
   };
 
-  const url = `${FIRESTORE_BASE}/properties/${currentZpid}/analysis/vision_extension`;
+  doc.generated_via_extension = true;
+
+  const url = `${FIRESTORE_BASE}/properties/${currentZpid}/analysis/vision_v2`;
 
   try {
     const resp = await fetch(url, {

@@ -47,6 +47,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/gmaps-proxy/, '')
         },
+        '/realestateapi-proxy': {
+          target: 'https://api.realestateapi.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/realestateapi-proxy/, '')
+        },
       }
     },
     plugins: [react()],

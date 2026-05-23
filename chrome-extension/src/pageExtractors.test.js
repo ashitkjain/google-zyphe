@@ -160,6 +160,13 @@ describe('extractFullResPhotos — URL upgrades', () => {
         const photos = photoPage('redfin', url);
         expect(photos[0]).toBe(url);
     });
+
+    // RealEstateAPI
+    it('keeps RealEstateAPI imagecdn.realty.dev image URL unmodified', () => {
+        const url = 'https://imagecdn.realty.dev/mls_photos/CRMLS/41132638/1.jpg';
+        const photos = photoPage('realestateapi', url);
+        expect(photos[0]).toBe(url);
+    });
 });
 
 // ── Photo filtering ────────────────────────────────────────────────────────

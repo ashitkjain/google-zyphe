@@ -2,54 +2,51 @@ import { describe, it, expect } from 'vitest';
 import { parsePropertyCsv } from './parsePropertyCsv';
 
 // ─── Fixture ─────────────────────────────────────────────────────────────────
-// Matches the actual "340houses" MLS export format exactly.
-// The spreadsheet includes a blank row-number column (col A) as the first
-// column, followed by: S, MLS #, Street Address, Price, DOM, Beds Total,
-// Bths, Sq Ft Total, Lot Size, Postal City, Property Sub Type, Age
-// Data rows: row_num, status(A=Active), mls_id, street, price, dom, beds,
-//            bths(X|Y), sqft, lot_size, city, property_type, age
+// Matches the actual "340houses" MLS export format with the Zip Code column added.
+// Columns: (blank), S, MLS #, Street Address, Price, DOM, Beds Total, Bths,
+//          Sq Ft Total, Lot Size, Postal City, Property Sub Type, Age, Zip Code
 
-const CSV = `,S,MLS #,Street Address,Price,DOM,Beds Total,Bths,Sq Ft Total,Lot Size,Postal City,Property Sub Type,Age
-1,A,ML82045997,4889 Clarendon Drive,$2500000.00,7,4,3|0,1979,6448 Lot SqFt,San Jose,Res. Single Family,68
-2,A,BE41133514,4858 Sterling Dr,$2500000.00,2,4,3|0,2533,9375 Lot SqFt,Fremont,Res. Single Family,73
-3,A,ML82041352,1130 Nevada Avenue,$2500000.00,41,4,3|1,2373,6187 Lot SqFt,San Jose,Res. Single Family,96
-4,A,ML82043166,2466 Armstrong,$2499999.00,,4,2|0,1885,5520 Lot SqFt,Santa Clara,Res. Single Family,71
-5,A,ML82046482,953 Kenneth Avenue,$2499888.00,5,3,2|0,1454,10218 Lot SqFt,Campbell,Res. Single Family,77
-6,A,ML82041476,1602 Sheffield Avenue,$2499000.00,37,4,3|0,2386,7700 Lot SqFt,San Jose,Res. Single Family,64
-7,A,ML82040215,1439 Miller Avenue,$2499000.00,49,4,2|0,1778,6324 Lot SqFt,San Jose,Res. Single Family,67
-8,A,ML82038168,901 Sunnyvale Saratoga Road,$2498998.00,54,4,1|0,1805,17424 Lot SqFt,Sunnyvale,Res. Single Family,136
-9,A,ML82044903,2488 Hart Avenue,$2498888.00,7,5,3|0,2204,5520 Lot SqFt,Santa Clara,Res. Single Family,69
-10,A,ML82040457,1626 Peacock Avenue,$2498800.00,,3,2|0,1524,6480 Lot SqFt,Sunnyvale,Res. Single Family,68
-11,A,ML82046769,807 Cathedral Drive,$2498000.00,1,3,2|0,1512,10560 Lot SqFt,Sunnyvale,Res. Single Family,65
-12,A,ML82046458,1087 S Stelling Road,$2498000.00,5,3,2|0,1421,6100 Lot SqFt,Cupertino,Res. Single Family,66
-13,A,ML82045904,1151 Carolyn Avenue,$2498000.00,6,3,2|0,1797,6840 Lot SqFt,San Jose,Res. Single Family,76
-14,A,ML82045827,719 Jackpine Court,$2498000.00,8,3,2|0,1433,5500 Lot SqFt,Sunnyvale,Res. Single Family,70
-15,A,ML82044426,869 Lusterleaf Drive,$2498000.00,19,4,2|1,2204,6080 Lot SqFt,Sunnyvale,Res. Single Family,60
-16,A,ML82044569,1666 Swallow Drive,$2495000.00,19,3,2|0,1338,6000 Lot SqFt,Sunnyvale,Res. Single Family,69
-17,A,SF426124493,1666 Swallow Drive,$2495000.00,20,3,2|0,1338,6000 Lot SqFt,Sunnyvale,Res. Single Family,69
-18,A,CC41131843,1079 Ginger Ln,$2495000.00,14,5,2|1,2102,6000 Lot SqFt,San Jose,Res. Single Family,64
-19,A,ML82044580,17250 Pine Avenue,$2490000.00,19,4,3|0,2066,35313 Lot SqFt,Los Gatos,Res. Single Family,111
-20,A,ML82041626,18825 Pendergast Avenue,$2488888.00,7,4,3|0,1618,5304 Lot SqFt,Cupertino,Res. Single Family,73
-21,A,ML82039113,1547 Grackle Way,$2488888.00,8,3,2|0,1362,6902 Lot SqFt,Sunnyvale,Res. Single Family,64
-22,A,ML82046881,945 Reed Avenue,$2488000.00,,3,2|0,1830,10200 Lot SqFt,Sunnyvale,Res. Single Family,62
-23,A,ML82045861,586 Rockport Drive,$2488000.00,8,5,3|0,2363,8811 Lot SqFt,Sunnyvale,Res. Single Family,67
-24,A,ML82046031,918 Mangrove Avenue,$2458000.00,7,4,2|1,1791,5580 Lot SqFt,Sunnyvale,Res. Single Family,64
-25,A,ML82046603,227 Howes Drive,$2450000.00,,4,2|0,1918,6500 Lot SqFt,Los Gatos,Res. Single Family,63
-26,A,ML82034859,2791 Scott Street,$2450000.00,78,5,5|0,2485,8424 Lot SqFt,San Jose,Res. Single Family,75
-27,A,ML82044401,375 Stowell Avenue,$2430000.00,20,4,3|0,1694,5200 Lot SqFt,Sunnyvale,Res. Single Family,84
-28,A,ML82046644,16857 Farley Road,$2400000.00,,3,2|0,1605,8820 Lot SqFt,Los Gatos,Res. Single Family,71
-29,A,ML82043778,4893 Clarendon Drive,$2400000.00,,3,2|0,1400,6386 Lot SqFt,San Jose,Res. Single Family,68
-30,A,ML82039984,1887 Blossom Hill Road,$2400000.00,,5,2|1,2369,10500 Lot SqFt,San Jose,Res. Single Family,61
-31,A,ML82046268,204 Hardy Avenue,$2399888.00,1,3,2|0,1437,9375 Lot SqFt,Campbell,Res. Single Family,76
-32,A,ML82041623,16737 Leroy Avenue,$2399888.00,36,4,3|0,1525,8961 Lot SqFt,Los Gatos,Res. Single Family,77
-33,A,ML82042801,1748 Harte,$2398000.00,30,4,2|0,2029,7169 Lot SqFt,San Jose,Res. Single Family,65
-34,A,ML82034737,22081 Caroline Drive,$2398000.00,90,3,2|0,1416,9375 Lot SqFt,Cupertino,Res. Single Family,74
-35,A,ML82045220,68 N Midway Street,$2390000.00,13,4,3|1,2116,7272 Lot SqFt,Campbell,Res. Single Family,69
-36,A,BE41131908,38048 Palmer Dr,$2389950.00,21,4,2|1,2006,9929 Lot SqFt,Fremont,Res. Single Family,71
-37,A,ML82046777,5106 Emiline Drive,$2388000.00,1,4,3|0,1745,6000 Lot SqFt,San Jose,Res. Single Family,67
-38,A,ML82045866,1594 Inverness Circle,$2388000.00,8,5,4|0,2123,6180 Lot SqFt,San Jose,Res. Single Family,62
-39,A,ML82044827,826 Fife Way,$2388000.00,7,3,2|0,1302,6080 Lot SqFt,Sunnyvale,Res. Single Family,65
-40,A,ML82046999,1234 Oak Street,$2388000.00,3,4,3|0,1850,7000 Lot SqFt,Sunnyvale,Res. Single Family,58`;
+const CSV = `,S,MLS #,Street Address,Price,DOM,Beds Total,Bths,Sq Ft Total,Lot Size,Postal City,Property Sub Type,Age,Zip Code
+1,A,ML82045997,4889 Clarendon Drive,$2500000.00,7,4,3|0,1979,6448 Lot SqFt,San Jose,Res. Single Family,68,95129
+2,A,BE41133514,4858 Sterling Dr,$2500000.00,2,4,3|0,2533,9375 Lot SqFt,Fremont,Res. Single Family,73,94536
+3,A,ML82041352,1130 Nevada Avenue,$2500000.00,41,4,3|1,2373,6187 Lot SqFt,San Jose,Res. Single Family,96,95125
+4,A,ML82043166,2466 Armstrong,$2499999.00,,4,2|0,1885,5520 Lot SqFt,Santa Clara,Res. Single Family,71,95051
+5,A,ML82046482,953 Kenneth Avenue,$2499888.00,5,3,2|0,1454,10218 Lot SqFt,Campbell,Res. Single Family,77,95008
+6,A,ML82041476,1602 Sheffield Avenue,$2499000.00,37,4,3|0,2386,7700 Lot SqFt,San Jose,Res. Single Family,64,95126
+7,A,ML82040215,1439 Miller Avenue,$2499000.00,49,4,2|0,1778,6324 Lot SqFt,San Jose,Res. Single Family,67,95126
+8,A,ML82038168,901 Sunnyvale Saratoga Road,$2498998.00,54,4,1|0,1805,17424 Lot SqFt,Sunnyvale,Res. Single Family,136,94087
+9,A,ML82044903,2488 Hart Avenue,$2498888.00,7,5,3|0,2204,5520 Lot SqFt,Santa Clara,Res. Single Family,69,95051
+10,A,ML82040457,1626 Peacock Avenue,$2498800.00,,3,2|0,1524,6480 Lot SqFt,Sunnyvale,Res. Single Family,68,94087
+11,A,ML82046769,807 Cathedral Drive,$2498000.00,1,3,2|0,1512,10560 Lot SqFt,Sunnyvale,Res. Single Family,65,94087
+12,A,ML82046458,1087 S Stelling Road,$2498000.00,5,3,2|0,1421,6100 Lot SqFt,Cupertino,Res. Single Family,66,95014
+13,A,ML82045904,1151 Carolyn Avenue,$2498000.00,6,3,2|0,1797,6840 Lot SqFt,San Jose,Res. Single Family,76,95125
+14,A,ML82045827,719 Jackpine Court,$2498000.00,8,3,2|0,1433,5500 Lot SqFt,Sunnyvale,Res. Single Family,70,94087
+15,A,ML82044426,869 Lusterleaf Drive,$2498000.00,19,4,2|1,2204,6080 Lot SqFt,Sunnyvale,Res. Single Family,60,94087
+16,A,ML82044569,1666 Swallow Drive,$2495000.00,19,3,2|0,1338,6000 Lot SqFt,Sunnyvale,Res. Single Family,69,94087
+17,A,SF426124493,1666 Swallow Drive,$2495000.00,20,3,2|0,1338,6000 Lot SqFt,Sunnyvale,Res. Single Family,69,94087
+18,A,CC41131843,1079 Ginger Ln,$2495000.00,14,5,2|1,2102,6000 Lot SqFt,San Jose,Res. Single Family,64,95125
+19,A,ML82044580,17250 Pine Avenue,$2490000.00,19,4,3|0,2066,35313 Lot SqFt,Los Gatos,Res. Single Family,111,95032
+20,A,ML82041626,18825 Pendergast Avenue,$2488888.00,7,4,3|0,1618,5304 Lot SqFt,Cupertino,Res. Single Family,73,95014
+21,A,ML82039113,1547 Grackle Way,$2488888.00,8,3,2|0,1362,6902 Lot SqFt,Sunnyvale,Res. Single Family,64,94087
+22,A,ML82046881,945 Reed Avenue,$2488000.00,,3,2|0,1830,10200 Lot SqFt,Sunnyvale,Res. Single Family,62,94087
+23,A,ML82045861,586 Rockport Drive,$2488000.00,8,5,3|0,2363,8811 Lot SqFt,Sunnyvale,Res. Single Family,67,94087
+24,A,ML82046031,918 Mangrove Avenue,$2458000.00,7,4,2|1,1791,5580 Lot SqFt,Sunnyvale,Res. Single Family,64,94087
+25,A,ML82046603,227 Howes Drive,$2450000.00,,4,2|0,1918,6500 Lot SqFt,Los Gatos,Res. Single Family,63,95032
+26,A,ML82034859,2791 Scott Street,$2450000.00,78,5,5|0,2485,8424 Lot SqFt,San Jose,Res. Single Family,75,95128
+27,A,ML82044401,375 Stowell Avenue,$2430000.00,20,4,3|0,1694,5200 Lot SqFt,Sunnyvale,Res. Single Family,84,94087
+28,A,ML82046644,16857 Farley Road,$2400000.00,,3,2|0,1605,8820 Lot SqFt,Los Gatos,Res. Single Family,71,95032
+29,A,ML82043778,4893 Clarendon Drive,$2400000.00,,3,2|0,1400,6386 Lot SqFt,San Jose,Res. Single Family,68,95129
+30,A,ML82039984,1887 Blossom Hill Road,$2400000.00,,5,2|1,2369,10500 Lot SqFt,San Jose,Res. Single Family,61,95124
+31,A,ML82046268,204 Hardy Avenue,$2399888.00,1,3,2|0,1437,9375 Lot SqFt,Campbell,Res. Single Family,76,95008
+32,A,ML82041623,16737 Leroy Avenue,$2399888.00,36,4,3|0,1525,8961 Lot SqFt,Los Gatos,Res. Single Family,77,95032
+33,A,ML82042801,1748 Harte,$2398000.00,30,4,2|0,2029,7169 Lot SqFt,San Jose,Res. Single Family,65,95124
+34,A,ML82034737,22081 Caroline Drive,$2398000.00,90,3,2|0,1416,9375 Lot SqFt,Cupertino,Res. Single Family,74,95014
+35,A,ML82045220,68 N Midway Street,$2390000.00,13,4,3|1,2116,7272 Lot SqFt,Campbell,Res. Single Family,69,95008
+36,A,BE41131908,38048 Palmer Dr,$2389950.00,21,4,2|1,2006,9929 Lot SqFt,Fremont,Res. Single Family,71,94536
+37,A,ML82046777,5106 Emiline Drive,$2388000.00,1,4,3|0,1745,6000 Lot SqFt,San Jose,Res. Single Family,67,95136
+38,A,ML82045866,1594 Inverness Circle,$2388000.00,8,5,4|0,2123,6180 Lot SqFt,San Jose,Res. Single Family,62,95124
+39,A,ML82044827,826 Fife Way,$2388000.00,7,3,2|0,1302,6080 Lot SqFt,Sunnyvale,Res. Single Family,65,94087
+40,A,ML82046999,1234 Oak Street,$2388000.00,3,4,3|0,1850,7000 Lot SqFt,Sunnyvale,Res. Single Family,58,94087`;
 
 // Pin the reference year so yearBuilt assertions are stable
 const YEAR = 2026;
@@ -154,6 +151,21 @@ describe('parsePropertyCsv — MLS export format', () => {
     it('all parsed properties have a listPrice > 0', () => {
         props.forEach((p, i) => {
             expect(p.listPrice).toBeGreaterThan(0);
+        });
+    });
+
+    it('parses Zip Code column', () => {
+        expect(props[0].zipCode).toBe('95129');   // San Jose
+        expect(props[1].zipCode).toBe('94536');   // Fremont
+        expect(props[7].zipCode).toBe('94087');   // Sunnyvale
+        expect(props[11].zipCode).toBe('95014');  // Cupertino
+        expect(props[18].zipCode).toBe('95032');  // Los Gatos
+    });
+
+    it('all parsed properties have a zipCode', () => {
+        props.forEach((p, i) => {
+            expect(p.zipCode).toMatch(/^\d{5}$/,
+                `row ${i + 1} (${p.address}) should have a 5-digit zipCode`);
         });
     });
 

@@ -48,6 +48,7 @@ export function parsePropertyCsv(
     const yearIdx   = findIdx(['yearbuilt', 'year', 'built']);
     const typeIdx   = findIdx(['propertysubtype', 'propertytype', 'type']);
     const zestIdx   = findIdx(['zest', 'zestimate']);
+    const zipIdx    = findIdx(['zipcode', 'zip', 'postalcode']);
 
     const getStr = (row: string[], idx: number) => {
         if (idx === -1 || idx >= row.length) return undefined;
@@ -71,6 +72,7 @@ export function parsePropertyCsv(
 
         const streetAddr = getStr(row, streetIdx) || row[0] || '';
         const city = getStr(row, cityIdx);
+        const zip = getStr(row, zipIdx);
         const fullAddress = city ? `${streetAddr}, ${city}, CA` : streetAddr;
         if (!fullAddress.trim() || fullAddress === ', CA') continue;
 
@@ -82,6 +84,7 @@ export function parsePropertyCsv(
 
         results.push({
             address: fullAddress,
+            zipCode: zip,
             mlsId: getStr(row, mlsIdx),
             listPrice: getNum(row, priceIdx),
             bedrooms: getNum(row, bedsIdx),

@@ -24,7 +24,11 @@
     "https://www.homes.com/*",
     "https://www.trulia.com/*",
     "https://*.paragonrels.com/*",
-    "https://zimg.paragon.ice.com/*"
+    "https://zimg.paragon.ice.com/*",
+    "https://imagecdn.realty.dev/*",
+    "https://*.realty.dev/*",
+    "https://*.realty.com/*",
+    "https://*.realestateapi.com/*"
   ],
   "externally_connectable": {
     "matches": [

@@ -32,7 +32,7 @@ async function run() {
         propRef.get(),
         propRef.collection('analysis').doc('visual').get(),
         propRef.collection('analysis').doc('investment').get(),
-        propRef.collection('analysis').doc('vision_extension').get(),
+        propRef.collection('analysis').doc('vision_v2').get(),
     ]);
 
     const prop = propSnap.data();

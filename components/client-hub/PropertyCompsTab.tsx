@@ -1148,8 +1148,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                             <tr className="bg-slate-50 border-b border-slate-200">
                                                 <th className="text-left px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Address</th>
                                                 <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">List Price</th>
-                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Market Value</th>
-                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Discount $</th>
+                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Zestimate</th>
+                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Zyphe Price</th>
                                                 <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Discount %</th>
                                                 <th className="text-center px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Status</th>
                                             </tr>
@@ -1163,7 +1163,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                 })
                                                 .map((row, idx) => {
                                                     const isGoodDeal = (row.phase === 'confirmed' || row.phase === 'candidate') && (row.discountPct ?? 0) >= 10;
-                                                    const marketValue = row.geminiMarketValue ?? row.rawMarketValue;
+                                                    const zyphePrice = row.geminiMarketValue ?? row.rawMarketValue;
                                                     return (
                                                         <tr
                                                             key={idx}
@@ -1175,12 +1175,12 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                                         >
                                                             <td className="px-3 py-2.5 font-semibold text-slate-700 max-w-[200px] truncate">{row.address}</td>
                                                             <td className="px-3 py-2.5 text-right font-bold text-slate-700">{row.listPrice ? `$${(row.listPrice / 1000).toFixed(0)}K` : '—'}</td>
-                                                            <td className="px-3 py-2.5 text-right font-bold text-slate-700">
-                                                                {marketValue ? `$${(marketValue / 1000).toFixed(0)}K` : '—'}
-                                                                {row.geminiMarketValue && <span className="ml-1 text-[8px] text-violet-500 font-black">AI</span>}
+                                                            <td className="px-3 py-2.5 text-right text-slate-500">
+                                                                {row.zestimate ? `$${(row.zestimate / 1000).toFixed(0)}K` : '—'}
                                                             </td>
-                                                            <td className={`px-3 py-2.5 text-right font-black ${(row.discountDollars ?? 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                                {row.discountDollars != null ? `${row.discountDollars > 0 ? '+' : ''}$${Math.abs(row.discountDollars / 1000).toFixed(0)}K` : '—'}
+                                                            <td className="px-3 py-2.5 text-right font-bold text-slate-700">
+                                                                {zyphePrice ? `$${(zyphePrice / 1000).toFixed(0)}K` : '—'}
+                                                                {row.geminiMarketValue && <span className="ml-1 text-[8px] text-violet-500 font-black">AI</span>}
                                                             </td>
                                                             <td className={`px-3 py-2.5 text-right font-black ${(row.discountPct ?? 0) >= 10 ? 'text-emerald-600' : (row.discountPct ?? 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
                                                                 {row.discountPct != null ? `${row.discountPct > 0 ? '+' : ''}${row.discountPct.toFixed(1)}%` : '—'}

@@ -27,6 +27,7 @@ import { CityNeighborhoodsView } from '../analysis/custom-ai/components/CityNeig
 import { DeepInvestmentView } from '../analysis/custom-ai/components/DeepInvestmentView';
 import { LifestyleSchoolsVastuSection } from './sections/LifestyleSchoolsVastuSection';
 import { MLSSectionPage } from './sections/MLSSectionPage';
+import { RealEstateApiSectionPage } from './sections/RealEstateApiSectionPage';
 import { RentCastSectionPage } from './sections/RentCastSectionPage';
 import { IndoorSectionPage } from './sections/IndoorSectionPage';
 import { OutdoorSectionPage } from './sections/OutdoorSectionPage';
@@ -349,6 +350,16 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 description="Full technical specifications, listing remarks, and official property images from the Multiple Listing Service."
                                 color="text-indigo-500" {...headerProps} />
                             <MLSSectionPage data={data} />
+                        </div>
+                    );
+
+                    if (subId === 'realestateapi-data') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-database" title="RealEstateAPI Data"
+                                label="MLS Intelligence"
+                                description="Full property record from RealEstateAPI.com — MLS history, ownership data, tax assessment, equity metrics, schools, and parcel details."
+                                color="text-emerald-600" {...headerProps} />
+                            <RealEstateApiSectionPage data={data} />
                         </div>
                     );
 

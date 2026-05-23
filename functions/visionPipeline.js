@@ -12,12 +12,9 @@
  *
  * NOT in first slice: visual clustering for Bedroom/Bathroom subdivision.
  *
- * Output schema mirrors the extension's `vision_extension` Firestore doc:
- *   properties/{zpid}/analysis/vision_v2
- *
- * Using `vision_v2` instead of overwriting `vision_extension` so the two
- * paths can coexist (extension still writes vision_extension; this writes
- * vision_v2). Merge them in the UI later if desired.
+ * Output schema: properties/{zpid}/analysis/vision_v2
+ * Both the extension and the Cloud Function pipeline write to this path.
+ * Extension-generated docs include `generated_via_extension: true`.
  *
  * Prompt files: `functions/prompts/photo-analysis/photo-analysis.*.txt`.
  * They are copies of `public/prompts/photo-analysis.*.txt` — keep in sync

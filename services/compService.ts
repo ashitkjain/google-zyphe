@@ -14,6 +14,7 @@ export interface SubjectProperty {
     zpid?: string;
     mlsId?: string;
     address: string;
+    zipCode?: string;
     latitude?: number;
     longitude?: number;
     bedrooms?: number;
@@ -129,6 +130,45 @@ function toDateSafe(val: any): Date | null {
     return null;
 }
 
+// ─── Subject Property Cache ───────────────────────────────────────────────────
+
+// After fetching property details from the API, persist to Firestore so subsequent
+// runs skip the API call entirely. Active listings → `properties`, sold/unlisted →
+// `sold_or_unlisted_properties`.
+function cacheSubjectPropertyDetail(zpid: string, detail: any, subjectData: any) {
+    const status: string = (detail.homeStatus || detail.listingStatus || '').toUpperCase();
+    const isSoldOrUnlisted = status.includes('SOLD') || status.includes('OFF_MARKET') || status.includes('UNLISTED');
+    const collection = isSoldOrUnlisted ? 'sold_or_unlisted_properties' : 'properties';
+
+    const payload: any = {
+        zpid,
+        address: subjectData.address,
+        zipCode: subjectData.zipCode ?? null,
+        bedrooms: subjectData.bedrooms ?? null,
+        bathrooms: subjectData.bathrooms ?? null,
+        livingAreaValue: subjectData.squareFootage ?? null,
+        lotSize: subjectData.lotSize ?? null,
+        yearBuilt: subjectData.yearBuilt ?? null,
+        homeType: subjectData.homeType ?? null,
+        listPrice: subjectData.listPrice ?? null,
+        zestimate: subjectData.zestimate ?? null,
+        mlsId: subjectData.mlsId ?? null,
+        homeStatus: detail.homeStatus ?? null,
+        description: detail.description ?? detail.homeDescription ?? null,
+        resoFacts: detail.resoFacts ?? null,
+        cachedAt: Timestamp.now(),
+        source: 'subject_fetch',
+    };
+    if (isSoldOrUnlisted) {
+        payload.lastSalePrice = detail.lastSoldPrice ?? detail.lastSalePrice ?? null;
+        payload.lastSaleDate = detail.lastSoldDate ?? detail.lastSaleDate ?? null;
+    }
+
+    setDoc(doc(db, collection, zpid), payload, { merge: true }).catch((e: any) =>
+        console.warn(`[CompService] Failed to cache subject property ${zpid}:`, e.message)
+    );
+}
+
 // ─── Master Pipeline ─────────────────────────────────────────────────────────
 
 export async function findComps(
@@ -226,6 +266,7 @@ export async function findComps(
                     subjectData.zestimate = subjectData.zestimate ?? detail.zestimate;
                     subjectData.mlsId = subjectData.mlsId ?? detail.mlsid ?? detail.mlsId;
                     fetchedFromApi = true;
+                    cacheSubjectPropertyDetail(subjectData.zpid, detail, subjectData);
                 }
             }
         } catch (e: any) {
@@ -273,6 +314,7 @@ export async function findComps(
                     subjectData.listPrice = subjectData.listPrice ?? detail.price ?? detail.listPrice;
                     subjectData.zestimate = subjectData.zestimate ?? detail.zestimate;
                     subjectData.mlsId = subjectData.mlsId ?? detail.mlsid ?? detail.mlsId;
+                    cacheSubjectPropertyDetail(subjectData.zpid, detail, subjectData);
                 }
             } catch (e: any) {
                 console.warn('[CompService] Live ZPID details query failed:', e.message);
