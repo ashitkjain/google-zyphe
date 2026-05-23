@@ -915,6 +915,7 @@ function getTemplateTypeForSpace(spaceLabel) {
   if (label === 'Bathroom') return 'BATHROOM';
   if (label === 'Entryway') return 'ENTRYWAY';
   if (label === 'Floor Plan') return 'FLOOR_PLAN';
+  if (label === 'Other') return 'OTHER';
   return 'INTERIOR';
 }
 
@@ -927,7 +928,7 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
   const KNOWN_TEMPLATE_TYPES = new Set([
     'ALL', 'INTERIOR', 'EXTERIOR', 'COMMUNITY', 'BACKYARD', 'AERIAL',
     'KITCHEN', 'LIVING_ROOM', 'DINING_ROOM',
-    'BEDROOM', 'BATHROOM', 'ENTRYWAY', 'FRONT_YARD', 'FLOOR_PLAN',
+    'BEDROOM', 'BATHROOM', 'ENTRYWAY', 'FRONT_YARD', 'FLOOR_PLAN', 'OTHER',
   ]);
   let resolvedType = templateType;
   if (templateType && !KNOWN_TEMPLATE_TYPES.has(templateType)) {
@@ -970,6 +971,7 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
     : resolvedType === 'ENTRYWAY' ? 'photo-analysis.entryway.txt'
     : resolvedType === 'FRONT_YARD' ? 'photo-analysis.frontyard.txt'
     : resolvedType === 'FLOOR_PLAN' ? 'photo-analysis.floorplan.txt'
+    : resolvedType === 'OTHER' ? 'photo-analysis.other.txt'
     : 'photo-analysis.txt';
 
   let promptTemplate = null;
@@ -1052,6 +1054,22 @@ async function buildPrompt(imageUrl, imageIndex, hasMultipleViews = false, templ
       'Features: [equipment, surfaces, surroundings]',
       'Condition: [observed condition]',
       'Description: [3-4 sentences]',
+    ].join('\n'),
+    OTHER: [
+      'You are a real estate photo analyst. This photo has been classified as an OTHER/DATA/DOCUMENT space. Fill in the template below and OUTPUT NOTHING ELSE.',
+      '',
+      'RULES:',
+      '1. Start directly with "Space:" and output ONLY the filled fields. No intro, no closing remarks.',
+      '2. Each field is a short phrase (under 8 words). The "Description" field is a 3-4 sentence comprehensive summary of the information, data, charts, metrics, or content presented in the photo.',
+      '3. Describe and summarize only the actual information present in THIS photo. Do not invent details and do not copy phrasing from the bracketed field guidance.',
+      '',
+      'Space: Other',
+      'Style: Document / Infographic / Chart / Map / Text',
+      'Colors & Materials: Not visible',
+      'Lighting: Not visible',
+      'View: Not visible',
+      'Condition: Not visible',
+      'Description: [3-4 sentences summarizing the content, charts, maps, or data presented in the image]',
     ].join('\n'),
   };
 
@@ -1512,6 +1530,7 @@ const ROOM_VOCABULARY = [
   'Community Park',
   'Floor Plan',
   'Aerial View',
+  'Other',
 ];
 
 // Aliases route subdivision-level words into their parent vocabulary bucket.
@@ -1637,17 +1656,18 @@ function parseClassificationResponse(text, idx) {
   if (label === 'Entryway') type = 'ENTRYWAY';
   if (label === 'Front Yard') type = 'FRONT_YARD';
   if (label === 'Floor Plan') type = 'FLOOR_PLAN';
+  if (label === 'Other') type = 'OTHER';
 
   return { label, type };
 }
 
-// Phase 2 of the batch pipeline: classify one photo into its category (type)
-// and specific space label using a short, non-streaming LLM call.
 const CLASSIFY_PROMPT = `Look at this real estate photo. Reply in this exact format:
 Type: [Interior, Exterior, or Community]
-Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Entryway, Hallway, Staircase, Basement, Front Yard, Backyard, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View]
+Space: [EXACTLY ONE label from this list: Bedroom, Kitchen, Living Room, Dining Room, Bathroom, Office, Laundry Room, Entryway, Hallway, Staircase, Basement, Front Yard, Backyard, Sports Court, Fitness Center, Clubhouse, Community Park, Floor Plan, Aerial View, Other]
 
-Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.`;
+Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.
+
+Use "Space: Other" for any photo of a document, screenshot, chart, graph, table, map, text report, infographic, or neighborhood metrics graphic rather than a physical room or building.`;
 
 async function classifyPhotoSpace(idx, dataUrl, signal) {
   try {
@@ -2106,7 +2126,7 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
       const body = {
         contents: [{ parts }],
         systemInstruction: { parts: [{ text: 'You are a real estate photo analyst. Fill in ALL fields of EXACTLY ONE matching template. Stop immediately after the final "Description:" field. Never start a second template.' }] },
-        generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2500 },
       };
       const resp = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${geminiApiKey}`,

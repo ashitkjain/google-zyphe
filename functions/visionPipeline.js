@@ -51,7 +51,7 @@ const ROOM_VOCABULARY = [
     "Bedroom", "Kitchen", "Living Room", "Dining Room", "Bathroom",
     "Office", "Entryway",
     "Front Yard", "Backyard",
-    "Floor Plan", "Aerial View",
+    "Floor Plan", "Aerial View", "Other",
 ];
 const ANALYZE_LABELS = new Set(ROOM_VOCABULARY);
 
@@ -87,9 +87,11 @@ Space: [EXACTLY ONE label from this list: ${ROOM_VOCABULARY.join(", ")}]
 
 Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's-eye shot showing multiple rooftops or streets.
 
+Use "Space: Other" for any photo of a document, screenshot, chart, graph, table, map, text report, infographic, or neighborhood metrics graphic rather than a physical room or building.
+
 CRITICAL — "Front Yard" vs "Backyard" disambiguation:
 - "Front Yard" REQUIRES at least one of: (a) the front facade of the house with the main entry door visible, (b) a street-facing approach, walkway, or driveway leading TO that entry, or (c) a curb-side view of the property from the street. Garage doors and motor courts count.
-- DEFAULT TO "Backyard" for any other outdoor shot of the property: side yards, garden paths, standalone pergolas/gazebos/arbors, pool areas, decks, patios, hillside trails, landscaped paths, fire pits, lawns without a visible house front, garden gates, retaining walls.
+- DEFAULT TO "Backyard" for any other outdoor shot of the property: side yards, garden paths, standalone perks/gazebos/arbors, pool areas, decks, patios, hillside trails, landscaped paths, fire pits, lawns without a visible house front, garden gates, retaining walls.
 - If you can't see the house front AND can't see a clear street-facing driveway/walkway, it is NOT Front Yard.
 - A photo of just landscaping, a path, or a decorative gate without the house facade is "Backyard", not "Front Yard".
 
@@ -109,6 +111,7 @@ function promptFileForLabel(label) {
     case "Backyard": return "photo-analysis.backyard.txt";
     case "Aerial View": return "photo-analysis.aerial.txt";
     case "Floor Plan": return "photo-analysis.floorplan.txt";
+    case "Other": return "photo-analysis.other.txt";
     default:
         return "photo-analysis.interior.txt";
     }
