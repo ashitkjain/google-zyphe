@@ -77,6 +77,7 @@ export interface FindCompsOptions {
     onProgress?: (step: string) => void;
     userId?: string;
     skipGemini?: boolean;
+    skipLandUtility?: boolean;
 }
 
 export interface CompAnalysisResult {
@@ -139,7 +140,8 @@ export async function findComps(
         useZipCache = false,
         onProgress = () => {},
         userId = 'unknown',
-        skipGemini = false
+        skipGemini = false,
+        skipLandUtility = false,
     } = options;
 
     onProgress('Resolving subject property details...');
@@ -195,7 +197,11 @@ export async function findComps(
         }
     }
 
-    // 4. Resolve details directly from live US Housing API using Radar-normalized address
+    // 4. Resolve details via US Housing API or Firestore.
+    // If zpid was already known, check Firestore first — skip API if doc exists.
+    // If zpid was not known, fetch by address (which returns zpid + full data) — skip ZPID call after.
+    let fetchedFromApi = false;
+
     if (!subjectData.zpid) {
         onProgress('Querying subject details via US Housing API by address...');
         try {
@@ -219,6 +225,7 @@ export async function findComps(
                     subjectData.listPrice = subjectData.listPrice ?? detail.price ?? detail.listPrice;
                     subjectData.zestimate = subjectData.zestimate ?? detail.zestimate;
                     subjectData.mlsId = subjectData.mlsId ?? detail.mlsid ?? detail.mlsId;
+                    fetchedFromApi = true;
                 }
             }
         } catch (e: any) {
@@ -244,7 +251,8 @@ export async function findComps(
                 zestimate: subjectData.zestimate ?? d.zestimate,
                 mlsId: subjectData.mlsId ?? d.mlsid ?? d.mlsId,
             };
-        } else {
+        } else if (!fetchedFromApi) {
+            // zpid was provided by caller but property not in Firestore — fetch full details
             onProgress('Querying details via US Housing API by ZPID...');
             try {
                 const config = APP_CONFIG.usHousingApi;
@@ -718,18 +726,20 @@ export async function findComps(
             address: subjectData.address,
             extractResultJson: true,
         }),
-        executeLandUtilityAnalysis(
-            eligibleComps.length,
-            subjectInfoStr,
-            compsListForPrompt,
-            subjectData.zpid,
-            subjectData.address,
-            subjectLat,
-            subjectLng,
-            subjectLot,
-            subjectDescription,
-            subjectTaxSqft
-        )
+        skipLandUtility
+            ? Promise.resolve({ data: null })
+            : executeLandUtilityAnalysis(
+                eligibleComps.length,
+                subjectInfoStr,
+                compsListForPrompt,
+                subjectData.zpid,
+                subjectData.address,
+                subjectLat,
+                subjectLng,
+                subjectLot,
+                subjectDescription,
+                subjectTaxSqft
+            )
     ]);
 
     const normData = normResult.status === 'fulfilled' ? normResult.value.data : null;

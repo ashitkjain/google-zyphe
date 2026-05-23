@@ -3,6 +3,8 @@ import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
 import { APP_CONFIG } from '../../config';
 import { findComps, SubjectProperty } from '../../services/compService';
+import { parsePropertyCsv } from '../../utils/parsePropertyCsv';
+import { runBulkScreening as runBulkScreeningService, BulkScreeningRow, BulkPhaseStatus } from '../../services/bulkScreeningService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -341,6 +343,10 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
     const [searchZpid, setSearchZpid] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
     const [bulkResults, setBulkResults] = useState<Record<string, { zypheValue: number | null, averagePsf: number | null, compsCount: number, error?: string }>>({});
+    const [bulkScreeningRows, setBulkScreeningRows] = useState<BulkScreeningRow[]>([]);
+    const [bulkPhase, setBulkPhase] = useState<number | null>(null);
+    const [bulkPhaseProgress, setBulkPhaseProgress] = useState({ done: 0, total: 0 });
+    const [parsedPage, setParsedPage] = useState(0);
     const [tempBeds, setTempBeds] = useState<number | null>(null);
     const [tempBaths, setTempBaths] = useState<number | null>(null);
     const [tempSqft, setTempSqft] = useState<number | null>(null);
@@ -399,91 +405,25 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                 const text = event.target?.result as string;
                 if (!text) throw new Error('File is empty');
 
-                const parsed = parseCSV(text);
+                const parsed = parsePropertyCsv(text);
                 if (parsed.length === 0) {
                     throw new Error('Could not parse any valid subject properties. Check header columns (address, beds, baths, sqft).');
                 }
 
-                // Parse out top 2
-                const top2 = parsed.slice(0, 2);
-                setParsedSubjectProperties(top2);
-                
-                // Auto-select and run the first one
-                handleSelectSubject(top2[0]);
+                setParsedSubjectProperties(parsed);
+                setBulkScreeningRows([]);
+                setParsedPage(0);
+
+                // For single-property uploads, auto-select and run comps.
+                // For bulk uploads, just show the list — let the user click "Run Bulk Screening".
+                if (parsed.length === 1) {
+                    handleSelectSubject(parsed[0]);
+                }
             } catch (err: any) {
                 setCsvUploadError(err.message || 'Failed to parse CSV');
             }
         };
         reader.readAsText(file);
-    };
-
-    const parseCSV = (text: string): SubjectProperty[] => {
-        const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-        if (lines.length < 2) return [];
-
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
-
-        const findIndex = (keys: string[]) => {
-            return headers.findIndex(h => keys.some(k => h.includes(k)));
-        };
-
-        const addrIdx = findIndex(['address', 'street', 'location']);
-        const bedsIdx = findIndex(['bed', 'bd', 'room']);
-        const bathsIdx = findIndex(['bath', 'ba']);
-        const sqftIdx = findIndex(['sqft', 'sf', 'size', 'square', 'area', 'living']);
-        const lotIdx = findIndex(['lot']);
-        const yearIdx = findIndex(['year', 'built']);
-        const typeIdx = findIndex(['type']);
-        const priceIdx = findIndex(['price', 'list']);
-        const zestIdx = findIndex(['zest', 'zestimate']);
-
-        const results: SubjectProperty[] = [];
-        
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            const row: string[] = [];
-            let inQuotes = false;
-            let current = '';
-            for (let charIdx = 0; charIdx < line.length; charIdx++) {
-                const char = line[charIdx];
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    row.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            row.push(current.trim());
-
-            if (row.length === 0 || !row[0]) continue;
-
-            const getNum = (idx: number) => {
-                if (idx === -1 || idx >= row.length) return undefined;
-                const val = parseFloat(row[idx].replace(/[^0-9.-]/g, ''));
-                return isNaN(val) ? undefined : val;
-            };
-
-            const getStr = (idx: number) => {
-                if (idx === -1 || idx >= row.length) return undefined;
-                return row[idx].replace(/^"|"$/g, '') || undefined;
-            };
-
-            results.push({
-                address: getStr(addrIdx) || row[0] || 'Unknown Address',
-                bedrooms: getNum(bedsIdx),
-                bathrooms: getNum(bathsIdx),
-                squareFootage: getNum(sqftIdx),
-                lotSize: getNum(lotIdx),
-                yearBuilt: getNum(yearIdx),
-                homeType: getStr(typeIdx),
-                listPrice: getNum(priceIdx),
-                zestimate: getNum(zestIdx),
-            });
-        }
-
-        return results;
     };
 
     const handleSelectSubject = (subj: SubjectProperty) => {
@@ -495,56 +435,40 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         fetchComps(subj.address);
     };
 
-    const runBulkValuation = async () => {
+    const runBulkScreening = async () => {
         if (parsedSubjectProperties.length === 0) return;
         setBulkLoading(true);
         setBulkResults({});
-        
-        const newResults: Record<string, any> = {};
-        
-        for (const subj of parsedSubjectProperties) {
-            try {
-                const res = await findComps(subj, {
-                    forceRefresh: false,
-                    useZipCache: true,
-                    skipGemini: true,
-                    onProgress: (step) => {
-                        console.log(`[Bulk progress - ${subj.address}] ${step}`);
-                    }
-                });
-                
-                const subjectSqftLocal = subj.squareFootage || res.subjectProperty?.squareFootage || 0;
-                
-                let zypheValue: number | null = null;
-                let avgAdjPsf: number | null = null;
-                
-                const eligible = (res.rawComps || [])
-                    .filter(c => !c.isOutlier && !c.priceUnverified && c.adjustedPrice && c.squareFootage && c.squareFootage > 0)
-                    .sort((a, b) => (a.tier ?? 4) - (b.tier ?? 4) || (a.distance ?? 99) - (b.distance ?? 99))
-                    .slice(0, 3);
-                    
-                if (eligible.length > 0 && subjectSqftLocal > 0) {
-                    avgAdjPsf = eligible.reduce((s, c) => s + (c.adjustedPrice! / c.squareFootage!), 0) / eligible.length;
-                    zypheValue = Math.round(avgAdjPsf * subjectSqftLocal);
-                }
-                
-                newResults[subj.address] = {
-                    zypheValue,
-                    averagePsf: avgAdjPsf,
-                    compsCount: res.rawComps?.length || 0,
-                };
-            } catch (err: any) {
-                newResults[subj.address] = {
-                    zypheValue: null,
-                    averagePsf: null,
-                    compsCount: 0,
-                    error: err.message || 'Valuation failed'
-                };
-            }
+        setBulkScreeningRows(parsedSubjectProperties.map(s => ({
+            address: s.address,
+            listPrice: s.listPrice ?? null,
+            sqft: s.squareFootage ?? null,
+            rawMarketValue: null,
+            geminiMarketValue: null,
+            discountDollars: null,
+            discountPct: null,
+            compsCount: 0,
+            phase: 'pending' as BulkPhaseStatus,
+        })));
+
+        try {
+            const result = await runBulkScreeningService(parsedSubjectProperties, {
+                onProgress: (msg) => {
+                    console.log(`[BulkScreening] ${msg}`);
+                    // Infer phase from message prefix for progress bar
+                    if (msg.startsWith('Phase 0')) setBulkPhase(0);
+                    else if (msg.startsWith('Phase 1')) setBulkPhase(1);
+                    else if (msg.startsWith('Phase 2')) setBulkPhase(2);
+                    const m = msg.match(/(\d+)\/(\d+)/);
+                    if (m) setBulkPhaseProgress({ done: Number(m[1]), total: Number(m[2]) });
+                    setBulkScreeningRows(r => [...r]); // trigger re-render
+                },
+            });
+            setBulkScreeningRows(result.rows);
+        } finally {
+            setBulkPhase(null);
+            setBulkLoading(false);
         }
-        
-        setBulkResults(newResults);
-        setBulkLoading(false);
     };
 
     const handleManualAddressSearch = (e: React.FormEvent) => {
@@ -833,11 +757,12 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
         return { calls, totalCost, totalCalls, cacheEfficiency };
     }, [activeSubject, activeAddress, saleComps, compAnalysisResult, compAnalysisLoading]);
 
-    // Auto-trigger comp analysis when comps are loaded and no cached result
+    // Auto-trigger comp analysis when comps are loaded and no cached result.
+    // Suppressed in bulk mode — user controls analysis via "Run Bulk Screening".
     useEffect(() => {
+        if (parsedSubjectProperties.length > 1) return;
         if (saleComps.length > 0 && !compAnalysisResult && !compAnalysisLoading && !compAnalysisError) {
             console.log('[CompAnalysis] Auto-triggering — no cached result, comps available');
-            // Small delay to let the cache load finish first
             const timer = setTimeout(() => {
                 if (!compAnalysisResult) {
                     runCompAnalysis(saleComps);
@@ -845,7 +770,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
             }, 1500);
             return () => clearTimeout(timer);
         }
-    }, [saleComps.length, compAnalysisResult, compAnalysisLoading]);
+    }, [saleComps.length, compAnalysisResult, compAnalysisLoading, parsedSubjectProperties.length]);
 
     // ── Apply all filters ────────────────────────────────────────────────
     const fullyFiltered = (() => {
@@ -1007,7 +932,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                 Dynamic Subject Property CSV Parser
                             </h3>
                             <p className="text-[11px] text-slate-400 font-semibold mt-1">
-                                Upload a CSV containing property profiles. We will parse the top 2 properties for direct comps analysis.
+                                Upload a CSV (up to 400 properties). 3-phase screening finds undervalued listings fast — Phase 0 filters by Zestimate, Phase 1 runs parallel raw comps, Phase 2 runs Gemini only on candidates.
                             </p>
                         </div>
 
@@ -1037,23 +962,26 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                     <div className="space-y-2 pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Parsed Properties (Top 2 selected)
+                                {parsedSubjectProperties.length} Properties Parsed
                             </span>
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={runBulkValuation}
+                                    onClick={runBulkScreening}
                                     disabled={bulkLoading || parsedSubjectProperties.length === 0}
                                     className="text-[9px] font-black text-teal-600 hover:text-teal-800 disabled:text-slate-400 uppercase tracking-widest transition-colors flex items-center gap-1"
                                 >
                                     {bulkLoading ? (
                                         <>
                                             <i className="fa-solid fa-spinner animate-spin" />
-                                            Running Bulk Valuations...
+                                            {bulkPhase === 0 && `Phase 0: Pre-filtering... (${bulkPhaseProgress.done}/${bulkPhaseProgress.total})`}
+                                            {bulkPhase === 1 && `Phase 1: Raw comps... (${bulkPhaseProgress.done}/${bulkPhaseProgress.total})`}
+                                            {bulkPhase === 2 && `Phase 2: Gemini AI... (${bulkPhaseProgress.done}/${bulkPhaseProgress.total})`}
+                                            {bulkPhase === null && 'Processing...'}
                                         </>
                                     ) : (
                                         <>
                                             <i className="fa-solid fa-play mr-1" />
-                                            Run Bulk Valuation (Fast Mode)
+                                            Run Bulk Screening ({parsedSubjectProperties.length} properties)
                                         </>
                                     )}
                                 </button>
@@ -1066,6 +994,9 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                                         setCompAnalysisResult(null);
                                         setCompAnalysisError(null);
                                         setBulkResults({});
+                                        setBulkScreeningRows([]);
+                                        setBulkPhase(null);
+                                        setParsedPage(0);
                                         fetchComps(initialAddress);
                                     }}
                                     className="text-[9px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-widest transition-colors"
@@ -1076,87 +1007,200 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {parsedSubjectProperties.map((subj, idx) => {
-                                const isActive = activeSubject?.address === subj.address;
-                                return (
-                                    <div
-                                        key={idx}
-                                        onClick={() => handleSelectSubject(subj)}
-                                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                            isActive
-                                                ? 'border-teal-500 bg-gradient-to-br from-teal-50/50 to-emerald-50/50 shadow-sm animate-pulse'
-                                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                        }`}
-                                        style={{ animationDuration: '2.5s' }}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                                                    <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-black text-white ${isActive ? 'bg-teal-500' : 'bg-slate-300'}`}>
-                                                        {idx + 1}
-                                                    </span>
-                                                    Property Specs
-                                                </div>
-                                                <div className="text-[12px] font-black text-slate-800 truncate leading-snug">
-                                                    {subj.address}
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500 font-bold flex-wrap">
-                                                    <span>{subj.bedrooms ?? '—'} bd · {subj.bathrooms ?? '—'} ba</span>
-                                                    <span>{subj.squareFootage ? `${subj.squareFootage.toLocaleString()} sf` : '—'}</span>
-                                                    {subj.listPrice && <span>${subj.listPrice.toLocaleString()}</span>}
-                                                    {subj.homeType && <span>{subj.homeType}</span>}
-                                                </div>
-
-                                                {(() => {
-                                                    const res = bulkResults[subj.address];
-                                                    if (!res) return null;
-                                                    if (res.error) {
-                                                        return (
-                                                            <div className="mt-2 text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 rounded px-1.5 py-0.5 w-fit uppercase">
-                                                                ⚠️ {res.error}
-                                                            </div>
-                                                        );
-                                                    }
-                                                    const delta = subj.listPrice && res.zypheValue
-                                                        ? ((res.zypheValue - subj.listPrice) / subj.listPrice * 100)
-                                                        : null;
+                        {/* Parsed properties table — paginated 50/page */}
+                        {(() => {
+                            const PAGE_SIZE = 50;
+                            const totalPages = Math.ceil(parsedSubjectProperties.length / PAGE_SIZE);
+                            const pageProps = parsedSubjectProperties.slice(parsedPage * PAGE_SIZE, (parsedPage + 1) * PAGE_SIZE);
+                            return (
+                                <div className="space-y-2">
+                                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                                        <table className="w-full text-[10px]">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200">
+                                                    <th className="text-left px-3 py-2 font-black text-slate-500 uppercase tracking-widest w-8">#</th>
+                                                    <th className="text-left px-3 py-2 font-black text-slate-500 uppercase tracking-widest">MLS ID</th>
+                                                    <th className="text-left px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Address</th>
+                                                    <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">List Price</th>
+                                                    <th className="text-center px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Bd</th>
+                                                    <th className="text-center px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Ba</th>
+                                                    <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Sq Ft</th>
+                                                    <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Lot Sf</th>
+                                                    <th className="text-center px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Yr Built</th>
+                                                    <th className="text-left px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Type</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {pageProps.map((subj, i) => {
+                                                    const globalIdx = parsedPage * PAGE_SIZE + i;
                                                     return (
-                                                        <div className="mt-2.5 flex items-center gap-3 border-t border-slate-100/60 pt-2 flex-wrap">
-                                                            <div>
-                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Zyphe Valuation</span>
-                                                                <span className="text-[12px] font-black text-teal-600">{res.zypheValue ? `$${res.zypheValue.toLocaleString()}` : '—'}</span>
-                                                            </div>
-                                                            {res.averagePsf != null && (
-                                                                <div>
-                                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Avg $/sf</span>
-                                                                    <span className="text-[11px] font-black text-slate-700">${Math.round(res.averagePsf)}/sf</span>
-                                                                </div>
-                                                            )}
-                                                            {delta != null && (
-                                                                <div>
-                                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Delta vs List</span>
-                                                                    <span className={`text-[11px] font-black ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                        {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        <tr
+                                                            key={globalIdx}
+                                                            onClick={() => handleSelectSubject(subj)}
+                                                            className="border-b border-slate-100 cursor-pointer hover:bg-indigo-50/40 transition-colors"
+                                                        >
+                                                            <td className="px-3 py-2 text-slate-400 font-bold">{globalIdx + 1}</td>
+                                                            <td className="px-3 py-2 font-mono text-slate-500 text-[9px]">{(subj as any).mlsId ?? '—'}</td>
+                                                            <td className="px-3 py-2 font-semibold text-slate-800 max-w-[220px] truncate">{subj.address}</td>
+                                                            <td className="px-3 py-2 text-right font-black text-slate-700">{subj.listPrice ? `$${subj.listPrice.toLocaleString()}` : '—'}</td>
+                                                            <td className="px-3 py-2 text-center text-slate-600 font-bold">{subj.bedrooms ?? '—'}</td>
+                                                            <td className="px-3 py-2 text-center text-slate-600 font-bold">{subj.bathrooms ?? '—'}</td>
+                                                            <td className="px-3 py-2 text-right text-slate-600 font-bold">{subj.squareFootage?.toLocaleString() ?? '—'}</td>
+                                                            <td className="px-3 py-2 text-right text-slate-600 font-bold">{subj.lotSize?.toLocaleString() ?? '—'}</td>
+                                                            <td className="px-3 py-2 text-center text-slate-500 font-bold">{subj.yearBuilt ?? '—'}</td>
+                                                            <td className="px-3 py-2 text-slate-500 font-semibold text-[9px] whitespace-nowrap">{subj.homeType ?? '—'}</td>
+                                                        </tr>
                                                     );
-                                                })()}
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {totalPages > 1 && (
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                                                Page {parsedPage + 1} of {totalPages} · {parsedSubjectProperties.length} properties
+                                            </span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setParsedPage(p => Math.max(0, p - 1))}
+                                                    disabled={parsedPage === 0}
+                                                    className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                >
+                                                    <i className="fa-solid fa-chevron-left" />
+                                                </button>
+                                                {Array.from({ length: totalPages }, (_, i) => i)
+                                                    .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - parsedPage) <= 1)
+                                                    .reduce<(number | '…')[]>((acc, i, idx, arr) => {
+                                                        if (idx > 0 && (i as number) - (arr[idx - 1] as number) > 1) acc.push('…');
+                                                        acc.push(i);
+                                                        return acc;
+                                                    }, [])
+                                                    .map((item, i) => item === '…' ? (
+                                                        <span key={`ellipsis-${i}`} className="px-1 text-[9px] text-slate-400">…</span>
+                                                    ) : (
+                                                        <button
+                                                            key={item}
+                                                            onClick={() => setParsedPage(item as number)}
+                                                            className={`w-6 h-6 rounded-lg text-[9px] font-black transition-all ${parsedPage === item ? 'bg-indigo-600 text-white' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                                        >
+                                                            {(item as number) + 1}
+                                                        </button>
+                                                    ))}
+                                                <button
+                                                    onClick={() => setParsedPage(p => Math.min(totalPages - 1, p + 1))}
+                                                    disabled={parsedPage === totalPages - 1}
+                                                    className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                >
+                                                    <i className="fa-solid fa-chevron-right" />
+                                                </button>
                                             </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
-                                            {isActive && (
-                                                <div className="flex-shrink-0 text-teal-600 bg-teal-100/80 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
-                                                    <i className="fa-solid fa-circle-check text-[10px]" />
-                                                    Active
-                                                </div>
-                                            )}
+                        {/* ── Bulk Screening Results Table ─────────────────────── */}
+                        {bulkScreeningRows.length > 0 && (
+                            <div className="pt-3 border-t border-slate-100 space-y-3">
+                                {/* Phase progress banner */}
+                                {bulkLoading && (
+                                    <div className="flex items-center gap-3 py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100">
+                                        <i className="fa-solid fa-spinner animate-spin text-indigo-500 text-xs" />
+                                        <div className="flex-1">
+                                            <div className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">
+                                                {bulkPhase === 0 && 'Phase 0 — Instant Zestimate Filter'}
+                                                {bulkPhase === 1 && 'Phase 1 — Parallel Raw Comps (No Gemini)'}
+                                                {bulkPhase === 2 && 'Phase 2 — Gemini AI on Undervalued Candidates'}
+                                            </div>
+                                            <div className="mt-1 h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                                                    style={{ width: `${bulkPhaseProgress.total > 0 ? Math.round((bulkPhaseProgress.done / bulkPhaseProgress.total) * 100) : 0}%` }}
+                                                />
+                                            </div>
+                                            <div className="text-[9px] text-indigo-500 font-bold mt-0.5">{bulkPhaseProgress.done} / {bulkPhaseProgress.total}</div>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                )}
+
+                                {/* Summary chips */}
+                                {!bulkLoading && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {[
+                                            { label: 'Total', count: bulkScreeningRows.length, color: 'bg-slate-100 text-slate-600' },
+                                            { label: 'Confirmed deals', count: bulkScreeningRows.filter(r => r.phase === 'confirmed').length, color: 'bg-emerald-100 text-emerald-700' },
+                                            { label: 'Candidates', count: bulkScreeningRows.filter(r => r.phase === 'candidate').length, color: 'bg-amber-100 text-amber-700' },
+                                            { label: 'Filtered out', count: bulkScreeningRows.filter(r => r.phase === 'skipped_p0' || r.phase === 'skipped_p1').length, color: 'bg-slate-100 text-slate-400' },
+                                            { label: 'Errors', count: bulkScreeningRows.filter(r => r.phase === 'error').length, color: 'bg-rose-100 text-rose-600' },
+                                        ].map(chip => chip.count > 0 && (
+                                            <span key={chip.label} className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${chip.color}`}>
+                                                {chip.count} {chip.label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Results table — confirmed deals first, then candidates, then filtered */}
+                                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                                    <table className="w-full text-[10px]">
+                                        <thead>
+                                            <tr className="bg-slate-50 border-b border-slate-200">
+                                                <th className="text-left px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Address</th>
+                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">List Price</th>
+                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Market Value</th>
+                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Discount $</th>
+                                                <th className="text-right px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Discount %</th>
+                                                <th className="text-center px-3 py-2 font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {[...bulkScreeningRows]
+                                                .sort((a, b) => {
+                                                    const order: Record<BulkPhaseStatus, number> = { confirmed: 0, candidate: 1, pending: 2, skipped_p1: 3, skipped_p0: 4, error: 5 };
+                                                    if (order[a.phase] !== order[b.phase]) return order[a.phase] - order[b.phase];
+                                                    return (b.discountPct ?? -99) - (a.discountPct ?? -99);
+                                                })
+                                                .map((row, idx) => {
+                                                    const isGoodDeal = (row.phase === 'confirmed' || row.phase === 'candidate') && (row.discountPct ?? 0) >= 10;
+                                                    const marketValue = row.geminiMarketValue ?? row.rawMarketValue;
+                                                    return (
+                                                        <tr
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                const subj = parsedSubjectProperties.find(s => s.address === row.address);
+                                                                if (subj) handleSelectSubject(subj);
+                                                            }}
+                                                            className={`border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${isGoodDeal ? 'bg-emerald-50/40' : ''}`}
+                                                        >
+                                                            <td className="px-3 py-2.5 font-semibold text-slate-700 max-w-[200px] truncate">{row.address}</td>
+                                                            <td className="px-3 py-2.5 text-right font-bold text-slate-700">{row.listPrice ? `$${(row.listPrice / 1000).toFixed(0)}K` : '—'}</td>
+                                                            <td className="px-3 py-2.5 text-right font-bold text-slate-700">
+                                                                {marketValue ? `$${(marketValue / 1000).toFixed(0)}K` : '—'}
+                                                                {row.geminiMarketValue && <span className="ml-1 text-[8px] text-violet-500 font-black">AI</span>}
+                                                            </td>
+                                                            <td className={`px-3 py-2.5 text-right font-black ${(row.discountDollars ?? 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                                {row.discountDollars != null ? `${row.discountDollars > 0 ? '+' : ''}$${Math.abs(row.discountDollars / 1000).toFixed(0)}K` : '—'}
+                                                            </td>
+                                                            <td className={`px-3 py-2.5 text-right font-black ${(row.discountPct ?? 0) >= 10 ? 'text-emerald-600' : (row.discountPct ?? 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                                {row.discountPct != null ? `${row.discountPct > 0 ? '+' : ''}${row.discountPct.toFixed(1)}%` : '—'}
+                                                            </td>
+                                                            <td className="px-3 py-2.5 text-center">
+                                                                {row.phase === 'confirmed' && <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-700 font-black text-[8px] uppercase">Deal</span>}
+                                                                {row.phase === 'candidate' && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black text-[8px] uppercase">Candidate</span>}
+                                                                {row.phase === 'skipped_p1' && <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-400 font-black text-[8px] uppercase">At Market</span>}
+                                                                {row.phase === 'skipped_p0' && <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-400 font-black text-[8px] uppercase">Zestimate OK</span>}
+                                                                {row.phase === 'pending' && <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-400 font-black text-[8px] uppercase">Pending</span>}
+                                                                {row.phase === 'error' && <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-600 font-black text-[8px] uppercase" title={row.error}>Error</span>}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
