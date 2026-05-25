@@ -5,15 +5,19 @@
  *   Step Timings · AI Matching Loading State · AI Match Results
  *   Gallery View · Table View · Map View · AI Verdict View · Pagination
  */
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import PropertyCard from './PropertyCard';
 import PropertyMapView from './PropertyMapView';
 import {
   ScoreRing, FitBar, FitRadar, scoreColor, scoreGrade,
   deriveRadarData, fmtPrice, RADAR_AXES,
 } from './StoryResultsShared';
-import { CityPropertySummary } from '../../services/firebase/properties';
+import { CityPropertySummary, saveVisualAnalysisToCloud } from '../../services/firebase/properties';
 import { getDaysOnMarket } from '../../utils/property.ts';
+import { analyzePropertyImages } from '../../services/geminiService';
+import { loadMLSPhotos } from '../../services/realEstateApiPhotos';
+import { getAuth } from 'firebase/auth';
+import type { PropertyData } from '../../types';
 
 const getNeighborhoodName = (neighborhood: any): string | null => {
     if (!neighborhood) return null;
@@ -834,6 +838,76 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
     onPropertyClick,
     onLeadCapture,
 }) => {
+  const [selectedZpids, setSelectedZpids] = useState<Set<string>>(new Set());
+  const [visionProgress, setVisionProgress] = useState<{
+    running: boolean;
+    done: number;
+    total: number;
+    current: string;
+    errors: string[];
+  } | null>(null);
+
+  const toggleSelect = useCallback((zpid: string) => {
+    setSelectedZpids(prev => {
+      const next = new Set(prev);
+      next.has(zpid) ? next.delete(zpid) : next.add(zpid);
+      return next;
+    });
+  }, []);
+
+  const allPageSelected = pageItems.length > 0 && pageItems.every(p => selectedZpids.has(p.zpid));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedZpids(prev => {
+      const next = new Set(prev);
+      if (pageItems.every(p => prev.has(p.zpid))) {
+        pageItems.forEach(p => next.delete(p.zpid));
+      } else {
+        pageItems.forEach(p => next.add(p.zpid));
+      }
+      return next;
+    });
+  }, [pageItems]);
+
+  const runVisionAnalysis = useCallback(async () => {
+    const targets = pageItems.filter(p => selectedZpids.has(p.zpid));
+    if (!targets.length) return;
+    const userId = getAuth().currentUser?.uid ?? 'unknown';
+    setVisionProgress({ running: true, done: 0, total: targets.length, current: '', errors: [] });
+
+    for (const prop of targets) {
+      setVisionProgress(prev => prev && { ...prev, current: prop.address });
+      try {
+        const photos = await loadMLSPhotos(prop.address);
+        if (!photos.length) throw new Error('No photos found');
+
+        const propertyData: PropertyData = {
+          zpid: prop.zpid,
+          address: prop.address,
+          price: prop.listPrice,
+          bedrooms: prop.bedrooms,
+          bathrooms: prop.bathrooms,
+          livingAreaValue: prop.livingArea,
+          yearBuilt: prop.yearBuilt,
+          homeType: prop.homeType,
+          homeStatus: prop.homeStatus,
+          city: prop.city,
+          zipcode: prop.zipcode,
+        } as PropertyData;
+
+        const result = await analyzePropertyImages(photos, propertyData, userId);
+        if (result.data) {
+          await saveVisualAnalysisToCloud(prop.zpid, result.data);
+        }
+      } catch (e: any) {
+        setVisionProgress(prev => prev && { ...prev, errors: [...prev.errors, prop.address] });
+      }
+      setVisionProgress(prev => prev && { ...prev, done: prev.done + 1 });
+    }
+
+    setVisionProgress(prev => prev && { ...prev, running: false, current: '' });
+  }, [pageItems, selectedZpids]);
+
   // Sorted by score (for AI verdict)
   const aiSorted = buyerResults
     ? [...displayList].sort((a, b) => {
@@ -1107,12 +1181,53 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '9px 13px',
             background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, marginBottom: 12, fontSize: 11.5,
+            flexWrap: 'wrap' as const,
           }}>
-            <input type="checkbox" style={{ width: 14, height: 14 }} />
-            <span style={{ color: '#6B7280', fontWeight: 600 }}>Select all {displayList.length}</span>
+            <input
+              type="checkbox"
+              style={{ width: 14, height: 14, cursor: 'pointer' }}
+              checked={allPageSelected}
+              onChange={toggleSelectAll}
+            />
+            <span style={{ color: '#6B7280', fontWeight: 600 }}>
+              {selectedZpids.size > 0 ? `${selectedZpids.size} selected` : `Select all ${pageItems.length}`}
+            </span>
             <span style={{ color: '#D1D5DB' }}>|</span>
             <button style={{ background: 'none', border: 'none', color: '#4F46E5', fontWeight: 700, cursor: 'pointer', fontSize: 11.5, padding: 0 }}>Compare selected</button>
             <button style={{ background: 'none', border: 'none', color: '#4F46E5', fontWeight: 700, cursor: 'pointer', fontSize: 11.5, padding: 0 }}>Export CSV</button>
+            {selectedZpids.size > 0 && (
+              <>
+                <span style={{ color: '#D1D5DB' }}>|</span>
+                <button
+                  onClick={runVisionAnalysis}
+                  disabled={visionProgress?.running}
+                  style={{
+                    background: visionProgress?.running ? '#E0E7FF' : '#4F46E5',
+                    border: 'none', color: '#fff', fontWeight: 700, cursor: visionProgress?.running ? 'not-allowed' : 'pointer',
+                    fontSize: 11.5, padding: '4px 10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  {visionProgress?.running ? (
+                    <>
+                      <span className="animate-spin" style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%' }} />
+                      Analyzing {visionProgress.done}/{visionProgress.total}…
+                    </>
+                  ) : `Run Vision Analysis (${selectedZpids.size})`}
+                </button>
+              </>
+            )}
+            {visionProgress && !visionProgress.running && visionProgress.done > 0 && (
+              <span style={{ fontSize: 11, color: visionProgress.errors.length > 0 ? '#D97706' : '#16A34A', fontWeight: 600 }}>
+                {visionProgress.errors.length > 0
+                  ? `Done — ${visionProgress.done - visionProgress.errors.length}/${visionProgress.total} succeeded`
+                  : `Done — ${visionProgress.done} analyzed`}
+              </span>
+            )}
+            {visionProgress?.running && visionProgress.current && (
+              <span style={{ fontSize: 10.5, color: '#6B7280', fontStyle: 'italic' }}>
+                {visionProgress.current}
+              </span>
+            )}
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 10.5, color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.04em' }}>
               Showing {pageItems.length} of {displayList.length}{buyerResults ? ' · sorted by Fit ↓' : ''}
@@ -1123,6 +1238,9 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, -apple-system, sans-serif' }}>
               <thead>
                 <tr>
+                  <th style={{ padding: '11px 8px 11px 14px', background: '#FAFAF9', borderBottom: '2px solid #E5E7EB', width: 32 }}>
+                    <input type="checkbox" style={{ width: 13, height: 13, cursor: 'pointer' }} checked={allPageSelected} onChange={toggleSelectAll} />
+                  </th>
                   {/* Listing (sticky) */}
                   <th style={{
                     padding: '11px 14px', textAlign: 'left', position: 'sticky', left: 0,
@@ -1180,9 +1298,17 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                   const dom = prop.daysOnZillow ?? getDaysOnMarket(prop.listedDate, prop.daysOnZillow) ?? null;
                   const rowBg = isTop ? 'linear-gradient(90deg, rgba(16,185,129,0.04), transparent 35%)' : i % 2 === 0 ? '#fff' : '#FAFAF9';
                   return (
-                    <tr key={prop.zpid} style={{ borderBottom: '1px solid #F3F4F6', background: rowBg }}
+                    <tr key={prop.zpid} style={{ borderBottom: '1px solid #F3F4F6', background: selectedZpids.has(prop.zpid) ? '#EEF2FF' : rowBg }}
                       onMouseEnter={() => match && setHoveredZpid(prop.zpid)}
                       onMouseLeave={() => setHoveredZpid(null)}>
+                      <td style={{ padding: '9px 8px 9px 14px', verticalAlign: 'middle' }}>
+                        <input
+                          type="checkbox"
+                          style={{ width: 13, height: 13, cursor: 'pointer' }}
+                          checked={selectedZpids.has(prop.zpid)}
+                          onChange={() => toggleSelect(prop.zpid)}
+                        />
+                      </td>
                       {/* Sticky: rank + photo + address */}
                       <td style={{ padding: '9px 14px', position: 'sticky', left: 0, background: isTop ? '#F0FDF4' : i % 2 === 0 ? '#fff' : '#FAFAF9', borderRight: '1px solid #F3F4F6', zIndex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>

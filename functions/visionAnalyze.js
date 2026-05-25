@@ -31,9 +31,10 @@ exports.runVisionAnalysisForProperty = functions
         if (!geminiKey) {
             throw new functions.https.HttpsError("failed-precondition", "Gemini API key not configured");
         }
+        const realEstateApiKey = keys.realestateapi_key || process.env.VITE_REALESTATEAPI_KEY || "";
 
         try {
-            const result = await runVisionPipeline(zpid, { db, geminiKey });
+            const result = await runVisionPipeline(zpid, { db, geminiKey, realEstateApiKey });
             return result;
         } catch (e) {
             console.error(`[runVisionAnalysisForProperty] ${zpid}:`, e);

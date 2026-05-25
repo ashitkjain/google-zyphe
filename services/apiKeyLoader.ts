@@ -76,7 +76,10 @@ export async function loadApiKeys(): Promise<void> {
         const foursquare = patch('foursquare', 'foursquare_key');
         if (foursquare) (APP_CONFIG as any).foursquare.key = foursquare;
 
-        const keyCount = [gemini, rapidapi, radar, groq, howloud, rentcast, tomorrow, maps, foursquare]
+        const realestateapi = patch('realestateapi', 'realestateapi_key');
+        if (realestateapi) (APP_CONFIG as any).realEstateApi.key = realestateapi;
+
+        const keyCount = [gemini, rapidapi, radar, groq, howloud, rentcast, tomorrow, maps, foursquare, realestateapi]
             .filter(Boolean).length;
         console.log(`[ApiKeys] Loaded ${keyCount} keys from Firestore`);
 

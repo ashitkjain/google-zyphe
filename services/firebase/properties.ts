@@ -1581,6 +1581,8 @@ export interface PropertyStatusDetails {
     visual?: { timestamp: any };
     comprehensive?: { timestamp: any };
     environmental?: { timestamp: any };
+    realEstateApi?: { timestamp: any };
+    visionExtension?: { timestamp: any };
 }
 
 export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<Record<string, PropertyStatusDetails>> => {
@@ -1723,6 +1725,28 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                 if (envSnap.exists()) {
                     if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
                     canonicalStatuses[zpid].environmental = { timestamp: envSnap.data().lastUpdated || envSnap.data().timestamp };
+                }
+
+                // Vision Extension (Chrome extension data page analysis)
+                const visionExtSnap = await getDoc(doc(db, "properties", zpid, "analysis", "vision_v2"));
+                if (visionExtSnap.exists()) {
+                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                    canonicalStatuses[zpid].visionExtension = { timestamp: visionExtSnap.data().timestamp };
+                }
+
+                // RealEstateAPI cache
+                const propData2 = snapProps.docs.find(d => d.id === zpid)?.data();
+                if (propData2) {
+                    const reapiId = propData2.resoFacts?.mlsid || propData2.address || '';
+                    if (reapiId) {
+                        const reapiCacheKey = reapiId.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 100);
+                        const reapiSnap = await getDoc(doc(db, "realestateapi_cache", reapiCacheKey));
+                        if (reapiSnap.exists()) {
+                            const rd = reapiSnap.data() as any;
+                            if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                            canonicalStatuses[zpid].realEstateApi = { timestamp: rd.fetchedAt };
+                        }
+                    }
                 }
             }));
         }));

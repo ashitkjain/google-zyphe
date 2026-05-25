@@ -32,6 +32,7 @@
         <!-- Engine Mode Tabs -->
         <div class="engine-tabs">
           <button id="tab-gemini" class="tab-btn active">☁️ Gemini (Cloud)</button>
+          <button id="tab-deepseek" class="tab-btn">⚡ DeepSeek V4 Flash</button>
           <button id="tab-webgpu" class="tab-btn">🌐 WebGPU (In-Browser)</button>
           <button id="tab-ollama" class="tab-btn">💻 Ollama (Local Server)</button>
         </div>
@@ -42,6 +43,14 @@
             Uses Gemini 2.5 Flash via the cloud API. Fast, accurate, and handles many photos in parallel. Requires a signed-in account.
           </p>
           <span id="gemini-status-text" class="hint" style="font-size:11px; display: block;"></span>
+        </div>
+
+        <!-- DeepSeek Controls -->
+        <div id="deepseek-controls" hidden>
+          <p class="hint" style="margin-bottom: 8px;">
+            Uses DeepSeek V4 Flash via the cloud API. Fast vision analysis via OpenAI-compatible API. Requires a signed-in account.
+          </p>
+          <span id="deepseek-status-text" class="hint" style="font-size:11px; display: block;"></span>
         </div>
 
         <!-- WebGPU Controls -->

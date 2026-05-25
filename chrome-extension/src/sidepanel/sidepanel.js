@@ -6,8 +6,9 @@ const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_
 
 // ── State ──────────────────────────────────────────────────────────────────
 let engine = null;
-let engineMode = 'gemini'; // 'gemini', 'webgpu', or 'ollama'
+let engineMode = 'gemini'; // 'gemini', 'deepseek', 'webgpu', or 'ollama'
 let geminiApiKey = null;
+let deepseekApiKey = null;
 let ollamaSelectedModel = '';
 let ollamaInstalledModels = []; // cache of /api/tags model names
 let extractedImages = []; // [{ url, width, height, alt }]
@@ -62,10 +63,13 @@ modelSelect.addEventListener('change', () => {
 
 // Engine tab refs
 const tabGemini = document.getElementById('tab-gemini');
+const tabDeepseek = document.getElementById('tab-deepseek');
 const tabWebgpu = document.getElementById('tab-webgpu');
 const tabOllama = document.getElementById('tab-ollama');
 const geminiControls = document.getElementById('gemini-controls');
 const geminiStatusText = document.getElementById('gemini-status-text');
+const deepseekControls = document.getElementById('deepseek-controls');
+const deepseekStatusText = document.getElementById('deepseek-status-text');
 const webgpuControls = document.getElementById('webgpu-controls');
 const ollamaControls = document.getElementById('ollama-controls');
 const ollamaModelSelect = document.getElementById('ollama-model-select');
@@ -75,9 +79,11 @@ const ollamaStatusText = document.getElementById('ollama-status-text');
 async function switchEngineMode(mode) {
   engineMode = mode;
   tabGemini.classList.toggle('active', mode === 'gemini');
+  tabDeepseek.classList.toggle('active', mode === 'deepseek');
   tabWebgpu.classList.toggle('active', mode === 'webgpu');
   tabOllama.classList.toggle('active', mode === 'ollama');
   geminiControls.hidden = mode !== 'gemini';
+  deepseekControls.hidden = mode !== 'deepseek';
   webgpuControls.hidden = mode !== 'webgpu';
   ollamaControls.hidden = mode !== 'ollama';
 
@@ -88,6 +94,14 @@ async function switchEngineMode(mode) {
     } else {
       setBadge('idle', 'Not connected');
       await connectGemini();
+    }
+  } else if (mode === 'deepseek') {
+    loadModelBtn.textContent = 'Connect to DeepSeek';
+    if (deepseekApiKey) {
+      setBadge('ready', 'Ready');
+    } else {
+      setBadge('idle', 'Not connected');
+      await connectDeepSeek();
     }
   } else if (mode === 'webgpu') {
     loadModelBtn.textContent = 'Load Model';
@@ -101,6 +115,7 @@ async function switchEngineMode(mode) {
 }
 
 tabGemini.addEventListener('click', () => switchEngineMode('gemini'));
+tabDeepseek.addEventListener('click', () => switchEngineMode('deepseek'));
 tabWebgpu.addEventListener('click', () => switchEngineMode('webgpu'));
 tabOllama.addEventListener('click', () => switchEngineMode('ollama'));
 
@@ -171,40 +186,50 @@ ollamaModelSelect.addEventListener('change', () => {
 // but has zyphe.ai open in another tab.
 function fetchFirebaseAuth() {
   return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
-      const activeId = activeTabs[0]?.id;
-
-      function tryTab(tabId, onDone) {
-        chrome.tabs.sendMessage(tabId, { type: 'GET_AUTH' }, (resp) => {
-          if (!chrome.runtime.lastError && resp?.auth) {
-            if (!firebaseAuth) {
-              firebaseAuth = resp.auth;
-              updateSaveStatus('auth-ok');
-            }
-          }
-          onDone();
-        });
-      }
-
-      if (activeId) {
-        tryTab(activeId, () => {
-          if (firebaseAuth?.token) { resolve(); return; }
-          // Active tab had no auth — try all other tabs
-          chrome.tabs.query({}, (allTabs) => {
-            const others = allTabs.filter(t => t.id !== activeId);
-            let remaining = others.length;
-            if (remaining === 0) { resolve(); return; }
-            for (const tab of others) {
-              tryTab(tab.id, () => {
-                remaining--;
-                if (remaining === 0) resolve();
-              });
-            }
-          });
-        });
-      } else {
+    chrome.storage.local.get('firebaseAuth', (res) => {
+      if (res?.firebaseAuth?.token) {
+        firebaseAuth = res.firebaseAuth;
+        updateSaveStatus('auth-ok');
         resolve();
+        return;
       }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+        const activeId = activeTabs[0]?.id;
+
+        function tryTab(tabId, onDone) {
+          chrome.tabs.sendMessage(tabId, { type: 'GET_AUTH' }, (resp) => {
+            if (!chrome.runtime.lastError && resp?.auth) {
+              if (!firebaseAuth) {
+                firebaseAuth = resp.auth;
+                chrome.storage.local.set({ firebaseAuth: resp.auth });
+                updateSaveStatus('auth-ok');
+              }
+            }
+            onDone();
+          });
+        }
+
+        if (activeId) {
+          tryTab(activeId, () => {
+            if (firebaseAuth?.token) { resolve(); return; }
+            // Active tab had no auth — try all other tabs
+            chrome.tabs.query({}, (allTabs) => {
+              const others = allTabs.filter(t => t.id !== activeId);
+              let remaining = others.length;
+              if (remaining === 0) { resolve(); return; }
+              for (const tab of others) {
+                tryTab(tab.id, () => {
+                  remaining--;
+                  if (remaining === 0) resolve();
+                });
+              }
+            });
+          });
+        } else {
+          resolve();
+        }
+      });
     });
   });
 }
@@ -234,6 +259,36 @@ async function connectGemini() {
     geminiApiKey = null;
     geminiStatusText.style.color = 'var(--danger)';
     geminiStatusText.textContent = `Failed: ${err.message}`;
+    setBadge('error', 'Not connected');
+    return false;
+  }
+}
+
+async function connectDeepSeek() {
+  deepseekStatusText.style.color = 'var(--text-dim)';
+  deepseekStatusText.textContent = 'Fetching API key from Firestore…';
+  try {
+    if (!firebaseAuth?.token) {
+      deepseekStatusText.textContent = 'Looking for sign-in across open tabs…';
+      await fetchFirebaseAuth();
+    }
+    if (!firebaseAuth?.token) throw new Error('Not signed in — please open zyphe.ai and log in, then click Connect again');
+    const resp = await fetch(`${FIRESTORE_BASE}/app_config/api_keys`, {
+      headers: { 'Authorization': `Bearer ${firebaseAuth.token}` },
+    });
+    if (!resp.ok) throw new Error(`Firestore status ${resp.status}`);
+    const doc = await resp.json();
+    const key = doc.fields?.deepseek_flash_api?.stringValue;
+    if (!key || key.length < 5) throw new Error('deepseek_flash_api missing in app_config/api_keys');
+    deepseekApiKey = key;
+    deepseekStatusText.style.color = 'var(--success)';
+    deepseekStatusText.textContent = 'Connected to DeepSeek API ✓';
+    setBadge('ready', 'Ready');
+    return true;
+  } catch (err) {
+    deepseekApiKey = null;
+    deepseekStatusText.style.color = 'var(--danger)';
+    deepseekStatusText.textContent = `Failed: ${err.message}`;
     setBadge('error', 'Not connected');
     return false;
   }
@@ -290,6 +345,16 @@ function setBadge(state, text) {
 loadModelBtn.addEventListener('click', async () => {
   if (engineMode === 'gemini') {
     const ok = await connectGemini();
+    if (!ok) return;
+    modelSection.querySelector('.card-body').style.opacity = '0.6';
+    scanSection.hidden = false;
+    if (extractedImages.length > 0) analysisSection.hidden = false;
+    updateAnalyzeBtnState();
+    return;
+  }
+
+  if (engineMode === 'deepseek') {
+    const ok = await connectDeepSeek();
     if (!ok) return;
     modelSection.querySelector('.card-body').style.opacity = '0.6';
     scanSection.hidden = false;
@@ -407,6 +472,7 @@ function runScan({ silent = false } = {}) {
       chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_AUTH' }, (authResponse) => {
         if (!chrome.runtime.lastError && authResponse?.auth) {
           firebaseAuth = authResponse.auth;
+          chrome.storage.local.set({ firebaseAuth: authResponse.auth });
           updateSaveStatus('auth-ok');
           // Auto-connect Gemini once auth is available
           if (engineMode === 'gemini' && !geminiApiKey) {
@@ -469,6 +535,14 @@ window.hammingDistance = hammingDistance;
 // real flow sets `currentProperty` from a chrome.runtime.sendMessage
 // response inside the module's closure, which is not reachable from a test.
 window.__zypheSetCurrentProperty = (p) => { currentProperty = p; };
+window.__zypheSetAuth = (auth) => {
+  firebaseAuth = auth;
+  if (auth && typeof chrome !== 'undefined' && chrome?.storage?.local) {
+    chrome.storage.local.set({ firebaseAuth: auth });
+  }
+};
+window.__zypheSetDeepseekApiKey = (key) => { deepseekApiKey = key; };
+window.__zypheSetGeminiApiKey = (key) => { geminiApiKey = key; };
 
 function handleImagesFound(images, zpid) {
   extractedImages = images;
@@ -501,7 +575,7 @@ function handleImagesFound(images, zpid) {
 
 function updateAnalyzeBtnState() {
   const selectedCount = getSelectedIndices().length;
-  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'deepseek' ? !!deepseekApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   analyzeAllBtn.disabled = !isEngineReady || isAnalyzing || extractedImages.length === 0;
   analyzeSelectedBtn.disabled = !isEngineReady || isAnalyzing || selectedCount === 0;
   if (selectedCount > 0) {
@@ -533,7 +607,7 @@ function buildImageCard(img, idx) {
   card.className = 'image-card';
   card.id = `card-${idx}`;
 
-  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'deepseek' ? !!deepseekApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
 
   card.innerHTML = `
     <div class="image-thumb-wrapper">
@@ -1213,7 +1287,7 @@ function renderSkippedSummary(entries) {
 }
 
 async function analyzeImages(indices) {
-  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'deepseek' ? !!deepseekApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   if (!isEngineReady || isAnalyzing || indices.length === 0) return;
 
   isAnalyzing = true;
@@ -1669,6 +1743,40 @@ Use "Type: Exterior" and "Space: Aerial View" for any overhead, drone, or bird's
 
 Use "Space: Other" for any photo of a document, screenshot, chart, graph, table, map, text report, infographic, or neighborhood metrics graphic rather than a physical room or building.`;
 
+async function getVisualDescriptionFromGemini(dataUrl, signal) {
+  if (!geminiApiKey) {
+    try {
+      await connectGemini();
+    } catch (e) {
+      console.warn("Could not connect to Gemini for description:", e);
+    }
+  }
+  if (!geminiApiKey) {
+    return "A real estate photo (visual description unavailable because Gemini key is missing)";
+  }
+  
+  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+  const mimeType = dataUrl.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+  const body = {
+    contents: [{ parts: [
+      { inline_data: { mime_type: mimeType, data: base64 } },
+      { text: "Generate a highly detailed, concise visual description of this real estate photo. Focus on the space type (e.g. kitchen, bedroom, backyard, exterior), the elements present, styling, quality, and any notable visual details. Keep it under 150 words." },
+    ]}],
+    generationConfig: { temperature: 0, maxOutputTokens: 300 },
+  };
+  
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+  );
+  if (!resp.ok) {
+    return "A real estate photo (visual description could not be fetched due to API error)";
+  }
+  const data = await resp.json();
+  const allParts = data.candidates?.[0]?.content?.parts || [];
+  return (allParts.find(p => !p.thought)?.text || '').trim();
+}
+
 async function classifyPhotoSpace(idx, dataUrl, signal) {
   try {
     let text = '';
@@ -1690,6 +1798,22 @@ async function classifyPhotoSpace(idx, dataUrl, signal) {
       const data = await resp.json();
       const allParts = data.candidates?.[0]?.content?.parts || [];
       text = (allParts.find(p => !p.thought)?.text || '').trim();
+    } else if (engineMode === 'deepseek') {
+      const description = await getVisualDescriptionFromGemini(dataUrl, signal);
+      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+        body: JSON.stringify({
+          model: 'deepseek-v4-flash',
+          messages: [{ role: 'user', content: `Here is a detailed visual description of a real estate photo:\n"${description}"\n\nBased on this description, classify the photo space. ${CLASSIFY_PROMPT}` }],
+          max_tokens: 50,
+          temperature: 0,
+        }),
+        signal,
+      });
+      if (!resp.ok) throw new Error(`DeepSeek API status ${resp.status}`);
+      const data = await resp.json();
+      text = (data.choices?.[0]?.message?.content || '').trim();
     } else if (engineMode === 'ollama') {
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
@@ -1896,7 +2020,7 @@ async function analyzeImageGroup_DELETED(indices, prompt, signal, dataUrls) {
 }
 
 async function analyzeMultipleImages(indices) {
-  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
+  const isEngineReady = engineMode === 'gemini' ? !!geminiApiKey : engineMode === 'deepseek' ? !!deepseekApiKey : engineMode === 'ollama' ? !!ollamaSelectedModel : !!engine;
   if (!isEngineReady || isAnalyzing || indices.length === 0) return;
   if (indices.length > 5) {
     alert("Please select at most 5 images for collective analysis to avoid VRAM limits.");
@@ -1982,6 +2106,51 @@ async function analyzeMultipleImages(indices) {
             const parsed = JSON.parse(jsonStr);
             const parts = parsed.candidates?.[0]?.content?.parts || [];
             const delta = parts.find(p => !p.thought)?.text || '';
+            fullText += delta;
+            collectiveResult.textContent = fullText;
+          } catch {}
+        }
+      }
+    } else if (engineMode === 'deepseek') {
+      const descriptions = [];
+      for (let i = 0; i < dataUrls.length; i++) {
+        const desc = await getVisualDescriptionFromGemini(dataUrls[i], signal);
+        descriptions.push(`[Photo ${i + 1} Description]: ${desc}`);
+      }
+      const combinedPrompt = `${userPrompt}\n\nHere are the visual descriptions of the photos to analyze:\n${descriptions.join('\n\n')}`;
+      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+        body: JSON.stringify({
+          model: 'deepseek-v4-flash',
+          messages: [{ role: 'user', content: combinedPrompt }],
+          max_tokens: 800,
+          temperature: 0.1,
+          stream: true,
+        }),
+        signal,
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`DeepSeek API status ${resp.status}: ${errText.slice(0, 200)}`);
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let dsCollectiveBuf = '';
+      while (true) {
+        if (signal.aborted) { reader.cancel(); break; }
+        const { done, value } = await reader.read();
+        if (done) break;
+        dsCollectiveBuf += decoder.decode(value, { stream: true });
+        const lines = dsCollectiveBuf.split('\n');
+        dsCollectiveBuf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed.choices?.[0]?.delta?.content || '';
             fullText += delta;
             collectiveResult.textContent = fullText;
           } catch {}
@@ -2154,6 +2323,54 @@ async function analyzeOneImage(idx, prompt, signal, preloadedDataUrls = null, se
             const parsed = JSON.parse(jsonStr);
             const parts = parsed.candidates?.[0]?.content?.parts || [];
             const delta = parts.find(p => !p.thought)?.text || '';
+            fullText += delta;
+            if (streamTextNode) streamTextNode.data = fullText;
+          } catch {}
+        }
+      }
+    } else if (engineMode === 'deepseek') {
+      const descriptions = [];
+      for (let i = 0; i < imagesPayload.length; i++) {
+        const desc = await getVisualDescriptionFromGemini(imagesPayload[i], signal);
+        descriptions.push(`[Photo ${i + 1} Description]: ${desc}`);
+      }
+      const combinedPrompt = `${prompt}\n\nHere are the visual descriptions of the photos to analyze:\n${descriptions.join('\n\n')}`;
+      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+        body: JSON.stringify({
+          model: 'deepseek-v4-flash',
+          messages: [
+            { role: 'system', content: 'You are a real estate photo analyst. Fill in ALL fields of EXACTLY ONE matching template. Stop immediately after the final "Description:" field. Never start a second template.' },
+            { role: 'user', content: combinedPrompt },
+          ],
+          max_tokens: 2500,
+          temperature: 0.2,
+          stream: true,
+        }),
+        signal,
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`DeepSeek API status ${resp.status}: ${errText.slice(0, 200)}`);
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let dsBuf = '';
+      while (true) {
+        if (signal.aborted) { reader.cancel(); break; }
+        const { done, value } = await reader.read();
+        if (done) break;
+        dsBuf += decoder.decode(value, { stream: true });
+        const lines = dsBuf.split('\n');
+        dsBuf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed.choices?.[0]?.delta?.content || '';
             fullText += delta;
             if (streamTextNode) streamTextNode.data = fullText;
           } catch {}

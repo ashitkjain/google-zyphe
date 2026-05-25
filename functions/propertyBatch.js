@@ -57,7 +57,8 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
             radar_key: keys.radar_key || process.env.RADAR_KEY,
             gemini_key: keys.gemini_key || process.env.GEMINI_API_KEY,
             google_maps_key: keys.google_maps_key || process.env.MAPS_API_KEY,
-            howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY
+            howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY,
+            realestateapi_key: keys.realestateapi_key || process.env.VITE_REALESTATEAPI_KEY
         };
 
         let done = jobData.done || 0;

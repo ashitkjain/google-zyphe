@@ -621,7 +621,7 @@ exports.proxyStreetViewImage = functions.https.onCall(async (data, context) => {
     }
 
     const { url } = data;
-    const ALLOWED_PREFIXES = ['https://maps.googleapis.com/', 'https://cdn.radar.io/'];
+    const ALLOWED_PREFIXES = ['https://maps.googleapis.com/', 'https://cdn.radar.io/', 'https://imagecdn.realty.dev/'];
     if (!url || !ALLOWED_PREFIXES.some(p => url.startsWith(p))) {
         throw new functions.https.HttpsError("invalid-argument", "Invalid or missing image URL.");
     }

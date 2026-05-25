@@ -252,11 +252,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+function isContextValid() {
+  try {
+    return !!chrome.runtime && !!chrome.runtime.getManifest();
+  } catch (_) {
+    return false;
+  }
+}
+
 // MutationObserver for SPA navigation
 let extractionTimeout = null;
 let extractionMaxTimeout = null;
 
 function scheduleExtraction() {
+  if (!isContextValid()) {
+    try { observer.disconnect(); } catch (_) {}
+    return;
+  }
   clearTimeout(extractionTimeout);
   extractionTimeout = setTimeout(runExtraction, 800);
   // Guarantee a scan even during continuous mutations (e.g. lazy images loading one by one)
@@ -268,6 +280,18 @@ function scheduleExtraction() {
   }
 }
 
+// Safely send a message to the extension background — swallows both synchronous
+// throws (extension context invalidated) and async promise rejections.
+function safeSendMessage(msg) {
+  if (!isContextValid()) {
+    try { observer.disconnect(); } catch (_) {}
+    return;
+  }
+  try {
+    chrome.runtime.sendMessage(msg).catch(() => {});
+  } catch (_) {}
+}
+
 function runExtraction() {
   clearTimeout(extractionTimeout);
   clearTimeout(extractionMaxTimeout);
@@ -277,7 +301,7 @@ function runExtraction() {
   if (images.length > 0) {
     const zpid = extractZpid();
     const property = extractPropertyMetadata();
-    chrome.runtime.sendMessage({ type: 'IMAGES_UPDATED', images, zpid, property }).catch(() => {});
+    safeSendMessage({ type: 'IMAGES_UPDATED', images, zpid, property });
   }
 }
 
@@ -285,8 +309,10 @@ const observer = new MutationObserver(scheduleExtraction);
 
 observer.observe(document.body, { childList: true, subtree: true });
 
-chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' }).catch(() => {});
+safeSendMessage({ type: 'CONTENT_SCRIPT_READY' });
 
 // Announce extension ID to the zyphe.ai web app so it can send
 // DOWNLOAD_PROPERTY_PHOTOS messages via chrome.runtime.sendMessage(extensionId, ...).
-window.postMessage({ type: 'ZYPHE_EXTENSION_READY', extensionId: chrome.runtime.id }, '*');
+try {
+  window.postMessage({ type: 'ZYPHE_EXTENSION_READY', extensionId: chrome.runtime.id }, '*');
+} catch (_) {}

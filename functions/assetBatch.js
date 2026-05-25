@@ -1,66 +1,16 @@
 'use strict';
 /**
  * Asset Secure Batch — Cloud Function
- * 
+ *
  * Triggered by asset_secure_batch_jobs/{jobId} CREATE.
+ * Secures map assets (street view, radar maps) only — photo download is not performed.
  */
 
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 
-// Ensure admin is initialized (index.js usually does this, but for safety in individual modules)
 if (admin.apps.length === 0) {
     admin.initializeApp();
-}
-
-/**
- * Fetches the canonical image list from RapidAPI
- */
-async function _fetchPropertyImages(zpid) {
-    const db = admin.firestore();
-    const snap = await db.collection('app_config').doc('api_keys').get();
-    const keys = snap.exists ? snap.data() : {};
-    const RAPID_API_KEY = keys.rapidapi_key || process.env.VITE_RAPIDAPI_KEY;
-    const RAPID_API_HOST = 'us-housing-market-data1.p.rapidapi.com';
-
-    if (!RAPID_API_KEY) throw new Error("Missing RapidAPI Key");
-
-    const url = `https://${RAPID_API_HOST}/images?zpid=${zpid}`;
-    const res = await fetch(url, {
-        headers: {
-            'x-rapidapi-key': RAPID_API_KEY,
-            'x-rapidapi-host': RAPID_API_HOST
-        }
-    });
-
-    if (!res.ok) throw new Error(`Images API Error: ${res.status}`);
-    const data = await res.json();
-    return data.images || [];
-}
-
-/**
- * Uploads a remote image to Firebase Storage using Admin SDK
- */
-async function _secureOneImage(zpid, remoteUrl, storagePath) {
-    const bucket = admin.storage().bucket();
-    const file = bucket.file(storagePath);
-    
-    // Fetch and Upload
-    const response = await fetch(remoteUrl);
-    if (!response.ok) throw new Error(`Failed to fetch ${remoteUrl}`);
-    const buffer = await response.arrayBuffer();
-
-    await file.save(Buffer.from(buffer), {
-        metadata: {
-            contentType: 'image/jpeg',
-            metadata: {
-                originalUrl: remoteUrl,
-                zpid: zpid
-            }
-        }
-    });
-
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media`;
 }
 
 exports.runSecureImagesBatchOnCreate = functions
@@ -77,14 +27,13 @@ exports.runSecureImagesBatchOnCreate = functions
             return null;
         }
 
-        const db = admin.firestore();
         await snap.ref.update({
             status: 'running',
             startedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
         const startTime = Date.now();
-        const DEADLINE_MS = (540 - 45) * 1000; // 45s safety buffer before Cloud Function timeout
+        const DEADLINE_MS = (540 - 45) * 1000;
 
         let results = {};
         let done = 0;
@@ -93,10 +42,8 @@ exports.runSecureImagesBatchOnCreate = functions
         for (let i = 0; i < zpids.length; i++) {
             const zpid = zpids[i];
 
-            // Approaching timeout — save progress and exit cleanly
             if (Date.now() - startTime > DEADLINE_MS) {
                 const remainingZpids = zpids.slice(i);
-                console.log(`[Asset Batch] Approaching timeout. ${done} done, ${remainingZpids.length} remaining. Writing timeout status.`);
                 await snap.ref.update({
                     status: 'timeout',
                     done, failed, workingCount: 0,
@@ -107,53 +54,19 @@ exports.runSecureImagesBatchOnCreate = functions
                 return null;
             }
 
-            // Check for cancellation
             const freshJob = await snap.ref.get();
             if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
                 console.log(`[Asset Batch] ${context.params.jobId} cancelled. Terminating.`);
                 return null;
             }
+
             try {
-                console.log(`[Asset Batch] Securing ${zpid}...`);
+                console.log(`[Asset Batch] Checking map assets for ${zpid}...`);
                 await snap.ref.update({ workingCount: 1 });
-                
-                const imageUrls = await _fetchPropertyImages(zpid);
-                const assetsRef = db.collection('properties').doc(zpid).collection('analysis').doc('assets');
-                const assetsSnap = await assetsRef.get();
-                const cached = assetsSnap.exists ? assetsSnap.data() : { images: [], imageMetadata: {} };
 
-                const persistentImages = [];
-                const newMetadata = { ...(cached.imageMetadata || {}) };
-                let skipCount = 0;
-                let newCount = 0;
-
-                for (let idx = 0; idx < imageUrls.length; idx++) {
-                    const url = imageUrls[idx];
-                    const cachedUrl = cached.images?.[idx];
-                    const cachedMeta = cachedUrl ? (cached.imageMetadata?.[cachedUrl]) : null;
-
-                    if (cachedUrl && cachedMeta?.originalUrl === url) {
-                        persistentImages.push(cachedUrl);
-                        skipCount++;
-                        continue;
-                    }
-
-                    const storagePath = `properties/${zpid}/gallery/img_${idx + 1}.jpg`;
-                    const securedUrl = await _secureOneImage(zpid, url, storagePath);
-                    persistentImages.push(securedUrl);
-                    newMetadata[securedUrl] = { originalUrl: url };
-                    newCount++;
-                }
-
-                await assetsRef.set({
-                    zpid,
-                    images: persistentImages,
-                    imageMetadata: newMetadata,
-                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-
-                console.log(`[Asset Batch] ✓ ${zpid}: ${newCount} new, ${skipCount} cached.`);
-                results[zpid] = { status: 'success', count: persistentImages.length, newCount, skipCount };
+                // No-op per property — map assets are secured inline during property ingestion.
+                // This batch exists to update job status for the UI.
+                results[zpid] = { status: 'success' };
                 done++;
             } catch (e) {
                 console.error(`[Asset Batch Error] ${zpid}:`, e.message);
@@ -161,7 +74,6 @@ exports.runSecureImagesBatchOnCreate = functions
                 failed++;
             }
 
-            // Real-time update
             await snap.ref.update({ done, failed, results, workingCount: 0, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
         }
 

@@ -1,5 +1,5 @@
 
-import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService';
+import { normalizeAddress, fetchPropertyDataFull } from './apiService';
 import { fetchPropertySpecs } from './api/property';
 import {
   analyzePropertyImages,
@@ -302,14 +302,13 @@ export const runFullIntelligencePipeline = async (
       onProgress({ step: 'Cloud Storage', status: 'running', message: 'Securing imagery and maps...' });
       const assets = await securePropertyAssets(
         zpid,
-        propData.images || [],
+        undefined,
         {
           zoomIn: radar.mapZoomIn,
           zoomOut: radar.mapZoomOut,
           streetView: propData.streetView || null
         },
-        (p) => onLog?.(`[Assets] ${p.message}`),
-        address
+        (p) => onLog?.(`[Assets] ${p.message}`)
       );
 
       const alternate_ids = [...(propData.alternate_ids || [])];
@@ -322,7 +321,6 @@ export const runFullIntelligencePipeline = async (
         zpid: zpid,
         feed_property_id: providedZpid,
         alternate_ids,
-        images: assets.images,
         coordinates: radar.coordinates,
         mapZoomIn: assets.mapZoomIn,
         mapZoomOut: assets.mapZoomOut,
@@ -1301,20 +1299,7 @@ export const runImageOnlyPipeline = async (
     onLog?.(`[Discovery] Resolved ${radar.formattedAddress} (ZPID: ${zpid})`);
     onProgress({ step: 'Discovery', status: 'completed', message: 'Location resolved.' });
 
-    // 2. Gallery Fetch
-    onProgress({ step: 'Gallery', status: 'running', message: 'Fetching listing photos...' });
-    let imageUrls = propData.images || [];
-    try {
-      const { images: fullImages } = await fetchPropertyImages(zpid, radar.formattedAddress);
-      if (fullImages?.length > imageUrls.length) {
-        imageUrls = fullImages;
-        onLog?.(`[Gallery] Found ${fullImages.length} images.`);
-      }
-    } catch (e) {
-      onLog?.(`[Gallery] Photo sync warning: ${e}`);
-    }
-
-    // 3. Street View URL Generation
+    // 2. Street View URL Generation
     const MAPS_API_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || ''; // Fallback to empty if not in meta
     // We should ideally use the config
     const configMapsKey = (await import('../config')).APP_CONFIG.maps.key;
@@ -1334,22 +1319,21 @@ export const runImageOnlyPipeline = async (
       onLog?.(`[Satellite] Fetch failed (non-blocking): ${e}`);
     }
 
-    // 4. Secure Assets
-    onProgress({ step: 'Securing', status: 'running', message: 'Uploading to cloud storage...' });
+    // 3. Secure Maps
+    onProgress({ step: 'Securing', status: 'running', message: 'Uploading maps to cloud storage...' });
     const assets = await securePropertyAssets(
       zpid,
-      imageUrls,
+      undefined,
       {
         zoomIn: radar.mapZoomIn,
         zoomOut: radar.mapZoomOut,
         streetView: streetViewUrl,
         satelliteImageUrl: satelliteImageUrl
       },
-      (p) => onLog?.(`[Cloud] ${p.message}`),
-      radar.formattedAddress
+      (p) => onLog?.(`[Cloud] ${p.message}`)
     );
 
-    // 5. Update Property Record with Persistent URLs
+    // 4. Update Property Record with Persistent URLs
     const alternate_ids = [...(propData.alternate_ids || [])];
     if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
       alternate_ids.push(providedZpid);
@@ -1360,7 +1344,6 @@ export const runImageOnlyPipeline = async (
       zpid,
       feed_property_id: providedZpid,
       alternate_ids,
-      images: assets.images,
       mapZoomIn: assets.mapZoomIn,
       mapZoomOut: assets.mapZoomOut,
       streetViewAnalysis: {
@@ -1371,7 +1354,7 @@ export const runImageOnlyPipeline = async (
     };
 
     await savePropertyToCloud(zpid, updatedData as PropertyData);
-    onProgress({ step: 'Status', status: 'completed', message: 'Images and maps secured.' });
+    onProgress({ step: 'Status', status: 'completed', message: 'Maps secured.' });
 
     return zpid;
   } catch (error: any) {

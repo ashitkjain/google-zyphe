@@ -827,6 +827,66 @@ function buildResults(groups, binOutputs, imageUrls) {
 }
 
 // ─── Top-level orchestrator ───────────────────────────────────────────────
+const REAPI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const REAPI_BASE_URL = "https://api.realestateapi.com/v2";
+
+function makeReapiCacheKey(id) {
+    return id.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 100);
+}
+
+/**
+ * Returns an array of high-res image URLs for the property, using the
+ * realestateapi_cache Firestore collection. Falls back to a live
+ * POST /MLSDetail call if the cache is missing or stale.
+ */
+async function getImagesFromRealEstateApi(property, db, apiKey) {
+    if (!apiKey) throw new Error("Missing RealEstateAPI key");
+
+    const mlsId = property.resoFacts?.mlsid || property.mlsid || "";
+    const address = property.address || "";
+    const lookupId = mlsId || address;
+    if (!lookupId) throw new Error("Property has no MLS ID or address for RealEstateAPI lookup");
+
+    const cacheKey = makeReapiCacheKey(lookupId);
+    const cacheRef = db.collection("realestateapi_cache").doc(cacheKey);
+
+    // Check Firestore cache first
+    const cacheSnap = await cacheRef.get();
+    if (cacheSnap.exists) {
+        const d = cacheSnap.data();
+        const fetchedAt = d.fetchedAt?.toMillis ? d.fetchedAt.toMillis() : new Date(d.fetchedAt).getTime();
+        if (Date.now() - fetchedAt < REAPI_CACHE_TTL_MS && d.mls) {
+            const urls = (d.mls.media?.photosList ?? []).map(p => p.highRes).filter(Boolean);
+            if (urls.length > 0) {
+                console.log(`[visionPipeline] RealEstateAPI cache hit for ${lookupId} — ${urls.length} photos`);
+                return urls;
+            }
+        }
+    }
+
+    // Cache miss or stale — call the API
+    console.log(`[visionPipeline] Fetching RealEstateAPI MLSDetail for ${address}`);
+    const res = await fetch(`${REAPI_BASE_URL}/MLSDetail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({ address }),
+    });
+    if (!res.ok) throw new Error(`RealEstateAPI MLSDetail failed: ${res.status}`);
+    const json = await res.json();
+    const mls = (Array.isArray(json.data) ? json.data[0] : json.data) ?? null;
+    if (!mls) throw new Error(`RealEstateAPI returned no MLS data for ${address}`);
+
+    // Save to cache (non-blocking)
+    cacheRef.set({ mls, fetchedAt: admin.firestore.Timestamp.now() }).catch(e =>
+        console.warn("[visionPipeline] Failed to write RealEstateAPI cache:", e.message)
+    );
+
+    const urls = (mls.media?.photosList ?? []).map(p => p.highRes).filter(Boolean);
+    if (urls.length === 0) throw new Error(`RealEstateAPI returned no photos for ${address}`);
+    console.log(`[visionPipeline] RealEstateAPI live fetch — ${urls.length} photos`);
+    return urls;
+}
+
 async function runVisionPipeline(zpid, opts = {}) {
     const db = opts.db || admin.firestore();
     const geminiKey = opts.geminiKey;
@@ -837,7 +897,13 @@ async function runVisionPipeline(zpid, opts = {}) {
     const propSnap = await propRef.get();
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
     const property = propSnap.data();
-    const imageUrls = Array.isArray(property.images) ? property.images.filter((u) => typeof u === "string") : [];
+
+    // Use property.images if present; otherwise fall back to RealEstateAPI
+    let imageUrls = Array.isArray(property.images) ? property.images.filter(u => typeof u === "string") : [];
+    if (imageUrls.length === 0) {
+        console.log(`[visionPipeline] ${zpid} — no images in property doc, fetching from RealEstateAPI`);
+        imageUrls = await getImagesFromRealEstateApi(property, db, opts.realEstateApiKey);
+    }
     if (imageUrls.length === 0) {
         throw new Error(`Property ${zpid} has no images`);
     }

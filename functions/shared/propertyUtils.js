@@ -1317,10 +1317,44 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
     }
     // If we have a previously stored full address string but no structured components,
     // use it directly rather than reconstructing (which would append city/state/zip again).
-    const existingFullAddress = typeof root.address === 'string' && root.address !== zpid ? root.address : null;
-    let formattedAddress = streetPart
-        ? [streetPart, cityPart, statePart, zipPart].filter(Boolean).join(', ')
-        : (existingFullAddress || zpid);
+    // Self-healing: automatically strip any repeated city/state/zip duplicates.
+    let existingFullAddress = typeof root.address === 'string' && root.address !== zpid ? root.address : null;
+    if (existingFullAddress && cityPart && statePart) {
+        const parts = existingFullAddress.split(',');
+        if (parts.length > 1) {
+            const firstPart = parts[0].trim();
+            const rest = parts.slice(1).join(',').toLowerCase();
+            if (rest.includes(cityPart.toLowerCase()) && rest.includes(statePart.toLowerCase())) {
+                existingFullAddress = [firstPart, cityPart, statePart, zipPart].filter(Boolean).join(', ');
+            }
+        }
+    }
+
+    let formattedAddress = existingFullAddress || zpid;
+    if (streetPart) {
+        let cleanStreet = streetPart;
+        if (cityPart && statePart) {
+            const parts = cleanStreet.split(',');
+            if (parts.length > 1) {
+                const firstPart = parts[0].trim();
+                const rest = parts.slice(1).join(',').toLowerCase();
+                if (rest.includes(cityPart.toLowerCase()) && rest.includes(statePart.toLowerCase())) {
+                    cleanStreet = firstPart;
+                }
+            }
+        }
+        
+        const sLower = cleanStreet.toLowerCase();
+        const hasCity = cityPart && sLower.includes(cityPart.toLowerCase());
+        const hasState = statePart && sLower.includes(statePart.toLowerCase());
+        const hasZip = zipPart && sLower.includes(zipPart.toString().toLowerCase());
+        
+        if ((hasCity && hasState) || (hasCity && hasZip)) {
+            formattedAddress = cleanStreet;
+        } else {
+            formattedAddress = [cleanStreet, cityPart, statePart, zipPart].filter(Boolean).join(', ');
+        }
+    }
 
     // If RapidAPI didn't return lat/lng, forward geocode the full address with Radar to get coordinates.
     if (!coordinates && streetPart) {
@@ -1382,6 +1416,18 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         envResults = envRes.status === 'fulfilled' ? envRes.value : null;
     }
 
+    // 4.5. RealEstateAPI MLS details fetch and cache
+    let reapiMls = null;
+    if (keys.realestateapi_key) {
+        try {
+            const mlsId = resoRaw.mlsid || root.mlsid || "";
+            reapiMls = await _enrichWithRealEstateApi(zpid, db, keys.realestateapi_key, formattedAddress, mlsId);
+        } catch (e) {
+            console.warn(`[Enrichment] RealEstateAPI MLS details step failed for ${zpid}:`, e.message);
+        }
+    }
+    const reapiMapped = reapiMls ? mapReapiMlsDetails(reapiMls) : null;
+
     // 5. Map and Save
     const mapped = {
         zpid,
@@ -1390,17 +1436,17 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         city: root.city,
         state: root.state,
         zipCode: root.zipCode,
-        homeType: root.homeType,
-        bedrooms: extractNumericValue(root.bedrooms),
-        bathrooms: extractNumericValue(root.bathrooms),
-        livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea),
-        yearBuilt: extractNumericValue(root.yearBuilt),
-        price: extractNumericValue(root.price || root.listPrice),
+        homeType: root.homeType || (reapiMapped ? reapiMapped.homeType : null),
+        bedrooms: extractNumericValue(root.bedrooms) || (reapiMapped ? reapiMapped.bedrooms : null),
+        bathrooms: extractNumericValue(root.bathrooms) || (reapiMapped ? reapiMapped.bathrooms : null),
+        livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea) || (reapiMapped ? reapiMapped.livingAreaValue : null),
+        yearBuilt: extractNumericValue(root.yearBuilt) || (reapiMapped ? reapiMapped.yearBuilt : null),
+        price: extractNumericValue(root.price || root.listPrice) || (reapiMapped ? reapiMapped.price : null),
         zestimate: extractNumericValue(root.zestimate),
         description: root.description,
         images: root.images || [],
         apn: resoRaw.parcelNumber || root.parcelNumber,
-        lotAreaValue: extractNumericValue(resoRaw.lotSizeAreaSqFt || root.lotSizeValue || root.lotArea),
+        lotAreaValue: extractNumericValue(resoRaw.lotSizeAreaSqFt || root.lotSizeValue || root.lotArea) || (reapiMapped && reapiMapped.lotSize ? extractNumericValue(reapiMapped.lotSize) : null),
         schools: root.schools?.map(s => ({
             name: s.name || 'Unknown',
             level: s.level || 'N/A',
@@ -1448,7 +1494,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             return undefined;
         })(),
 
-        resoFacts: Object.keys(resoRaw).length > 0 ? {
+        resoFacts: (Object.keys(resoRaw).length > 0 || (reapiMapped && Object.keys(reapiMapped).length > 0)) ? {
             flooring: resoRaw.flooring,
             rooms: resoRaw.rooms,
             roomTypes: resoRaw.roomTypes,
@@ -1461,11 +1507,22 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             fencing: resoRaw.fencing,
             cooling: resoRaw.cooling,
             heating: resoRaw.heating,
-            mlsid: resoRaw.mlsid,
+            mlsid: resoRaw.mlsid || (reapiMapped ? reapiMapped.mlsId : undefined),
             propertyCondition: resoRaw.propertyCondition,
             interiorFeatures: resoRaw.interiorFeatures || undefined,
             electric: resoRaw.electric || undefined,
+            // Supplement from RealEstateAPI
+            hasPool: reapiMapped ? reapiMapped.pool : undefined,
+            stories: extractNumericValue(resoRaw.stories) || (reapiMapped ? reapiMapped.stories : undefined),
+            yearBuilt: extractNumericValue(resoRaw.yearBuilt) || (reapiMapped ? reapiMapped.yearBuilt : undefined),
         } : undefined,
+
+        // RealEstateAPI specific root fields
+        taxInfo: reapiMapped ? reapiMapped.taxInfo : undefined,
+        lotInfo: reapiMapped ? reapiMapped.lotInfo : undefined,
+        mlsId: reapiMapped ? reapiMapped.mlsId : undefined,
+        mlsName: reapiMapped ? reapiMapped.mlsName : undefined,
+
         ...(taxData ? {
             taxSqft: taxData.tax_sqft,
             taxSqftSource: taxData.source,
@@ -1479,6 +1536,11 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
                 fieldsPopulated: ['address', 'coordinates', 'bedrooms', 'bathrooms', 'livingAreaValue', 'yearBuilt', 'price', 'images'],
                 fieldsNull: []
             },
+            realestateapi: reapiMapped ? {
+                lastFetched: new Date().toISOString(),
+                fieldsPopulated: Object.keys(reapiMapped).filter(k => reapiMapped[k] !== null && reapiMapped[k] !== undefined),
+                fieldsNull: []
+            } : undefined,
             environmental: envResults ? {
                 lastFetched: new Date().toISOString(),
                 fieldsPopulated: Object.keys(envResults).filter(k => k !== 'lastUpdated'),
@@ -1654,6 +1716,145 @@ function _extractJson(text) {
     throw new Error("Could not parse AI response as JSON even after repair attempts");
 }
 
+const REAPI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const REAPI_BASE_URL = "https://api.realestateapi.com/v2";
+
+function makeReapiCacheKey(id) {
+    return id.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 100);
+}
+
+function mapRealEstateApiPropertyType(raw) {
+    if (!raw) return null;
+    switch (String(raw).toUpperCase()) {
+        case 'SFR':         return 'SINGLE_FAMILY';
+        case 'CONDO':       return 'CONDO';
+        case 'TOWNHOUSE':   return 'TOWNHOUSE';
+        case 'MF':
+        case 'MULTI_FAMILY':
+        case 'MFH2TO4':
+        case 'MFH5PLUS':    return 'MULTI_FAMILY';
+        case 'LAND':        return 'LAND';
+        default:            return null;
+    }
+}
+
+function mapRealEstateApiMlsStatus(status) {
+    if (!status) return 'FOR_SALE';
+    switch (String(status).toUpperCase()) {
+        case 'ACTIVE':
+        case 'ACTIVE UNDER CONTRACT': return 'FOR_SALE';
+        case 'PENDING':               return 'PENDING';
+        case 'SOLD':
+        case 'CLOSED':                return 'RECENTLY_SOLD';
+        default:                      return 'FOR_SALE';
+    }
+}
+
+function mapReapiMlsDetails(data) {
+    if (!data) return {};
+    const pi = data.propertyInfo || {};
+    
+    // Normalize address
+    let line = '', city = '', state = '', zip = '', full = '';
+    const rawAddr = pi.address || data.address;
+    if (rawAddr) {
+        if (typeof rawAddr === 'string') {
+            const parts = rawAddr.split(',').map(s => s.trim());
+            line = parts[0] || '';
+            city = parts[1] || '';
+            state = (parts[2] || '').split(' ')[0] || '';
+            zip = (parts[2] || '').split(' ')[1] || '';
+            full = rawAddr;
+        } else {
+            line = rawAddr.address || rawAddr.street || '';
+            city = rawAddr.city || '';
+            state = rawAddr.state || '';
+            zip = rawAddr.zip || rawAddr.zipCode || '';
+            full = rawAddr.label || rawAddr.address || `${line}, ${city}, ${state} ${zip}`.replace(/,\s*,/g, ',').trim();
+        }
+    }
+
+    const homeType = mapRealEstateApiPropertyType(data.propertyType ?? pi.propertyType);
+    const mlsH = Array.isArray(data.mlsHistory) && data.mlsHistory.length > 0 ? data.mlsHistory[0] : null;
+    const price = mlsH?.price ?? data.mlsListingPrice ?? data.listingAmount ?? data.estimatedValue ?? null;
+
+    return {
+        price: extractNumericValue(price),
+        bedrooms: extractNumericValue(pi.bedrooms),
+        bathrooms: extractNumericValue(pi.bathrooms),
+        livingAreaValue: extractNumericValue(pi.livingSquareFeet ?? pi.buildingSquareFeet),
+        lotSize: pi.lotSquareFeet ? `${pi.lotSquareFeet} sqft` : undefined,
+        homeType: homeType ?? undefined,
+        homeStatus: mapRealEstateApiMlsStatus(mlsH?.status ?? data.mlsStatus),
+        yearBuilt: extractNumericValue(pi.yearBuilt),
+        stories: extractNumericValue(pi.stories),
+        garageSpaces: extractNumericValue(pi.parkingSpaces ?? (pi.garageType && pi.garageType !== 'None' ? 1 : null)),
+        pool: pi.pool ?? false,
+        timeOnZillow: extractNumericValue(mlsH?.daysOnMarket),
+        listedDate: mlsH?.statusDate ?? null,
+        taxInfo: data.taxInfo ?? null,
+        schoolInfo: data.schools ?? null,
+        lotInfo: data.lotInfo ?? null,
+        mlsId: data.mlsId || mlsH?.mlsId || pi.mlsId || null,
+        mlsName: data.mlsName || mlsH?.mlsName || pi.mlsName || null,
+    };
+}
+
+async function _enrichWithRealEstateApi(zpid, db, apiKey, address, mlsId) {
+    if (!apiKey) {
+        console.warn(`[Enrichment] Missing RealEstateAPI key; skipping realestateapi enrichment.`);
+        return null;
+    }
+    const lookupId = mlsId || address;
+    if (!lookupId) return null;
+
+    const cacheKey = makeReapiCacheKey(lookupId);
+    const cacheRef = db.collection("realestateapi_cache").doc(cacheKey);
+
+    let mls = null;
+
+    // Check Firestore cache first
+    try {
+        const cacheSnap = await cacheRef.get();
+        if (cacheSnap.exists) {
+            const d = cacheSnap.data();
+            const fetchedAt = d.fetchedAt?.toMillis ? d.fetchedAt.toMillis() : new Date(d.fetchedAt).getTime();
+            if (Date.now() - fetchedAt < REAPI_CACHE_TTL_MS && d.mls) {
+                mls = d.mls;
+                console.log(`[Enrichment] RealEstateAPI cache hit for ${lookupId}`);
+            }
+        }
+    } catch (e) {
+        console.warn(`[Enrichment] Failed to read RealEstateAPI cache:`, e.message);
+    }
+
+    if (!mls) {
+        // Cache miss or stale — call the API
+        try {
+            console.log(`[Enrichment] Fetching RealEstateAPI MLSDetail for ${address}`);
+            const res = await fetch(`${REAPI_BASE_URL}/MLSDetail`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+                body: JSON.stringify({ address }),
+            });
+            if (!res.ok) throw new Error(`MLSDetail failed: ${res.status}`);
+            const json = await res.json();
+            mls = (Array.isArray(json.data) ? json.data[0] : json.data) ?? null;
+            if (mls) {
+                // Save to cache (non-blocking)
+                cacheRef.set({ mls, fetchedAt: admin.firestore.Timestamp.now() }).catch(e =>
+                    console.warn("[Enrichment] Failed to write RealEstateAPI cache:", e.message)
+                );
+            }
+        } catch (e) {
+            console.warn(`[Enrichment] RealEstateAPI MLSDetail fetch failed for ${address}:`, e.message);
+            return null;
+        }
+    }
+
+    return mls;
+}
+
 module.exports = {
     _enrichProperty,
     _enrichEnvironmentalData,
@@ -1668,6 +1869,8 @@ module.exports = {
     _enrichFaults,
     _enrichHistoricalDisasters,
     _enrichNeighborhoodIdentity,
+    _enrichWithRealEstateApi,
+    mapReapiMlsDetails,
     _extractJson,
     extractNumericValue,
     ENV_SCHEMA_VERSION,

@@ -1,6 +1,5 @@
 import { uploadRemoteImageToStorage } from './firebase/storage';
-import { getPropertyAssetsFromCloud, savePropertyAssetsToCloud } from './firebase/properties';
-import { fetchPropertyImages } from './api/property';
+import { getPropertyAssetsFromCloud, savePropertyAssetsToCloud, getPropertyFromCloud, savePropertyToCloud } from './firebase/properties';
 import { PropertyAssets } from '../types';
 
 export interface AssetProgress {
@@ -28,30 +27,66 @@ const uploadWithRetry = async (url: string, path: string, index: number, maxRetr
 };
 
 /**
- * Secures property imagery (gallery and maps) by downloading remote URLs 
- * and storing them in Firebase Storage for persistence.
+ * Secures property maps by downloading remote URLs and storing them in
+ * Firebase Storage for persistence. Gallery photos are secured when they
+ * originate from RealEstateAPI.
  */
 export const securePropertyAssets = async (
     zpid: string,
-    providedImageUrls?: string[],
+    _providedImageUrls?: string[],
     maps?: { zoomIn?: string; zoomOut?: string; streetView?: string; satelliteImageUrl?: string },
     onProgress?: (p: AssetProgress) => void,
-    address?: string
+    _address?: string
 ): Promise<PropertyAssets> => {
 
-    // 1. Fetch Ground Truth: Always reconcile against the live list from the source.
-    // This ensures we never have a shallow ingestion, even if the caller only provided 1 photo.
-    onProgress?.({ total: 100, completed: 0, message: "Fetching source image list..." });
-    const { images: imageUrls, photo_source } = await fetchPropertyImages(zpid, address);
+    onProgress?.({ total: 100, completed: 0, message: "Loading asset registry..." });
 
     const cached = await getPropertyAssetsFromCloud(zpid);
+    const property = await getPropertyFromCloud(zpid);
 
-    const persistentImages: string[] = [];
-    const newMetadata: Record<string, { originalUrl: string }> = { ...(cached?.imageMetadata || {}) };
     let persistentMapZoomIn = maps?.zoomIn;
     let persistentMapZoomOut = maps?.zoomOut;
     let persistentStreetView = maps?.streetView;
     let persistentSatellite = maps?.satelliteImageUrl;
+
+    let persistentImages = cached?.images || property?.images || [];
+
+    // --- SECURE REALESTATEAPI GALLERY PHOTOS ---
+    const isRealEstateApi = property && (
+        property.photo_source === 'realestateapi' ||
+        property.images?.some(img => typeof img === 'string' && (img.includes('imagecdn.realty.dev') || img.includes('realty.dev/mls_photos')))
+    );
+
+    if (isRealEstateApi && property.images && property.images.length > 0) {
+        console.log(`[AssetService] Sourced from RealEstateAPI. Securing ${property.images.length} gallery photos...`);
+        const alreadySecured = persistentImages.length > 0 && persistentImages.every(img => img && img.startsWith('https://firebasestorage'));
+        
+        if (!alreadySecured) {
+            onProgress?.({ total: 100, completed: 20, message: `Securing 0/${property.images.length} gallery photos...` });
+            
+            const uploadPromises = property.images.map(async (url, idx) => {
+                if (typeof url !== 'string') return '';
+                if (url.startsWith('https://firebasestorage')) return url;
+                
+                const storagePath = `properties/${zpid}/gallery/img_${idx}.jpg`;
+                const securedUrl = await uploadWithRetry(url, storagePath, idx);
+                
+                onProgress?.({ 
+                    total: 100, 
+                    completed: 20 + Math.round((idx / property.images.length) * 60), 
+                    message: `Securing ${idx + 1}/${property.images.length} gallery photos...` 
+                });
+                return securedUrl;
+            });
+            
+            const results = await Promise.all(uploadPromises);
+            persistentImages = results.filter(Boolean);
+            
+            // Save to the main property document in Firestore
+            await savePropertyToCloud(zpid, { images: persistentImages });
+            console.log(`[AssetService] Successfully secured ${persistentImages.length} RealEstateAPI photos to Firebase Storage.`);
+        }
+    }
 
     // 2. Secure Maps
     // We always attempt maps if provided because uploadRemoteImageToStorage 
@@ -118,63 +153,12 @@ export const securePropertyAssets = async (
         }
     } catch (e) { /* ignore discovery errors */ }
 
-    // 3. Secure Gallery Images in batches
-    const CHUNK_SIZE = 5;
-    const total = imageUrls.length;
-
-    for (let i = 0; i < imageUrls.length; i += CHUNK_SIZE) {
-        const chunk = imageUrls.slice(i, i + CHUNK_SIZE);
-        onProgress?.({ 
-            total, 
-            completed: i, 
-            message: `Persisting gallery images ${i + 1} to ${Math.min(i + CHUNK_SIZE, total)}...` 
-        });
-
-        const chunkPromises = chunk.map(async (url, chunkIndex) => {
-            const index = i + chunkIndex;
-            
-            // Skip if already a failure placeholder
-            if (url.includes('FAILED_TO_SECURE')) return url;
-
-            const cachedUrl = cached?.images?.[index];
-            const cachedMeta = cachedUrl ? cached?.imageMetadata?.[cachedUrl] : null;
-
-            // IDENTITY-BASED HEALING:
-            // Check if our cached img_N.jpg actually contains the same photo as the API's current index N.
-            if (cachedUrl?.startsWith('https://firebasestorage') && cachedMeta?.originalUrl === url) {
-                return cachedUrl;
-            }
-
-            // If identity mismatch or missing, download fresh.
-            const securedUrl = await uploadWithRetry(
-                url,
-                `properties/${zpid}/gallery/img_${index + 1}.jpg`,
-                index
-            );
-
-            // Record metadata for future identity-based reconciliation
-            if (securedUrl.startsWith('https://firebasestorage')) {
-                newMetadata[securedUrl] = { originalUrl: url };
-            }
-
-            return securedUrl;
-        });
-
-        const chunkResults = await Promise.all(chunkPromises);
-        persistentImages.push(...chunkResults);
-    }
-
-    onProgress?.({
-        total,
-        completed: total,
-        message: "All assets secured."
-    });
+    onProgress?.({ total: 100, completed: 100, message: "Maps secured." });
 
     const assets: PropertyAssets = {
         zpid,
         images: persistentImages,
-        photo_source,
-        imageMetadata: newMetadata,
+        imageMetadata: cached?.imageMetadata || {},
         mapZoomIn: persistentMapZoomIn || null,
         mapZoomOut: persistentMapZoomOut || null,
         streetView: persistentStreetView || null,
@@ -187,3 +171,4 @@ export const securePropertyAssets = async (
 
     return assets;
 };
+

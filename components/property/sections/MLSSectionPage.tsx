@@ -5,6 +5,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PropertyData } from '../../../types';
+import { loadMLSPhotos, loadMLSDetail } from '../../../services/realEstateApiPhotos';
 
 interface Props {
     data: PropertyData;
@@ -192,52 +193,74 @@ function PhotoModal({ images, startIndex, onClose }: {
     );
 }
 
+// ── RealEstateAPI photo fetching ──────────────────────────────────────────────
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export const MLSSectionPage: React.FC<Props> = ({ data }) => {
     const rf = data.resoFacts;
     const [modalIndex, setModalIndex] = useState<number | null>(null);
+    const [reapiPhotos, setReapiPhotos] = useState<string[] | null>(null);
+    const [reapiDetail, setReapiDetail] = useState<Record<string, any> | null>(null);
 
-    const images      = data.images || [];
+    const address = data.address || '';
+    const mlsId   = data.resoFacts?.mlsid || '';
+
+    useEffect(() => {
+        if (!address) return;
+        let cancelled = false;
+        loadMLSPhotos(address, mlsId || undefined)
+            .then(photos => { if (!cancelled) setReapiPhotos(photos); })
+            .catch(() => { if (!cancelled) setReapiPhotos([]); });
+        // Load full MLS detail from the same cache to backfill sparse resoFacts
+        loadMLSDetail(address, mlsId || undefined)
+            .then(mls => { if (!cancelled) setReapiDetail(mls); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [address, mlsId]);
+
+    const images       = reapiPhotos ?? [];
     const priceHistory = data.priceHistory || [];
-    const hasImages   = images.length > 0;
+    const hasImages    = images.length > 0;
     const hasPriceHistory = priceHistory.length > 0;
 
     // Section numbering (price history always last)
     let sn = 1;
     const sec = {
         remarks:      String(sn++).padStart(2, '0'),
-        gallery:      hasImages ? String(sn++).padStart(2, '0') : null,
+        gallery:      String(sn++).padStart(2, '0'), // always show — loading or photos
         specs:        String(sn++).padStart(2, '0'),
         priceHistory: hasPriceHistory ? String(sn++).padStart(2, '0') : null,
     };
 
     // ── Spec rows ────────────────────────────────────────────────────────────
-
+    // hd = RealEstateAPI homedetails, used as fallback when resoFacts fields are absent
+    const hd = reapiDetail?.homedetails ?? {};
+    const p  = reapiDetail?.property   ?? {};
     const structureRows = [
         { k: 'Style',        v: parseMulti(rf?.architecturalStyle) || '—' },
-        { k: 'Stories',      v: rf?.stories != null ? String(rf.stories) : '—' },
+        { k: 'Stories',      v: (rf?.stories ?? p.stories) != null ? String(rf?.stories ?? p.stories) : '—' },
         { k: 'Construction', v: parseMulti(rf?.constructionMaterials) || '—' },
-        { k: 'Flooring',     v: parseMulti(rf?.flooring) || '—' },
-        { k: 'Roof',         v: parseMulti(rf?.roofType) || '—' },
+        { k: 'Flooring',     v: parseMulti(rf?.flooring) || hd.flooring || '—' },
+        { k: 'Roof',         v: parseMulti(rf?.roofType) || hd.roof || '—' },
         { k: 'Foundation',   v: parseMulti(rf?.foundationDetails) || '—' },
-        { k: 'Basement',     v: parseMulti(rf?.basement) || '—' },
+        { k: 'Basement',     v: parseMulti(rf?.basement) || (p.hasBasement != null ? (p.hasBasement ? 'Yes' : 'No') : '—') },
         { k: 'Condition',    v: parseMulti(rf?.propertyCondition) || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const parkingRows = [
-        { k: 'Garage',   v: rf?.garageParkingCapacity != null ? String(rf.garageParkingCapacity) : '—' },
+        { k: 'Garage',   v: (rf?.garageParkingCapacity ?? p.garageSpaces) != null ? String(rf?.garageParkingCapacity ?? p.garageSpaces) : '—' },
         { k: 'Parking',  v: parseMulti(rf?.parkingFeatures) || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const interiorRows = [
-        { k: 'Heating',    v: parseMulti(rf?.heating) || '—' },
-        { k: 'Cooling',    v: parseMulti(rf?.cooling) || '—' },
-        { k: 'Appliances', v: parseMulti(rf?.appliances) || '—' },
+        { k: 'Heating',    v: parseMulti(rf?.heating) || hd.heating || '—' },
+        { k: 'Cooling',    v: parseMulti(rf?.cooling) || hd.cooling || '—' },
+        { k: 'Appliances', v: parseMulti(rf?.appliances) || parseMulti(hd.appliances) || '—' },
         { k: 'Features',   v: parseMulti(rf?.interiorFeatures) || '—' },
         { k: 'Rooms',      v: parseMulti(rf?.roomTypes || rf?.rooms) || '—' },
         { k: 'Laundry',    v: parseMulti(rf?.laundryFeatures) || '—' },
-        { k: 'Fireplace',  v: parseMulti(rf?.fireplaceFeatures) || '—' },
+        { k: 'Fireplace',  v: parseMulti(rf?.fireplaceFeatures) || (hd.fireplaceYn ? 'Yes' : null) || '—' },
         { k: 'Windows',    v: parseMulti(rf?.windowFeatures) || '—' },
         { k: 'Security',   v: parseMulti(rf?.securityFeatures) || '—' },
     ].filter(r => r.v && r.v !== '—');
@@ -245,16 +268,16 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
     const utilityRows = [
         { k: 'Utilities', v: parseMulti(rf?.utilities) || '—' },
         { k: 'Electric',  v: parseMulti(rf?.electric) || '—' },
-        { k: 'Sewer',     v: parseMulti(rf?.sewer) || '—' },
-        { k: 'Water',     v: parseMulti(rf?.waterSource) || '—' },
+        { k: 'Sewer',     v: parseMulti(rf?.sewer) || hd.sewer || '—' },
+        { k: 'Water',     v: parseMulti(rf?.waterSource) || hd.watersource || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const lotRows = [
-        { k: 'Lot Size',    v: data.lotSize || (data.lotAreaValue ? `${data.lotAreaValue.toLocaleString()} sqft` : '—') },
-        { k: 'Lot Features', v: parseMulti(rf?.lotFeatures) || '—' },
-        { k: 'Exterior',    v: parseMulti(rf?.exteriorFeatures) || '—' },
+        { k: 'Lot Size',    v: data.lotSize || (data.lotAreaValue ? `${data.lotAreaValue.toLocaleString()} sqft` : (p.lotSizeSquareFeet ? `${p.lotSizeSquareFeet.toLocaleString()} sqft` : '—')) },
+        { k: 'Lot Features', v: parseMulti(rf?.lotFeatures) || hd.lotFeatures || '—' },
+        { k: 'Exterior',    v: parseMulti(rf?.exteriorFeatures) || hd.exteriorFeatures || '—' },
         { k: 'Fencing',     v: parseMulti(rf?.fencing) || '—' },
-        { k: 'Zoning',      v: parseMulti(rf?.zoningDescription) || '—' },
+        { k: 'Zoning',      v: parseMulti(rf?.zoningDescription) || hd.zoning || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const financialRows = [
@@ -390,10 +413,20 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* ── Section 02 — Gallery ── */}
-            {hasImages && sec.gallery && (
+            {(reapiPhotos === null || hasImages) && sec.gallery && (
                 <div>
-                    <SectionTitleBar num={sec.gallery} kicker="Property Images" title="Gallery" 
-                        right={<span style={{ fontSize: 11, color: '#94a3b8' }}>{images.length} photos</span>} />
+                    <SectionTitleBar num={sec.gallery} kicker="Property Images" title="Gallery"
+                        right={reapiPhotos === null
+                            ? <span style={{ fontSize: 11, color: '#94a3b8' }}>Loading photos…</span>
+                            : <span style={{ fontSize: 11, color: '#94a3b8' }}>{images.length} photos · via RealEstateAPI</span>
+                        } />
+                    {reapiPhotos === null ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '200px 200px', gap: 12 }}>
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} style={{ gridRow: i === 0 ? '1 / 3' : undefined, borderRadius: 12, background: '#f1f5f9', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                            ))}
+                        </div>
+                    ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '200px 200px', gap: 12 }}>
                         {/* Hero */}
                         <div onClick={() => setModalIndex(0)} style={{ gridRow: '1 / 3', borderRadius: 12, overflow: 'hidden', position: 'relative', cursor: 'pointer' }}>
@@ -416,6 +449,7 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
                             );
                         })}
                     </div>
+                    )}
                 </div>
             )}
 

@@ -69,7 +69,7 @@ function shuffle<T>(arr: T[]): T[] {
 // Randomize all sources, with Zillow as last fallback.
 function buildSiteUrls(zpid: string, address?: string): Record<string, string> {
     const [zillow, ...rest] = PHOTO_SITES;
-    const ordered = [...shuffle(rest), zillow];
+    const ordered = [zillow, ...shuffle(rest)];
     const result: Record<string, string> = {};
     for (const site of ordered) {
         const url = site.buildUrl(zpid, address);
@@ -107,6 +107,31 @@ export async function fetchPhotosViaExtension(
 ): Promise<PhotoDownloadResult> {
     if (!isExtensionAvailable() || !_extensionId) {
         return { photos: [], source: null };
+    }
+
+    // Try RealEstateAPI cached images first (zero-overhead lookup)
+    if (address) {
+        try {
+            const cacheKey = address.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 100);
+            const { db } = await import('./firebase/config');
+            if (db) {
+                const { doc, getDoc } = await import('firebase/firestore');
+                const snap = await getDoc(doc(db, 'realestateapi_cache', cacheKey));
+                if (snap.exists()) {
+                    const d = snap.data();
+                    const rawImages = d?.mls?.images || [];
+                    const photos = rawImages
+                        .map((img: any) => typeof img === 'string' ? img : (img?.highRes || img?.url || img?.midRes))
+                        .filter(Boolean);
+                    if (photos.length >= 5) {
+                        console.log(`[PhotoDownload] RealEstateAPI Cache hit: ${photos.length} photos`);
+                        return { photos, source: 'realestateapi' };
+                    }
+                }
+            }
+        } catch (e: any) {
+            console.warn('[PhotoDownload] RealEstateAPI cache fetch failed:', e.message);
+        }
     }
 
     const siteUrls = buildSiteUrls(zpid, address);

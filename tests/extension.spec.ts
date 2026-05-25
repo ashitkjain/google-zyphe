@@ -1863,4 +1863,115 @@ test.describe('pHash perceptual similarity', () => {
     console.log(`[pHash test] exterior vs living-room — pHash: ${pDist}/63`);
     expect(pDist).toBeGreaterThan(18);
   });
+
+  test.describe('DeepSeek Model Pipeline', () => {
+    test('connects to DeepSeek and analyzes one photo', async ({ page, extensionId }) => {
+      // 1. Mock Firestore api_keys response
+      await page.route('https://firestore.googleapis.com/**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            fields: {
+              deepseek_flash_api: { stringValue: 'mock-deepseek-key' },
+              gemini_key: { stringValue: 'mock-gemini-key' }
+            }
+          }),
+        });
+      });
+
+      // 1b. Mock Gemini endpoint for the visual description helper
+      await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            candidates: [{
+              content: {
+                parts: [{ text: 'This is a kitchen photo with grey cabinets.' }]
+              }
+            }]
+          }),
+        });
+      });
+
+      // 2. Mock DeepSeek endpoint (non-streaming classify + streaming analysis)
+      let classifyCalls = 0;
+      let analysisCalls = 0;
+      await page.route('https://api.deepseek.com/**', async (route) => {
+        const reqData = route.request().postDataJSON() as {
+          model: string;
+          stream?: boolean;
+        };
+
+        if (reqData && (reqData.model === 'deepseek-v4-flash' || reqData.model === 'DeepSeek-V4-Flash')) {
+          if (!reqData.stream) {
+            classifyCalls += 1;
+            await route.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                choices: [{
+                  message: { content: 'Type: Interior\nSpace: Kitchen\n' }
+                }]
+              }),
+            });
+          } else {
+            analysisCalls += 1;
+            // Streaming mock
+            const streamBody = [
+              'data: ' + JSON.stringify({ choices: [{ delta: { content: 'Space: Kitchen\nStyle: Modern' } }] }) + '\n',
+              'data: ' + JSON.stringify({ choices: [{ delta: { content: '\nDescription: Sleek grey cabinets with gold hardware. Score: 9/10' } }] }) + '\n',
+              'data: [DONE]\n'
+            ].join('');
+
+            await route.fulfill({
+              status: 200,
+              contentType: 'text/event-stream',
+              body: streamBody,
+            });
+          }
+        } else {
+          await route.fulfill({ status: 400 });
+        }
+      });
+
+      await mockImageFetches(page);
+
+      // 3. Open extension sidepanel
+      await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+
+      // 4. Inject mock Auth token so tab message check succeeds
+      await page.evaluate(() => {
+        // @ts-ignore
+        window.__zypheSetAuth({ token: 'mock-token', uid: 'mock-uid', email: 'mock-email' });
+      });
+
+      // 5. Click connect DeepSeek
+      await page.click('#tab-deepseek');
+      await page.click('#load-model-btn');
+
+      // Verify connection badge/text
+      await expect(page.locator('#deepseek-status-text')).toHaveText('Connected to DeepSeek API ✓');
+
+      // 6. Inject a mock listing image
+      await injectImages(page, 1);
+      await expect(page.locator('#images-grid .image-card')).toHaveCount(1);
+
+      // 7. Trigger Analyze All
+      await page.click('#analyze-all-btn');
+
+      const status = page.locator('#status-0');
+      await expect(status).toHaveClass(/status-done/, { timeout: 15_000 });
+      await expect(status).toHaveText('Score: 9/10');
+      
+      const resultText = await page.locator('#result-0').innerText();
+      expect(resultText).toContain('Sleek grey cabinets');
+      expect(resultText).toContain('Space: Kitchen');
+
+      expect(classifyCalls).toBe(1);
+      expect(analysisCalls).toBe(1);
+    });
+  });
 });
+

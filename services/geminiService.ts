@@ -521,7 +521,7 @@ export async function urlToBase64(url: string): Promise<{ data: string, mimeType
     // 1. Aggressive Proxy for known CORS-restricted domains in BROWSER environment
     const isFirebase = url.includes("firebasestorage.googleapis.com");
     const isBrowser = typeof window !== 'undefined';
-    if (isBrowser && !isFirebase && (url.includes("maps.googleapis.com") || url.includes("api.radar.io") || url.includes("zillowstatic.com") || url.includes("rent.net") || url.includes("static.com"))) {
+    if (isBrowser && !isFirebase && (url.includes("maps.googleapis.com") || url.includes("api.radar.io") || url.includes("zillowstatic.com") || url.includes("rent.net") || url.includes("static.com") || url.includes("imagecdn.realty.dev"))) {
       console.log(`[urlToBase64] Domain detected for proxy in browser: ${url}`);
       try {
         const { functions } = await import('./firebase/config');

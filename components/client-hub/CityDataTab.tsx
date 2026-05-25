@@ -10,9 +10,8 @@ import {
     removePropertyFromZipCache,
     getCachedCities
 } from '../../services/firebase/cityData';
-import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep, refreshStreetView, getDeprecatedProperties } from '../../services/firebase/properties';
+import { savePropertyToCloud, deletePropertyAnalysis, runDeprecationSweep, refreshStreetView, getDeprecatedProperties } from '../../services/firebase/properties';
 import { fetchPropertySpecs } from '../../services/api/property';
-import { realEstateApiProvider } from '../../services/api/realEstateApiProvider';
 
 import { PropertyData } from '../../types';
 import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyPolicies';
@@ -213,6 +212,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     // Batch Narrative
     const [narrativeBatchRunning, setNarrativeBatchRunning] = useState(false);
     const [narrativeBatchProgress, setNarrativeBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+
+    // Batch Vision Analysis (runs in-browser, no cloud function)
+    const [visionBatchRunning, setVisionBatchRunning] = useState(false);
+    const [visionBatchProgress, setVisionBatchProgress] = useState<{ done: number; failed: number; total: number; current: string } | null>(null);
 
     // Batch Asset Secure
     const [assetBatchRunning, setAssetBatchRunning] = useState(false);
@@ -520,10 +523,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         sourceList.forEach(item => {
             const id = String(item.zpid);
             const addrObj = item.location?.address;
-            const builtAddress = addrObj
-                ? centralFormatAddress(addrObj)
-                : (item.location?.address?.line || id);
-            map[id] = builtAddress;
+            let builtAddress = addrObj ? centralFormatAddress(addrObj) : '';
+            if (!builtAddress) {
+                builtAddress = (typeof item.address === 'string' && !/^\d+$/.test(item.address.trim()) ? item.address : '')
+                    || item.streetAddress
+                    || '';
+            }
+            map[id] = builtAddress || id;
         });
         return map;
     }, [sourceList]);
@@ -533,8 +539,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         sourceList.forEach(item => {
             const id = String(item.zpid);
-            let itemCity = item.location?.address?.city || 'Unknown City';
-            const state = item.location?.address?.state_code || 'Unknown State';
+            let itemCity = item.location?.address?.city || item.addressCity || item.city || 'Unknown City';
+            const state = item.location?.address?.state_code || item.addressStateAbbreviation || item.state || 'Unknown State';
             const hType = item.homeType || item.prop_type || item.propertyType || item.property_type || 'Residential';
 
             // Clean up city name if it already includes state (e.g. "Dublin, CA" -> "Dublin")
@@ -913,6 +919,39 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
+    const handleBulkVisionAnalysis = async () => {
+        const targetIds = selectedIds;
+        if (targetIds.size === 0) return;
+
+        const zpids: string[] = Array.from(targetIds);
+        setVisionBatchRunning(true);
+        setVisionBatchProgress({ done: 0, failed: 0, total: zpids.length, current: '' });
+        addLog(`[Vision Analysis] Starting for ${zpids.length} properties via Cloud Function…`);
+
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const fn = httpsCallable(getFunctions(), 'runVisionAnalysisForProperty', { timeout: 540000 });
+
+        for (const zpid of zpids) {
+            try {
+                const property = await getPropertyFromCloud(zpid);
+                if (!property?.address) throw new Error('No address in Firestore');
+
+                setVisionBatchProgress(prev => prev && { ...prev, current: property.address! });
+                addLog(`[Vision Analysis] Running vision pipeline for ${property.address}…`);
+
+                await fn({ zpid });
+                addLog(`[Vision Analysis] ✓ Done for ${property.address}`);
+            } catch (e: any) {
+                addLog(`[Vision Analysis] ✗ ${zpid}: ${e.message}`);
+                setVisionBatchProgress(prev => prev && { ...prev, failed: prev.failed + 1 });
+            }
+            setVisionBatchProgress(prev => prev && { ...prev, done: prev.done + 1, current: '' });
+        }
+
+        setVisionBatchRunning(false);
+        addLog(`[Vision Analysis] Complete — ${zpids.length - (visionBatchProgress?.failed ?? 0)} succeeded`);
+    };
+
     const handleRetryFailed = async () => {
         const failedZpids = ingestionQueue
             .filter(j => j.status === 'error' || j.status === 'partial')
@@ -1008,17 +1047,27 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const cachedListings = allCached
                         .filter((item: any) => !!item.zpid)
                         .filter((item: any) => isSupportedPropertyType(item))
-                        .map((item: any) => ({
-                            ...item,
-                            location: {
-                                ...item.location,
-                                address: {
-                                    ...item.location?.address,
-                                    city: item.location?.address?.city === 'Unknown City' ? (fallbackCity || 'Unknown City') : (item.location?.address?.city || fallbackCity || 'Unknown City'),
-                                    state_code: item.location?.address?.state_code === 'Unknown State' ? (fallbackState || 'Unknown State') : (item.location?.address?.state_code || fallbackState || 'Unknown State')
+                        .map((item: any) => {
+                            const existingLine = item.location?.address?.line || item.location?.address?.streetAddress;
+                            const streetLine = existingLine
+                                || (typeof item.address === 'string' && !/^\d+$/.test(item.address.trim()) ? item.address : null)
+                                || item.streetAddress
+                                || null;
+                            const rawCity = item.location?.address?.city;
+                            const rawState = item.location?.address?.state_code;
+                            return {
+                                ...item,
+                                location: {
+                                    ...item.location,
+                                    address: {
+                                        ...item.location?.address,
+                                        line: streetLine,
+                                        city: (!rawCity || rawCity === 'Unknown City') ? (fallbackCity || item.addressCity || item.city || 'Unknown City') : rawCity,
+                                        state_code: (!rawState || rawState === 'Unknown State') ? (fallbackState || item.addressStateAbbreviation || item.state || 'Unknown State') : rawState,
+                                    }
                                 }
-                            }
-                        }));
+                            };
+                        });
                     const removed = allCached.filter((item: any) => !!item.zpid && !isSupportedPropertyType(item));
                     if (removed.length > 0) {
                         addLog(`Cleaning ${removed.length} unsupported listing(s) from zip ${zip}...`);
@@ -1062,18 +1111,55 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         }
 
-        // 3. RealEstateAPI — paginated active MLS search
-        addLog(`Fetching live data from RealEstateAPI for ${zip}…`);
+        // 3. RapidAPI — paginated active MLS search
+        addLog(`Fetching live data from RapidAPI for ${zip}…`);
         try {
-            const listings = await realEstateApiProvider.searchByZip(zip, fallbackCity, fallbackState);
-            const data = listings.filter((item: any) => isSupportedPropertyType(item));
-            addLog(`RealEstateAPI returned ${data.length} active listings for ${zip}`);
+            const apiConfig = APP_CONFIG.usHousingApi;
+            const baseUrl = `https://${apiConfig.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
+            const allActive: any[] = [];
+            let page = 1;
+            let totalPages = 1;
+            while (page <= totalPages) {
+                const resp = await fetch(`${baseUrl}&page=${page}`, {
+                    headers: { 'X-RapidAPI-Key': apiConfig.key, 'X-RapidAPI-Host': apiConfig.host },
+                });
+                if (!resp.ok) { addLog(`RapidAPI ForSale p${page} error ${resp.status}`); break; }
+                const result = await resp.json();
+                const items: any[] = Array.isArray(result) ? result : (result.props || result.results || []);
+                totalPages = result.totalPages ?? result.total_pages ?? 1;
+                allActive.push(...items);
+                addLog(`RapidAPI zip ${zip} p${page}/${totalPages} — ${items.length} listings`);
+                page++;
+                if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
+            }
+            const normalizeItem = (item: any) => {
+                const existingLine = item.location?.address?.line || item.location?.address?.streetAddress;
+                const streetLine = existingLine
+                    || (typeof item.address === 'string' && !/^\d+$/.test(item.address.trim()) ? item.address : null)
+                    || item.streetAddress
+                    || null;
+                if (!streetLine && !item.location?.address) return item;
+                return {
+                    ...item,
+                    location: {
+                        ...item.location,
+                        address: {
+                            ...item.location?.address,
+                            line: streetLine,
+                            city: item.location?.address?.city || item.addressCity || item.city || fallbackCity || '',
+                            state_code: item.location?.address?.state_code || item.addressStateAbbreviation || item.state || fallbackState || '',
+                        }
+                    }
+                };
+            };
+            const data = allActive.filter((item: any) => isSupportedPropertyType(item)).map(normalizeItem);
+            addLog(`RapidAPI returned ${data.length} active listings for ${zip}`);
             if (data.length > 0) {
                 saveZipListings(zip, data, cityStateKey).catch(console.error);
             }
             return data;
         } catch (e: any) {
-            addLog(`RealEstateAPI fetch failed for ${zip}: ${e.message}`);
+            addLog(`RapidAPI fetch failed for ${zip}: ${e.message}`);
             return [];
         }
     };
@@ -1321,64 +1407,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             if (results.length === 0) {
                 setError('No listings found in the resolved areas.');
             } else {
-                // ── Step 5: Enrich new properties via fetchPropertySpecs ──────────
-                // For every discovered zpid NOT already in Firestore, call the
-                // RapidAPI /property endpoint to get ALL fields (risk scores,
-                // schools, resoFacts, attribution, etc.) and save to `properties`.
-                const allZpids = results.map((r: any) => String(r.zpid)).filter(Boolean);
-                const existingSet = await checkExistingPropertiesBatch(allZpids);
-                const newZpids = allZpids.filter((z: string) => !existingSet.has(z));
-                if (newZpids.length > 0) {
-                    addLog(`Enriching ${newZpids.length} new properties (${existingSet.size} already in Firestore)...`);
-                    const ENRICH_CHUNK = 1; // Sequential — 1 request at a time
-                    let enriched = 0;
-                    let enrichFailed = 0;
-                    let enrichSkipped = 0;
-                    for (let i = 0; i < newZpids.length; i += ENRICH_CHUNK) {
-                        const chunk = newZpids.slice(i, i + ENRICH_CHUNK);
-                        const enrichResults = await Promise.allSettled(
-                            chunk.map(async (zpid: string) => {
-                                const specs = await realEstateApiProvider.getPropertyDetail(zpid);
-                                if (!specs?.zpid) return false;
-
-                                // Validate before saving: reject unsupported homeType OR no bedrooms
-                                const isValidType = isSupportedPropertyType(specs);
-                                const hasBedrooms = (specs.bedrooms ?? 0) > 0;
-                                if (!isValidType || !hasBedrooms) {
-                                    const reason = !isValidType
-                                        ? `unsupported type (${(specs as any).homeType || 'unknown'})`
-                                        : `no bedrooms (homeType=${(specs as any).homeType})`;
-                                    addLog(`  ✗ Skipping ${zpid}: ${reason}`);
-                                    // Remove from zip cache so it won't reappear
-                                    const matchedListing = results.find((r: any) => String(r.zpid) === zpid);
-                                    const zip = matchedListing?.location?.address?.postal_code;
-                                    const fallbackCity = matchedListing?.location?.address?.city;
-                                    const fallbackState = matchedListing?.location?.address?.state_code;
-                                    const csk = fallbackCity && fallbackState ? `${fallbackCity.toLowerCase().replace(/\s+/g, '_')}_${fallbackState.toLowerCase()}` : undefined;
-                                    if (zip) await removePropertyFromZipCache(zip, zpid, csk).catch(() => { });
-                                    setListings(prev => prev.filter(l => String(l.zpid) !== zpid));
-                                    enrichSkipped++;
-                                    return false;
-                                }
-
-                                await savePropertyToCloud(String(specs.zpid), specs as any);
-                                return true;
-                            })
-                        );
-                        enrichResults.forEach(r => {
-                            if (r.status === 'fulfilled' && r.value) enriched++;
-                            else if (r.status === 'rejected') enrichFailed++;
-                        });
-                        addLog(`  Enriched ${Math.min(i + ENRICH_CHUNK, newZpids.length)}/${newZpids.length}...`);
-                        if (i + ENRICH_CHUNK < newZpids.length) await new Promise(r => setTimeout(r, 1500));
-                    }
-                    addLog(`Enrichment complete: ${enriched} saved, ${enrichSkipped} skipped (invalid type/no rooms), ${enrichFailed} failed.`);
-                    logPipelineAudit('Property Enrichment', city.trim(), enrichFailed === 0 ? 'success' : 'partial', `${enriched}/${newZpids.length} enriched`, undefined, { enriched, skipped: enrichSkipped, failed: enrichFailed, existing: existingSet.size });
-                } else {
-                    addLog(`All ${allZpids.length} properties already in Firestore — enrichment skipped.`);
-                }
-
-                // ── Step 6: Move Inactive Listings (Deprecation Sweep) ──────────
+                // ── Step 5: Move Inactive Listings (Deprecation Sweep) ──────────
                 // Now that we have fresh results, compare Firestore against this 
                 // list and move anything that disappeared to Sold/Unlisted.
                 addLog(`Starting active listing sweep for ${city.trim()}...`);
@@ -2319,12 +2348,12 @@ ${JSON.stringify(propertySummaries)}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || itemId);
+                                        const fullAddress = zpidToAddressMap[itemId] || itemId;
                                         window.open(`${window.location.origin}/?q=${encodeURIComponent(fullAddress)}&zpid=${itemId}`, '_blank');
                                     }}
                                     className="font-bold text-slate-900 text-sm hover:text-indigo-600 hover:underline text-left transition-colors"
                                 >
-                                    {item.location?.address?.line || 'Unknown Address'}
+                                    {zpidToAddressMap[itemId] || itemId}
                                 </button>
                                 {isNew && !isDeprecated && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-sm animate-in zoom-in-50 duration-300">
@@ -2408,7 +2437,21 @@ ${JSON.stringify(propertySummaries)}
                             <div className="relative group/tooltip">
                                 <i className={`fa-solid fa-brain text-[10px] ${propertyStatuses[itemId]?.visual ? 'text-indigo-500' : 'text-slate-200'}`}></i>
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
-                                    {propertyStatuses[itemId]?.visual ? "Gemini Visual Analysis Complete" : "AI Analysis Pending"}
+                                    {propertyStatuses[itemId]?.visual ? "Interior/Outdoor AI Summary Cached" : "Interior/Outdoor AI Summary Missing"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-database text-[10px] ${propertyStatuses[itemId]?.realEstateApi ? 'text-violet-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.realEstateApi ? "RealEstateAPI Data Cached" : "RealEstateAPI Data Missing"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-camera text-[10px] ${propertyStatuses[itemId]?.visionExtension ? 'text-violet-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.visionExtension ? "Indoor/Outdoor AI (Photo Analysis) Cached" : "Indoor/Outdoor AI (Photo Analysis) Missing"}
                                 </div>
                             </div>
                         </div>
@@ -2490,10 +2533,11 @@ ${JSON.stringify(propertySummaries)}
                                 <button
                                     onClick={async (e) => {
                                         e.stopPropagation();
-                                        if (window.confirm(`Are you sure you want to delete ${item.location?.address?.line} from cache? This will remove all AI analysis.`)) {
+                                        const displayAddr = zpidToAddressMap[itemId] || itemId;
+                                        if (window.confirm(`Are you sure you want to delete ${displayAddr} from cache? This will remove all AI analysis.`)) {
                                             const res = await deletePropertyAnalysis(itemId);
                                             if (res.success) {
-                                                setDeletionStatus({ address: item.location?.address?.line || itemId, tables: res.tables });
+                                                setDeletionStatus({ address: displayAddr, tables: res.tables });
                                                 setCachedPropertyIds(prev => {
                                                     const next = new Set(prev);
                                                     next.delete(itemId);
@@ -2517,7 +2561,7 @@ ${JSON.stringify(propertySummaries)}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                copyToClipboard(item.location?.address?.line);
+                                copyToClipboard(zpidToAddressMap[itemId] || itemId);
                             }}
                             className={`p-2 rounded-lg transition-all ${isCached ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
                             disabled={isCached}
@@ -2733,6 +2777,25 @@ ${JSON.stringify(propertySummaries)}
                                     >
                                         <i className="fa-solid fa-compass text-amber-500 group-hover:scale-110 transition-transform"></i>
                                         Orientation ({visibleSelectedCount})
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleBulkVisionAnalysis()}
+                                        disabled={visionBatchRunning || loading}
+                                        className="px-6 py-3 bg-white border-2 border-cyan-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Fetch MLS photos from RealEstateAPI and run Gemini vision analysis — photos are never stored in Firestore"
+                                    >
+                                        {visionBatchRunning ? (
+                                            <>
+                                                <i className="fa-solid fa-spinner animate-spin text-cyan-500"></i>
+                                                {visionBatchProgress ? `Photos ${visionBatchProgress.done}/${visionBatchProgress.total}…` : 'Starting…'}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="fa-solid fa-eye text-cyan-500 group-hover:scale-110 transition-transform"></i>
+                                                Vision AI ({visibleSelectedCount})
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             )}
@@ -3811,7 +3874,7 @@ ${JSON.stringify(propertySummaries)}
                                                     </div>
                                                 </div>
                                                 <button
-                                                    onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
+                                                    onClick={() => copyToClipboard(groupItems.map(l => centralFormatAddress(l.location?.address) || l.location?.address?.line || String(l.zpid)).join('\n'))}
                                                     className="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
                                                 >
                                                     Copy Addresses
