@@ -386,6 +386,8 @@ async function _healContextImage(zpid, label, propData, apiKeys, db) {
 }
 
 async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, logger = null) {
+    const tStart = Date.now();
+    const timings = {};
     try {
         if (logger) logger.logTask('total_processed');
         const propRef = db.collection('properties').doc(zpid);
@@ -434,6 +436,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
 
         console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}`);
 
+        const tEnv0 = Date.now();
         let envResults = null;
         if (needsEnvRefresh) {
             if (logger) logger.logAPICall('google_maps', 'environmental_enrichment', zpid);
@@ -449,8 +452,10 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         // Always use the freshest env data for downstream prompts — merge enrichment results
         // over the snapshot so Lifestyle Fit sees the newly-fetched solar/AQ/pollen/noise data.
         const activeEnvData = envResults ? { ...envData, ...envResults } : envData;
+        timings.environmental = Date.now() - tEnv0;
 
         // ── Neighborhood Identity Healing ─────────────────────────────────────
+        const tNeigh0 = Date.now();
         const needsNeighborhoodId = !propData.neighborhood_identity?.resolved_name
             || propData.neighborhood_identity.resolved_name === 'Unknown';
         if (needsNeighborhoodId && propData.coordinates?.latitude && apiKeys.gemini_key) {
@@ -463,8 +468,10 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 apiKeys.gemini_key, logger
             );
         }
+        timings.neighborhood_identity = Date.now() - tNeigh0;
 
         // ── Neighborhood Narrative Healing ────────────────────────────────────
+        const tNarr0 = Date.now();
         const needsNarrative = !propData.neighborhood_narrative || propData.neighborhood_narrative.length < 50;
         if (needsNarrative && propData.address && apiKeys.gemini_key) {
             try {
@@ -487,6 +494,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 console.warn(`[Intel] Neighborhood narrative failed for ${zpid}:`, e.message);
             }
         }
+        timings.neighborhood_narrative = Date.now() - tNarr0;
 
         const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data()?.lastUpdated);
         const needsInsightsRefresh = force || !insightsSnap.exists || _isStale(insightsSnap.data()?.lastUpdated);
@@ -498,6 +506,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         let visualData = visualSnap.exists ? visualSnap.data() : null;
 
         // 2. AI Visual Pass
+        const tVisual0 = Date.now();
         if (needsVisualRefresh) {
             console.log(`[Intel] Running Visual Pass for ${zpid}...`);
             const assetData = assetsSnap.exists ? assetsSnap.data() : {};
@@ -616,10 +625,12 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 }
             }
         }
+        timings.visual_ai = Date.now() - tVisual0;
 
         // 2b. Street Insights healing: run only when visual pass didn't already handle it.
         // If visual pass ran AND had street view, insights come from the visual output — no re-download.
         // Only heal when: (a) visual pass was skipped (cached), OR (b) visual pass ran but prop had no street view URL.
+        const tStreet0 = Date.now();
         const svUrlForInsights = propData.streetView;
         const hasStreetInsights = !!(visualData?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
         const visualPassHandledSv = needsVisualRefresh && !!propData.streetView;
@@ -630,9 +641,11 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 console.warn(`[Intel] Street insights healing failed for ${zpid}:`, e.message);
             }
         }
+        timings.street_insights = Date.now() - tStreet0;
 
         // 3. Parallel Pass (Lifestyle Insights + Lifestyle Fit + Pollen AI)
         // Run these in parallel after Visual Pass is complete, BEFORE the slow Orientation pass.
+        const tLifestyle0 = Date.now();
         const tasks = [];
 
         // 3b. Lifestyle Insights (Neighborhood focus)
@@ -689,8 +702,10 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         if (tasks.length > 0) {
             await Promise.all(tasks);
         }
+        timings.lifestyle = Date.now() - tLifestyle0;
 
         // 4. Investment Pass
+        const tInvest0 = Date.now();
         if (force || !investSnap.exists || _isStale(investSnap.data().lastUpdated)) {
             console.log(`[Intel] Running Investment Pass for ${zpid}...`);
             const { getInvestmentResearchPrompt } = await import('./prompts/property/investmentResearch.js');
@@ -711,6 +726,8 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             });
         }
+        timings.investment = Date.now() - tInvest0;
+        timings.total = Date.now() - tStart;
 
         return {
             status: (needsVisualRefresh || force) ? 'success' : 'cached',
@@ -722,7 +739,8 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 scores: envResults?.__healed?.scores || false,
                 parcel: envResults?.__healed?.parcel || false,
                 satellite: envResults?.__healed?.satellite || false
-            }
+            },
+            timings
         };
     } catch (e) {
         console.error(`[Intel Error] ${zpid}:`, e);

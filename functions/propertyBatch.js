@@ -91,7 +91,7 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
                         
                         const res = await _processOneProperty(zpid, db, apiKeys, logger);
                         done++;
-                        results[zpid] = { status: 'success', message: `Saved: ${res.address}` };
+                        results[zpid] = { status: 'success', message: `Saved: ${res.address}`, timings: res.timings };
                     } catch (e) {
                         console.error(`[PropertyBatch] ✗ ${zpid}:`, e.message);
                         failed++;

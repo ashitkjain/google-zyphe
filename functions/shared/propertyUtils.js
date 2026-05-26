@@ -1245,11 +1245,15 @@ ${JSON.stringify(_NEIGHBORHOOD_IDENTITY_SCHEMA, null, 2)}
  * Fetches specs from RapidAPI, geocodes with Radar, and does Gemini Tax Lookup.
  */
 async function _enrichProperty(zpid, db, keys, logger = null) {
+    const tStart = Date.now();
+    const timings = {};
+
     const RAPID_API_KEY = keys.rapidapi_key;
     const RAPID_API_HOST = keys.rapidapi_host || 'us-housing-market-data1.p.rapidapi.com';
     const RADAR_API_KEY = keys.radar_key;
     const geminiKey = keys.gemini_key;
 
+    const tSpecs0 = Date.now();
     // 0. Cache Check (Healing Mode - 30 days TTL)
     const propSnap = await db.collection('properties').doc(zpid).get();
     let root = null;
@@ -1284,6 +1288,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         resoRaw = root.resoFacts || {};
         console.log(`[Enrichment] Fetched fresh RapidAPI specs for ${zpid}`);
     }
+    timings.specs = Date.now() - tSpecs0;
 
     // Normalize address fields to flat top-level fields so the rest of the code
     // has a single consistent shape regardless of whether root came from RapidAPI
@@ -1357,6 +1362,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
     }
 
     // If RapidAPI didn't return lat/lng, forward geocode the full address with Radar to get coordinates.
+    const tGeocode0 = Date.now();
     if (!coordinates && streetPart) {
         if (logger) logger.logAPICall('radar', 'geocoding', zpid);
         const fullAddress = [streetPart, cityPart, statePart, zipPart].filter(Boolean).join(', ');
@@ -1370,9 +1376,11 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             }
         }
     }
+    timings.geocoding = Date.now() - tGeocode0;
 
     // 3. Gemini Tax Lookup — always fetch for comparison against listing sqft,
     //    unless taxSqft is already cached in Firestore from a previous run.
+    const tTax0 = Date.now();
     let taxData = null;
     const existingSnap = await db.collection('properties').doc(zpid).get();
     const alreadyHasTaxSqft = existingSnap.exists && existingSnap.data()?.taxSqft > 0;
@@ -1396,8 +1404,10 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             console.warn(`[Enrichment] Gemini Tax Lookup failed for ${zpid}:`, e.message);
         }
     }
+    timings.taxLookup = Date.now() - tTax0;
 
     // 4. Environmental Enrichment + Neighborhood Identity (parallel)
+    const tEnv0 = Date.now();
     let envResults = null;
     if (coordinates) {
         const propSnap = await db.collection('properties').doc(zpid).get();
@@ -1415,8 +1425,10 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         ]);
         envResults = envRes.status === 'fulfilled' ? envRes.value : null;
     }
+    timings.environmental = Date.now() - tEnv0;
 
     // 4.5. RealEstateAPI MLS details fetch and cache
+    const tReapi0 = Date.now();
     let reapiMls = null;
     if (keys.realestateapi_key) {
         try {
@@ -1427,6 +1439,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         }
     }
     const reapiMapped = reapiMls ? mapReapiMlsDetails(reapiMls) : null;
+    timings.realestateapi = Date.now() - tReapi0;
 
     // 5. Map and Save
     const mapped = {
@@ -1563,6 +1576,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
 
     // Always heal map images — runs regardless of env TTL or isFresh flag.
     // This ensures satellite/zoom images are always in Storage even on cached runs.
+    const tMaps0 = Date.now();
     if (coordinates) {
         try {
             const isStorageUrl = url => !!(url && (url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com')));
@@ -1580,9 +1594,10 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             console.warn(`[Enrichment] Final image heal failed for ${zpid}:`, e.message);
         }
     }
+    timings.maps = Date.now() - tMaps0;
+    timings.total = Date.now() - tStart;
 
-
-    return { status: 'success', address: formattedAddress, data: mapped };
+    return { status: 'success', address: formattedAddress, data: mapped, timings };
 }
 
 /**
@@ -1873,5 +1888,7 @@ module.exports = {
     mapReapiMlsDetails,
     _extractJson,
     extractNumericValue,
+    _secureImageToStorage,
+    _healMapImages,
     ENV_SCHEMA_VERSION,
 };

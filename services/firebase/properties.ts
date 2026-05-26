@@ -1569,6 +1569,8 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
 
 export interface PropertyStatusDetails {
     property?: { timestamp: any };
+    isDeprecated?: boolean;
+    deprecationReason?: string;
     assets?: {
         images: boolean;
         imageCount: number;
@@ -1633,131 +1635,147 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
             processDocs(snapAlt.docs);
         }));
 
-        // If no properties found at all, we can't have assets/visual
-        if (canonicalZpids.size === 0) {
-            // But we should still return empty statuses for requested IDs to be safe
-            return statuses;
-        }
+        // Fetch assets and visual analysis for canonical ZPIDs (if any resolved)
+        if (canonicalZpids.size > 0) {
+            const canonicalList = Array.from(canonicalZpids);
+            const canonicalChunks: string[][] = [];
+            for (let i = 0; i < canonicalList.length; i += chunkSize) {
+                canonicalChunks.push(canonicalList.slice(i, i + chunkSize));
+            }
 
-        const canonicalList = Array.from(canonicalZpids);
-        const canonicalChunks: string[][] = [];
-        for (let i = 0; i < canonicalList.length; i += chunkSize) {
-            canonicalChunks.push(canonicalList.slice(i, i + chunkSize));
-        }
+            // Step 2: Fetch assets and visual analysis for canonical ZPIDs
+            const canonicalStatuses: Record<string, PropertyStatusDetails> = {};
 
-        // Step 2: Fetch assets and visual analysis for canonical ZPIDs
-        const canonicalStatuses: Record<string, PropertyStatusDetails> = {};
+            await Promise.all(canonicalChunks.map(async (chunk) => {
+                const snapProps = await getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk)));
 
-        await Promise.all(canonicalChunks.map(async (chunk) => {
-            const snapProps = await getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk)));
+                snapProps.forEach(doc => {
+                    const propData = doc.data();
+                    if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
+                    canonicalStatuses[doc.id].property = { timestamp: propData.lastUpdated };
 
-            snapProps.forEach(doc => {
-                const propData = doc.data();
-                if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
-                canonicalStatuses[doc.id].property = { timestamp: propData.lastUpdated };
+                    if (!canonicalStatuses[doc.id].assets) canonicalStatuses[doc.id].assets = {} as any;
 
-                if (!canonicalStatuses[doc.id].assets) canonicalStatuses[doc.id].assets = {} as any;
+                    // Satellite URL is stored on the property doc OR assets
+                    if (propData.satelliteImageUrl?.includes('firebasestorage')) {
+                        canonicalStatuses[doc.id].assets!.satellite = true;
+                    }
 
-                // Satellite URL is stored on the property doc OR assets
-                if (propData.satelliteImageUrl?.includes('firebasestorage')) {
-                    canonicalStatuses[doc.id].assets!.satellite = true;
-                }
+                    // Orientation check
+                    if (propData.orientation_ai?.final_orientation && propData.orientation_ai.final_orientation !== 'UNCLEAR_IMAGE') {
+                        (canonicalStatuses[doc.id].assets as any).orientation = true;
+                    }
+                });
 
-                // Orientation check
-                if (propData.orientation_ai?.final_orientation && propData.orientation_ai.final_orientation !== 'UNCLEAR_IMAGE') {
-                    (canonicalStatuses[doc.id].assets as any).orientation = true;
-                }
-            });
+                // Read assets and visual from new nested paths; fallback to legacy for assets
+                await Promise.all(chunk.map(async (zpid) => {
+                    // Assets: new nested path → legacy fallback
+                    let assetData: any = null;
+                    const assetSnap = await getDoc(doc(db, "properties", zpid, "analysis", "assets"));
+                    if (assetSnap.exists()) {
+                        assetData = assetSnap.data();
+                    } else {
+                        const legacySnap = await getDoc(doc(db, "property_assets", zpid));
+                        if (legacySnap.exists()) assetData = legacySnap.data();
+                    }
 
-            // Read assets and visual from new nested paths; fallback to legacy for assets
-            await Promise.all(chunk.map(async (zpid) => {
-                // Assets: new nested path → legacy fallback
-                let assetData: any = null;
-                const assetSnap = await getDoc(doc(db, "properties", zpid, "analysis", "assets"));
-                if (assetSnap.exists()) {
-                    assetData = assetSnap.data();
-                } else {
-                    const legacySnap = await getDoc(doc(db, "property_assets", zpid));
-                    if (legacySnap.exists()) assetData = legacySnap.data();
-                }
+                    // If still missing, check properties doc itself for some fields (backup)
+                    const propDoc = snapProps.docs.find(d => d.id === zpid);
+                    const propData = propDoc?.data();
 
-                // If still missing, check properties doc itself for some fields (backup)
-                const propDoc = snapProps.docs.find(d => d.id === zpid);
-                const propData = propDoc?.data();
+                    if (assetData || propData) {
+                        if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
 
-                if (assetData || propData) {
-                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                        const imagesArr = assetData?.images || propData?.images || [];
+                        const imagesSecured = imagesArr.length > 0 && imagesArr[0]?.includes('firebasestorage');
 
-                    const imagesArr = assetData?.images || propData?.images || [];
-                    const imagesSecured = imagesArr.length > 0 && imagesArr[0]?.includes('firebasestorage');
+                        // streetView: root doc (prop.streetView) is the single source of truth
+                        const hasStreetView = !!(propData?.streetView && propData.streetView.includes('firebasestorage'));
 
-                    // streetView: root doc (prop.streetView) is the single source of truth
-                    const hasStreetView = !!(propData?.streetView && propData.streetView.includes('firebasestorage'));
+                        canonicalStatuses[zpid].assets = {
+                            ...canonicalStatuses[zpid].assets,
+                            images: imagesSecured,
+                            imageCount: imagesSecured ? imagesArr.filter((u: string) => u?.includes('firebasestorage')).length : 0,
+                            map: (!!assetData?.mapZoomIn && assetData.mapZoomIn.includes('firebasestorage')) || (!!propData?.mapZoomIn && propData.mapZoomIn.includes('firebasestorage')),
+                            streetView: hasStreetView,
+                            satellite: canonicalStatuses[zpid].assets?.satellite || (!!assetData?.satelliteImageUrl && assetData.satelliteImageUrl.includes('firebasestorage')),
+                            timestamp: assetData?.lastVerified || propData?.lastUpdated,
+                            thumbnailUrl: imagesSecured ? imagesArr[0] : undefined
+                        };
+                    }
 
-                    canonicalStatuses[zpid].assets = {
-                        ...canonicalStatuses[zpid].assets,
-                        images: imagesSecured,
-                        imageCount: imagesSecured ? imagesArr.filter((u: string) => u?.includes('firebasestorage')).length : 0,
-                        map: (!!assetData?.mapZoomIn && assetData.mapZoomIn.includes('firebasestorage')) || (!!propData?.mapZoomIn && propData.mapZoomIn.includes('firebasestorage')),
-                        streetView: hasStreetView,
-                        satellite: canonicalStatuses[zpid].assets?.satellite || (!!assetData?.satelliteImageUrl && assetData.satelliteImageUrl.includes('firebasestorage')),
-                        timestamp: assetData?.lastVerified || propData?.lastUpdated,
-                        thumbnailUrl: imagesSecured ? imagesArr[0] : undefined
-                    };
-                }
+                    // Visual (AI RUN)
+                    const visualSnap = await getDoc(doc(db, "properties", zpid, "analysis", "visual"));
+                    if (visualSnap.exists()) {
+                        if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                        canonicalStatuses[zpid].visual = { timestamp: visualSnap.data().timestamp };
+                    }
 
-                // Visual (AI RUN)
-                const visualSnap = await getDoc(doc(db, "properties", zpid, "analysis", "visual"));
-                if (visualSnap.exists()) {
-                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
-                    canonicalStatuses[zpid].visual = { timestamp: visualSnap.data().timestamp };
-                }
+                    // Comprehensive (Full Intel)
+                    const compSnap = await getDoc(doc(db, "properties", zpid, "analysis", "comprehensive"));
+                    if (compSnap.exists()) {
+                        if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                        canonicalStatuses[zpid].comprehensive = { timestamp: compSnap.data().timestamp };
+                    }
 
-                // Comprehensive (Full Intel)
-                const compSnap = await getDoc(doc(db, "properties", zpid, "analysis", "comprehensive"));
-                if (compSnap.exists()) {
-                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
-                    canonicalStatuses[zpid].comprehensive = { timestamp: compSnap.data().timestamp };
-                }
+                    // Environmental (Google Data)
+                    const envSnap = await getDoc(doc(db, "properties", zpid, "environmental", "thirdparty_data"));
+                    if (envSnap.exists()) {
+                        if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                        canonicalStatuses[zpid].environmental = { timestamp: envSnap.data().lastUpdated || envSnap.data().timestamp };
+                    }
 
-                // Environmental (Google Data)
-                const envSnap = await getDoc(doc(db, "properties", zpid, "environmental", "thirdparty_data"));
-                if (envSnap.exists()) {
-                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
-                    canonicalStatuses[zpid].environmental = { timestamp: envSnap.data().lastUpdated || envSnap.data().timestamp };
-                }
+                    // Vision Extension (Chrome extension data page analysis)
+                    const visionExtSnap = await getDoc(doc(db, "properties", zpid, "analysis", "vision_v2"));
+                    if (visionExtSnap.exists()) {
+                        if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                        canonicalStatuses[zpid].visionExtension = { timestamp: visionExtSnap.data().timestamp };
+                    }
 
-                // Vision Extension (Chrome extension data page analysis)
-                const visionExtSnap = await getDoc(doc(db, "properties", zpid, "analysis", "vision_v2"));
-                if (visionExtSnap.exists()) {
-                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
-                    canonicalStatuses[zpid].visionExtension = { timestamp: visionExtSnap.data().timestamp };
-                }
-
-                // RealEstateAPI cache
-                const propData2 = snapProps.docs.find(d => d.id === zpid)?.data();
-                if (propData2) {
-                    const reapiId = propData2.resoFacts?.mlsid || propData2.address || '';
-                    if (reapiId) {
-                        const reapiCacheKey = reapiId.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 100);
-                        const reapiSnap = await getDoc(doc(db, "realestateapi_cache", reapiCacheKey));
-                        if (reapiSnap.exists()) {
-                            const rd = reapiSnap.data() as any;
-                            if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
-                            canonicalStatuses[zpid].realEstateApi = { timestamp: rd.fetchedAt };
+                    // RealEstateAPI cache
+                    const propData2 = snapProps.docs.find(d => d.id === zpid)?.data();
+                    if (propData2) {
+                        const reapiId = propData2.resoFacts?.mlsid || propData2.address || '';
+                        if (reapiId) {
+                            const reapiCacheKey = reapiId.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 100);
+                            const reapiSnap = await getDoc(doc(db, "realestateapi_cache", reapiCacheKey));
+                            if (reapiSnap.exists()) {
+                                const rd = reapiSnap.data() as any;
+                                if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                                canonicalStatuses[zpid].realEstateApi = { timestamp: rd.fetchedAt };
+                            }
                         }
                     }
-                }
+                }));
             }));
-        }));
 
-        // Step 3: Map canonical statuses back to requested IDs
-        requestedIds.forEach(reqId => {
-            const canonicalZpid = idMap[reqId];
-            if (canonicalZpid && canonicalStatuses[canonicalZpid]) {
-                statuses[reqId] = canonicalStatuses[canonicalZpid];
+            // Step 3: Map canonical statuses back to requested IDs
+            requestedIds.forEach(reqId => {
+                const canonicalZpid = idMap[reqId];
+                if (canonicalZpid && canonicalStatuses[canonicalZpid]) {
+                    statuses[reqId] = canonicalStatuses[canonicalZpid];
+                }
+            });
+        }
+
+        // Step 4: For any requested IDs that are not in statuses, check sold_or_unlisted_properties
+        const missingIds = requestedIds.filter(id => !statuses[id]);
+        if (missingIds.length > 0) {
+            const missingChunks: string[][] = [];
+            for (let i = 0; i < missingIds.length; i += chunkSize) {
+                missingChunks.push(missingIds.slice(i, i + chunkSize));
             }
-        });
+            await Promise.all(missingChunks.map(async (chunk) => {
+                const snapDeprecated = await getDocs(query(collection(db, "sold_or_unlisted_properties"), where(documentId(), "in", chunk)));
+                snapDeprecated.forEach(doc => {
+                    const data = doc.data();
+                    statuses[doc.id] = {
+                        isDeprecated: true,
+                        deprecationReason: data.movedReason || 'not_in_active_listings'
+                    };
+                });
+            }));
+        }
 
     } catch (e) {
         console.warn("Failed to get property statuses batch", e);

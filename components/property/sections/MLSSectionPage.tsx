@@ -209,15 +209,23 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
     useEffect(() => {
         if (!address) return;
         let cancelled = false;
-        loadMLSPhotos(address, mlsId || undefined)
-            .then(photos => { if (!cancelled) setReapiPhotos(photos); })
-            .catch(() => { if (!cancelled) setReapiPhotos([]); });
+
+        // If firestore images exist, use them directly
+        if (data.images && data.images.length > 0) {
+            setReapiPhotos(data.images);
+        } else {
+            loadMLSPhotos(address, mlsId || undefined)
+                .then(photos => { if (!cancelled) setReapiPhotos(photos); })
+                .catch(() => { if (!cancelled) setReapiPhotos([]); });
+        }
+
         // Load full MLS detail from the same cache to backfill sparse resoFacts
         loadMLSDetail(address, mlsId || undefined)
             .then(mls => { if (!cancelled) setReapiDetail(mls); })
             .catch(() => {});
+
         return () => { cancelled = true; };
-    }, [address, mlsId]);
+    }, [address, mlsId, data.images]);
 
     const images       = reapiPhotos ?? [];
     const priceHistory = data.priceHistory || [];

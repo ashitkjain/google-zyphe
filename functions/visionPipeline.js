@@ -178,6 +178,30 @@ function parseClassificationResponse(text, idx) {
 
 // ─── Image fetch → base64 ─────────────────────────────────────────────────
 async function fetchImageAsInlineData(url) {
+    try {
+        if (url.includes("firebasestorage.googleapis.com")) {
+            const bucketMatch = url.match(/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)/);
+            if (bucketMatch) {
+                const bucketName = bucketMatch[1];
+                const bucket = admin.storage().bucket(bucketName);
+                const match = url.match(/\/o\/([^?#]+)/);
+                if (match) {
+                    const storagePath = decodeURIComponent(match[1]);
+                    const file = bucket.file(storagePath);
+                    const [exists] = await file.exists();
+                    if (exists) {
+                        console.log(`[visionPipeline] Direct internal GCS read for ${storagePath} in bucket ${bucketName}`);
+                        const [buf] = await file.download();
+                        const mimeType = "image/jpeg";
+                        return { inlineData: { data: buf.toString("base64"), mimeType } };
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn(`[visionPipeline] GCS direct download failed for ${url}, falling back to fetch:`, e.message);
+    }
+
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Image fetch ${resp.status}: ${url}`);
     const buf = Buffer.from(await resp.arrayBuffer());
@@ -909,6 +933,20 @@ async function runVisionPipeline(zpid, opts = {}) {
     }
     console.log(`[visionPipeline] ${zpid} — ${imageUrls.length} photos`);
 
+    // 0. Cache check (Unless bypassCache is set)
+    if (!opts.bypassCache) {
+        const statusRef = propRef.collection("analysis").doc("vision_v2");
+        const statusSnap = await statusRef.get();
+        if (statusSnap.exists) {
+            const d = statusSnap.data();
+            const cachePhotoCount = d.photo_count_total || d.photo_count || 0;
+            if (d.status === "done" && cachePhotoCount > 0 && cachePhotoCount >= imageUrls.length) {
+                console.log(`[visionPipeline] ${zpid} — Cache hit (status=done, ${cachePhotoCount}/${imageUrls.length} photos). Returning cached analysis.`);
+                return d;
+            }
+        }
+    }
+
     // Live progress channel — the page subscribes to this doc and updates
     // its status row as phases progress. Throttled so we don't hammer
     // Firestore with one write per photo.
@@ -934,7 +972,26 @@ async function runVisionPipeline(zpid, opts = {}) {
 
     // Fetch all images once, reuse for both classify and analyze.
     const fetchStart = Date.now();
-    const fetchResults = await Promise.allSettled(imageUrls.map(fetchImageAsInlineData));
+    
+    // Concurrency-controlled parallel image downloader (defaults to 8 concurrent downloads)
+    const fetchResults = new Array(imageUrls.length);
+    let fetchCursor = 0;
+    const fetchConcurrency = opts.fetchConcurrency || 8;
+    
+    const fetchWorkers = Array.from({ length: Math.min(fetchConcurrency, imageUrls.length) }, async () => {
+        for (;;) {
+            const idx = fetchCursor++;
+            if (idx >= imageUrls.length) return;
+            try {
+                const res = await fetchImageAsInlineData(imageUrls[idx]);
+                fetchResults[idx] = { status: "fulfilled", value: res };
+            } catch (e) {
+                fetchResults[idx] = { status: "rejected", reason: e };
+            }
+        }
+    });
+    await Promise.all(fetchWorkers);
+
     const inlineParts = fetchResults.map((r, i) => {
         if (r.status === "fulfilled") return r.value;
         console.warn(`[visionPipeline] image fetch failed idx=${i}:`, r.reason?.message);
@@ -957,7 +1014,7 @@ async function runVisionPipeline(zpid, opts = {}) {
         classify_done: 0,
     }, true);
     const liveClassifications = await classifyAll(
-        model, classifyInputs, opts.classifyConcurrency || 4,
+        model, classifyInputs, opts.classifyConcurrency || 10,
         async (done, total) => writeStatus({
             classify_done: done,
             phase: `Classifying ${done}/${total}`,
@@ -989,15 +1046,23 @@ async function runVisionPipeline(zpid, opts = {}) {
         analyze_total: groups.length,
         analyze_done: 0,
     }, true);
-    const binOutputs = [];
-    // Sequential to be polite to the API for first slice; can parallelize later.
-    for (let gi = 0; gi < groups.length; gi++) {
-        binOutputs.push(await analyzeBin(model, groups[gi], inlineParts, property));
-        await writeStatus({
-            analyze_done: gi + 1,
-            phase: `Analyzing ${gi + 1}/${groups.length} groups`,
-        });
-    }
+    const binOutputs = new Array(groups.length);
+    let analyzeCursor = 0;
+    let analyzeDone = 0;
+    const analyzeConcurrency = opts.analyzeConcurrency || 4;
+    const analyzeWorkers = Array.from({ length: Math.min(analyzeConcurrency, groups.length) }, async () => {
+        for (;;) {
+            const gi = analyzeCursor++;
+            if (gi >= groups.length) return;
+            binOutputs[gi] = await analyzeBin(model, groups[gi], inlineParts, property);
+            analyzeDone++;
+            await writeStatus({
+                analyze_done: analyzeDone,
+                phase: `Analyzing ${analyzeDone}/${groups.length} groups`,
+            });
+        }
+    });
+    await Promise.all(analyzeWorkers);
     const analyzeMs = Date.now() - analyzeStart;
 
     // ── Assemble output ──

@@ -607,17 +607,22 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const fetchStatuses = async (targetListings: any[]) => {
         if (targetListings.length === 0) return;
         setIsCheckingCache(true);
-        const allIds = targetListings.map(l => String(l.zpid));
-        const statusMap = await getPropertyStatusesBatch(allIds);
-        setPropertyStatuses(statusMap);
+        try {
+            const allIds = targetListings.map(l => String(l.zpid));
+            const statusMap = await getPropertyStatusesBatch(allIds);
+            setPropertyStatuses(statusMap || {});
 
-        // Also update cached IDs for graying out
-        const cached = new Set<string>();
-        Object.entries(statusMap).forEach(([id, details]) => {
-            if (details.property) cached.add(id);
-        });
-        setCachedPropertyIds(cached);
-        setIsCheckingCache(false);
+            // Also update cached IDs for graying out
+            const cached = new Set<string>();
+            Object.entries(statusMap || {}).forEach(([id, details]) => {
+                if (details && details.property) cached.add(id);
+            });
+            setCachedPropertyIds(cached);
+        } catch (err) {
+            console.error('Error fetching property statuses:', err);
+        } finally {
+            setIsCheckingCache(false);
+        }
     };
 
     // Auto-fetch statuses for results
@@ -2270,7 +2275,8 @@ ${JSON.stringify(propertySummaries)}
         const soldDate = extractSoldDate(item);
         const isSelected = selectedIds.has(itemId);
         const isCached = cachedPropertyIds.has(itemId);
-        const isDeprecated = sweepResult?.deprecated.includes(itemId) ?? false;
+        const isDeprecated = (sweepResult?.deprecated.includes(itemId) ?? false) || (propertyStatuses[itemId]?.isDeprecated ?? false);
+        const deprecationReason = propertyStatuses[itemId]?.deprecationReason || (sweepResult?.deprecated.includes(itemId) ? 'not_in_active_listings' : null);
 
         const lastUpdated = propertyStatuses[itemId]?.property?.timestamp;
         const isNew = useMemo(() => {
@@ -2302,11 +2308,11 @@ ${JSON.stringify(propertySummaries)}
         return (
             <tr
                 className={`transition-all duration-300 border-b border-slate-100 last:border-0 
-                    ${isDeprecated ? 'bg-amber-50/30 opacity-60' : isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50'} 
+                    ${isDeprecated ? 'bg-amber-50/30 hover:bg-amber-100/30 opacity-80' : (!isCached ? 'bg-slate-50/40 hover:bg-slate-100/40 text-slate-400' : isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50')} 
                     cursor-pointer`}
                 onClick={() => toggleSelection(itemId)}
             >
-                <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                <td className={`p-4 ${isDeprecated ? 'border-l-4 border-l-amber-400' : (!isCached ? 'border-l-4 border-l-slate-300' : '')}`} onClick={(e) => e.stopPropagation()}>
                     {isCheckingCache ? (
                         <div className="w-5 h-5 flex items-center justify-center">
                             <i className="fa-solid fa-circle-notch animate-spin text-[10px] text-slate-300"></i>
@@ -2366,8 +2372,13 @@ ${JSON.stringify(propertySummaries)}
                                     </span>
                                 )}
                                 {isDeprecated && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 text-amber-700 text-[8px] font-black uppercase tracking-widest rounded-lg">
-                                        <i className="fa-solid fa-ban text-[7px]"></i> Deprecated
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm" title={deprecationReason ? `Reason: ${deprecationReason}` : undefined}>
+                                        <i className="fa-solid fa-ban text-[8px] animate-pulse"></i> Off-Market / Deprecated {deprecationReason ? `(${deprecationReason})` : ''}
+                                    </span>
+                                )}
+                                {!isCached && !isDeprecated && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-slate-500 to-slate-600 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm" title="Skipped during ingestion: property type not supported (e.g. land, multi-family), missing coordinate geometry, duplicate listing, or off-market.">
+                                        <i className="fa-solid fa-filter text-[8px]"></i> Ingestion Filtered
                                     </span>
                                 )}
                             </div>
@@ -2428,9 +2439,15 @@ ${JSON.stringify(propertySummaries)}
                             </div>
 
                             <div className="relative group/tooltip">
-                                <i className={`fa-solid fa-file-invoice text-[10px] ${propertyStatuses[itemId]?.property ? 'text-indigo-500' : 'text-slate-200'}`}></i>
+                                <i className={`fa-solid fa-file-invoice text-[10px] ${
+                                    propertyStatuses[itemId]?.property ? 'text-indigo-500' :
+                                    isDeprecated ? 'text-amber-500' :
+                                    'text-slate-200'
+                                }`}></i>
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
-                                    {propertyStatuses[itemId]?.property ? "Database Record Verified" : "No Database Record Found"}
+                                    {propertyStatuses[itemId]?.property ? "Database Record Verified" :
+                                     isDeprecated ? `Off-Market / Deprecated (${deprecationReason || 'Sold/Unlisted'})` :
+                                     "Filtered During Ingestion"}
                                 </div>
                             </div>
 
@@ -4936,8 +4953,238 @@ ${JSON.stringify(propertySummaries)}
                                                     Complete
                                                 </div>
                                             )}
+                                            {hasResults && (
+                                                <button
+                                                    onClick={() => {
+                                                        setExpandedJobId(expandedJobId === job.id ? null : job.id);
+                                                        setPropertySearchQuery('');
+                                                    }}
+                                                    className={`px-5 py-3 text-xs font-black uppercase tracking-widest rounded-2xl transition-all border flex items-center gap-2 ${
+                                                        expandedJobId === job.id
+                                                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                                                            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-indigo-100'
+                                                    }`}
+                                                >
+                                                    <span>{expandedJobId === job.id ? 'Hide Details' : 'View Timings'}</span>
+                                                    <i className={`fa-solid ${expandedJobId === job.id ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {/* ── Expandable Details Panel ── */}
+                                    {expandedJobId === job.id && (
+                                        <div className="mt-8 pt-8 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
+                                            {/* Panel Header */}
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                                <div>
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                                        <i className="fa-solid fa-clock-rotate-left text-indigo-500"></i>
+                                                        Step-by-Step Property Timings
+                                                    </h4>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                                        Detailed durations per property and ingestion phase
+                                                    </p>
+                                                </div>
+                                                
+                                                {/* Search Properties */}
+                                                <div className="relative max-w-xs w-full">
+                                                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                                                        <i className="fa-solid fa-magnifying-glass"></i>
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search ZPID or Address..."
+                                                        value={propertySearchQuery}
+                                                        onChange={(e) => setPropertySearchQuery(e.target.value)}
+                                                        className="w-full pl-9 pr-4 py-2 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 bg-slate-50/50 outline-none transition-all"
+                                                    />
+                                                    {propertySearchQuery && (
+                                                        <button 
+                                                            onClick={() => setPropertySearchQuery('')}
+                                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                                                        >
+                                                            <i className="fa-solid fa-circle-xmark text-xs"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Grid table */}
+                                            <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                                            <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Property</th>
+                                                            <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Status</th>
+                                                            
+                                                            {/* Step Headers based on job type */}
+                                                            {isIntel && (
+                                                                <>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Environmental</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Neighborhood Id</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Narrative</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Vision AI</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Street Insights</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Lifestyle</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Investment</th>
+                                                                </>
+                                                            )}
+                                                            {job.typeLabel === 'Property Data' && (
+                                                                <>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Specs Ingest</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Geocoding</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Tax Lookup</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Environmental</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">MLS Ingest</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Map Gen</th>
+                                                                </>
+                                                            )}
+                                                            {isOrientation && (
+                                                                <>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Bearing Math</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Image Sync</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Roadmap</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Gemini P1</th>
+                                                                    <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Gemini P2</th>
+                                                                </>
+                                                            )}
+                                                            {!isIntel && job.typeLabel !== 'Property Data' && !isOrientation && (
+                                                                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Description</th>
+                                                            )}
+                                                            
+                                                            <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap text-right">Total Duration</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-50">
+                                                        {Object.entries(job.results || {}).map(([zpid, resVal]: [string, any]) => {
+                                                            // Address Resolution
+                                                            let addressStr = `ZPID: ${zpid}`;
+                                                            const match = listings.find((l: any) => String(l.zpid) === String(zpid));
+                                                            if (match) {
+                                                                addressStr = centralFormatAddress(match.location?.address) || match.location?.address?.line || addressStr;
+                                                            } else if (resVal?.message?.startsWith("Saved: ")) {
+                                                                addressStr = resVal.message.replace("Saved: ", "");
+                                                            }
+
+                                                            // Search Filter Check
+                                                            const query = propertySearchQuery.trim().toLowerCase();
+                                                            if (query && !zpid.toLowerCase().includes(query) && !addressStr.toLowerCase().includes(query)) {
+                                                                return null;
+                                                            }
+
+                                                            // Format single timing badge helper
+                                                            const renderTimingBadge = (val: number | undefined, isLlmStep = false) => {
+                                                                if (val === undefined || val === null) {
+                                                                    const statusStr = resVal.status === 'cached' ? 'cached' : '—';
+                                                                    return (
+                                                                        <span className="inline-flex items-center px-2 py-1 rounded-lg bg-slate-50 text-slate-400 border border-slate-100/50 text-[10px] font-semibold">
+                                                                            {statusStr}
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                const formattedTime = val >= 1000 ? `${(val / 1000).toFixed(1)}s` : `${val}ms`;
+                                                                
+                                                                // Color code based on speed and step type
+                                                                let colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-100/50 hover:bg-emerald-100/70";
+                                                                if (isLlmStep) {
+                                                                    colorClasses = "bg-indigo-50/50 text-indigo-700 border-indigo-100/50 hover:bg-indigo-100/70";
+                                                                } else if (val > 3000) {
+                                                                    colorClasses = "bg-amber-50 text-amber-700 border-amber-100/50 hover:bg-amber-100/70";
+                                                                }
+
+                                                                return (
+                                                                    <span className={`inline-flex items-center px-2 py-1 border text-[10px] font-mono font-bold transition-all shadow-2xs rounded-lg ${colorClasses}`} title={`Duration: ${val}ms`}>
+                                                                        {formattedTime}
+                                                                    </span>
+                                                                );
+                                                            };
+
+                                                            const timings = resVal.timings || {};
+
+                                                            return (
+                                                                <tr key={zpid} className="hover:bg-slate-25 transition-colors">
+                                                                    {/* Property Identifier */}
+                                                                    <td className="py-3 px-4 max-w-[220px] truncate">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-xs font-black text-slate-800 truncate" title={addressStr}>
+                                                                                {addressStr}
+                                                                            </span>
+                                                                            <span className="text-[9px] font-mono text-slate-400 font-bold">
+                                                                                ZPID: {zpid}
+                                                                            </span>
+                                                                        </div>
+                                                                    </td>
+
+                                                                    {/* Status */}
+                                                                    <td className="py-3 px-4 whitespace-nowrap">
+                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                                                            resVal.status === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                            resVal.status === 'cached' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                                                                            resVal.status === 'skipped' ? 'bg-slate-50 text-slate-500 border-slate-200' :
+                                                                            'bg-rose-50 text-rose-700 border-rose-200'
+                                                                        }`}>
+                                                                            {resVal.status}
+                                                                        </span>
+                                                                    </td>
+
+                                                                    {/* Sub-steps */}
+                                                                    {isIntel && (
+                                                                        <>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.environmental)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.neighborhood_identity)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.neighborhood_narrative, true)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.visual_ai, true)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.street_insights, true)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.lifestyle, true)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.investment, true)}</td>
+                                                                        </>
+                                                                    )}
+                                                                    {job.typeLabel === 'Property Data' && (
+                                                                        <>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.specs)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.geocoding)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.taxLookup, true)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.environmental)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.realestateapi)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.maps)}</td>
+                                                                        </>
+                                                                    )}
+                                                                    {isOrientation && (
+                                                                        <>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.bearing)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.image_refresh)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.roadmap)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.gemini, true)}</td>
+                                                                            <td className="py-3 px-4 whitespace-nowrap">{renderTimingBadge(timings.gemini_pass2, true)}</td>
+                                                                        </>
+                                                                    )}
+                                                                    {!isIntel && job.typeLabel !== 'Property Data' && !isOrientation && (
+                                                                        <td className="py-3 px-4 text-xs font-medium text-slate-500 max-w-[250px] truncate" title={resVal.message || resVal.error || ''}>
+                                                                            {resVal.message || resVal.error || '—'}
+                                                                        </td>
+                                                                    )}
+
+                                                                    {/* Total Duration */}
+                                                                    <td className="py-3 px-4 whitespace-nowrap text-right">
+                                                                        {timings.total !== undefined ? (
+                                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-mono font-black shadow-xs">
+                                                                                {timings.total >= 1000 ? `${(timings.total / 1000).toFixed(1)}s` : `${timings.total}ms`}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] font-bold text-slate-300 uppercase">
+                                                                                {resVal.status === 'cached' ? 'cached' : '—'}
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

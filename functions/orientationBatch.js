@@ -398,6 +398,8 @@ async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, addres
 
 
 async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logger = null) {
+    const tStart = Date.now();
+    const timings = {};
     // 1. Read property from Firestore (Admin SDK)
     const propSnap = await db.collection('properties').doc(zpid).get();
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
@@ -456,6 +458,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     }
     if (propLat != null) console.log(`[Batch] Property centroid ${zpid}: ${propLat.toFixed(5)},${propLng.toFixed(5)}`);
 
+    const tGeocode0 = Date.now();
     let streetBearing = null, streetSide = null;
     try {
         steps.push('Maps Geocoding: Fetching street bearing');
@@ -465,12 +468,14 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
         streetSide = br?.streetSide ?? null;
         if (streetBearing !== null) steps.push(`Street bearing resolved: ${Math.round(streetBearing)}°`);
     } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
+    timings.bearing = Date.now() - tGeocode0;
 
     // 2b. Resolve storage bucket for image re-caching
     const bucket = admin.storage().bucket();
 
     // 3. Health-check cached image URLs. If expired (404/403), re-fetch from Google APIs.
     // This avoids silent aerial-only fallback caused purely by expired Firebase Storage tokens.
+    const tRefresh0 = Date.now();
     const [aerialAlive, svAlive] = await Promise.all([
         _isUrlAlive(aerialUrl),
         _isUrlAlive(svUrl),
@@ -513,6 +518,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
         try { svImg = await _downloadImageBase64(svUrl); }
         catch (e) { console.warn(`[Batch] SV download failed for ${zpid}:`, e.message); }
     }
+    timings.image_refresh = Date.now() - tRefresh0;
 
     // 4. Multi-unit gate: shared-building types where street view/listing photos can't
     //    reliably identify a specific unit's entrance. Townhouses are excluded — they have
@@ -600,6 +606,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     // 4d. Fetch labeled roadmap image for Gemini street-direction reading.
     // Google Maps Static roadmap at zoom 16 shows street names — Gemini reads the address
     // street bearing from it instead of guessing from satellite texture.
+    const tRoadmap0 = Date.now();
     let roadmapImg = null;
     if (propLat != null && propLng != null && radarKey) {
         try {
@@ -611,6 +618,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
             console.warn(`[Batch] ${zpid}: Radar Roadmap fetch failed (non-blocking):`, e.message);
         }
     }
+    timings.roadmap = Date.now() - tRoadmap0;
     // Image labeling:
     // A = Aerial satellite
     // B = Street View (if dual image) OR first listing photo (if primary listing photo mode) OR roadmap (if neither)
@@ -624,6 +632,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     }
 
     // 5. Build prompt and call Gemini 2.5 Flash
+    const tGemini0 = Date.now();
     const { getOrientationPrompt, getListingPhotoPrompt, satellitarySchema } = await import('./prompts/property/satellitaryAnalysis.js');
     
     let usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
@@ -657,6 +666,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     apis.push(`Gemini (${ORIENTATION_MODEL_CF})`);
     const geminiResult = await model.generateContent({ contents: [{ role: 'user', parts }] });
     if (logger) logger.logLLMCall(ORIENTATION_MODEL_CF, geminiResult.response.usageMetadata?.promptTokenCount, geminiResult.response.usageMetadata?.candidatesTokenCount, zpid, 'orientation.js');
+    timings.gemini = Date.now() - tGemini0;
     let data;
     let responseText = '';
     try {
@@ -910,6 +920,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     // run and appeared informative (shows_front=true) but GPS heading math is unreliable for
     // these layouts, so listing photos should get a chance to visually confirm the front.
     const complexLayoutForcedUnclear = isCornerOrCulDeSac;
+    const tRetry0 = Date.now();
     if (finalOrientation === 'UNCLEAR' && (!usesDualImage || svWasUninformative || complexLayoutForcedUnclear) && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
         console.log(`[Batch] ${zpid}: UNCLEAR (shows_front=${data.street_view_shows_front}, complexLayout=${complexLayoutForcedUnclear}) — Pass 2 with ${listingPhotoImgs.length} listing photo(s).`);
         try {
@@ -946,6 +957,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
             console.warn(`[Batch] ${zpid}: Pass 2 listing photo retry failed:`, e.message);
         }
     }
+    timings.gemini_pass2 = Date.now() - tRetry0;
 
     // Confidence cap: aerial-only analysis cannot be HIGH confidence.
     // When headingAzimuth===null (no GPS-confirmed heading was used), the result comes
@@ -1035,12 +1047,14 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
         await gtRef.set({ zpid, city, address, expected_orientation: null, expected_azimuth_deg: null, test_results: [newEntry] });
     }
 
+    timings.total = Date.now() - tStart;
     console.log(`[Batch] ✓ ${zpid} → ${finalOrientation}`);
     return {
         status: 'success',
         orientation: finalOrientation,
         steps,
-        apis: Array.from(new Set(apis))
+        apis: Array.from(new Set(apis)),
+        timings
     };
 }
 
