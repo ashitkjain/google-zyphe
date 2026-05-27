@@ -923,6 +923,57 @@ async function getImagesFromRealEstateApi(property, db, apiKey) {
     return urls;
 }
 
+/**
+ * Fallback: fetches property images from RapidAPI (Zillow homedetails) using ZPID.
+ */
+async function getImagesFromRapidApi(zpid, apiKey, host) {
+    const rapidKey = apiKey || process.env.RAPIDAPI_KEY;
+    const rapidHost = host || "us-housing-market-data1.p.rapidapi.com";
+    
+    if (!rapidKey) {
+        console.warn("[visionPipeline] Missing RapidAPI key. Skipping Zillow/Redfin fallback.");
+        return [];
+    }
+
+    const url = `https://${rapidHost}/images?zpid=${zpid}`;
+    console.log(`[visionPipeline] Fetching RapidAPI (Zillow) images for ZPID: ${zpid}...`);
+    try {
+        const res = await fetch(url, {
+            headers: {
+                "x-rapidapi-host": rapidHost,
+                "x-rapidapi-key": rapidKey
+            }
+        });
+        
+        if (!res.ok) {
+            console.warn(`[visionPipeline] RapidAPI images call failed: ${res.status}`);
+            return [];
+        }
+        
+        const data = await res.json();
+        let rawImages = [];
+        if (Array.isArray(data)) rawImages = data;
+        else if (data.images && Array.isArray(data.images)) rawImages = data.images;
+        else if (data.props?.images && Array.isArray(data.props.images)) rawImages = data.props.images;
+        else if (data.property?.images && Array.isArray(data.property.images)) rawImages = data.property.images;
+        else if (data.photos && Array.isArray(data.photos)) rawImages = data.photos;
+        
+        const urls = rawImages.map((img) => {
+            if (typeof img === "string") return img;
+            if (typeof img === "object" && img !== null) {
+                return img.url || img.uri || img.src || img.href;
+            }
+            return String(img);
+        }).filter((url) => typeof url === "string" && url.startsWith("http"));
+        
+        console.log(`[visionPipeline] RapidAPI fallback success — found ${urls.length} Zillow photos for ${zpid}`);
+        return urls;
+    } catch (err) {
+        console.error(`[visionPipeline] RapidAPI fallback failed for ${zpid}:`, err.message);
+        return [];
+    }
+}
+
 async function runVisionPipeline(zpid, opts = {}) {
     const db = opts.db || admin.firestore();
     const geminiKey = opts.geminiKey;
@@ -945,10 +996,24 @@ async function runVisionPipeline(zpid, opts = {}) {
     let imageUrls = Array.isArray(property.images) ? property.images.filter(u => typeof u === "string") : [];
     if (imageUrls.length === 0) {
         console.log(`[visionPipeline] ${zpid} — no images in property doc, fetching from RealEstateAPI`);
-        imageUrls = await getImagesFromRealEstateApi(property, db, opts.realEstateApiKey);
+        try {
+            imageUrls = await getImagesFromRealEstateApi(property, db, opts.realEstateApiKey);
+        } catch (e) {
+            console.warn(`[visionPipeline] RealEstateAPI failed for ${zpid}:`, e.message);
+        }
+
+        // Zillow / Redfin Fallback via RapidAPI
+        if (imageUrls.length === 0) {
+            console.log(`[visionPipeline] ${zpid} — RealEstateAPI failed or returned no photos. Triggering Zillow/Redfin fallback...`);
+            try {
+                imageUrls = await getImagesFromRapidApi(zpid, opts.rapidApiKey, opts.rapidApiHost);
+            } catch (fallbackErr) {
+                console.warn(`[visionPipeline] Zillow/Redfin fallback failed for ${zpid}:`, fallbackErr.message);
+            }
+        }
     }
     if (imageUrls.length === 0) {
-        throw new Error(`Property ${zpid} has no images`);
+        throw new Error(`Property ${zpid} has no images available on RealEstateAPI or Zillow/Redfin`);
     }
     console.log(`[visionPipeline] ${zpid} — ${imageUrls.length} photos`);
 

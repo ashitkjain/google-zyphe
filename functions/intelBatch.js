@@ -478,7 +478,9 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                     await runVisionPipeline(zpid, {
                         db,
                         geminiKey: apiKeys.gemini_key,
-                        realEstateApiKey: apiKeys.realestateapi_key
+                        realEstateApiKey: apiKeys.realestateapi_key,
+                        rapidApiKey: apiKeys.rapidapi_key,
+                        rapidApiHost: apiKeys.rapidapi_host
                     });
                     
                     if (logger) {

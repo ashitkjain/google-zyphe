@@ -34,7 +34,13 @@ exports.runVisionAnalysisForProperty = functions
         const realEstateApiKey = keys.realestateapi_key || process.env.VITE_REALESTATEAPI_KEY || "";
 
         try {
-            const result = await runVisionPipeline(zpid, { db, geminiKey, realEstateApiKey });
+            const result = await runVisionPipeline(zpid, { 
+                db, 
+                geminiKey, 
+                realEstateApiKey,
+                rapidApiKey: keys.rapidapi_key || process.env.RAPIDAPI_KEY,
+                rapidApiHost: keys.rapidapi_host || 'us-housing-market-data1.p.rapidapi.com'
+            });
             return result;
         } catch (e) {
             console.error(`[runVisionAnalysisForProperty] ${zpid}:`, e);
