@@ -3546,6 +3546,69 @@ ${JSON.stringify(propertySummaries)}
                             );
                         })()}
 
+                        {/* Pipeline Status Summary */}
+                        {(() => {
+                            const total = smokeSummary.results.length;
+                            
+                            let noPropData = 0;
+                            let noSecureAssets = 0;
+                            let noVisionAI = 0;
+                            let noFullIntel = 0;
+
+                            smokeSummary.results.forEach(r => {
+                                const hasPropDataError = r.checks.some(c => !c.passed && c.severity === 'error' && (c.source === 'rapidapi' || c.source === 'environmental' || c.source === 'parcel'));
+                                const hasAssetsError = r.checks.some(c => !c.passed && c.severity === 'error' && c.source === 'assets');
+                                const hasVisionError = r.checks.some(c => !c.passed && c.severity === 'error' && c.source === 'ai_visual');
+                                const hasIntelError = r.checks.some(c => !c.passed && c.severity === 'error' && (c.source === 'ai_comprehensive' || c.source === 'ai_lifestyle_insights' || c.source === 'ai_lifestyle_fit' || c.source === 'ai_investment'));
+
+                                if (hasPropDataError) noPropData++;
+                                if (hasAssetsError) noSecureAssets++;
+                                if (hasVisionError) noVisionAI++;
+                                if (hasIntelError) noFullIntel++;
+                            });
+
+                            return (
+                                <div className="mx-6 mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-300">
+                                    <div className="px-4 py-3 bg-slate-50/50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                                        <div>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">No Property Data Run</span>
+                                            <span className="text-base font-black text-slate-800 mt-1 block">{noPropData} / {total}</span>
+                                        </div>
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition-all ${noPropData > 0 ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                                            <i className="fa-solid fa-database"></i>
+                                        </div>
+                                    </div>
+                                    <div className="px-4 py-3 bg-slate-50/50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                                        <div>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Unsecured Assets</span>
+                                            <span className="text-lg font-black text-slate-800 mt-1 block">{noSecureAssets} / {total}</span>
+                                        </div>
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition-all ${noSecureAssets > 0 ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                                            <i className="fa-solid fa-cloud-arrow-down"></i>
+                                        </div>
+                                    </div>
+                                    <div className="px-4 py-3 bg-slate-50/50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                                        <div>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">No Vision AI Run</span>
+                                            <span className="text-lg font-black text-slate-800 mt-1 block">{noVisionAI} / {total}</span>
+                                        </div>
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition-all ${noVisionAI > 0 ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                                            <i className="fa-solid fa-eye"></i>
+                                        </div>
+                                    </div>
+                                    <div className="px-4 py-3 bg-slate-50/50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                                        <div>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">No Full Intel Run</span>
+                                            <span className="text-lg font-black text-slate-800 mt-1 block">{noFullIntel} / {total}</span>
+                                        </div>
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition-all ${noFullIntel > 0 ? 'bg-violet-50 text-violet-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                                            <i className="fa-solid fa-brain"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Detailed Results */}
                         <div className="p-6">
                             <div className="space-y-4 max-h-[600px] overflow-y-auto px-2 custom-scrollbar">

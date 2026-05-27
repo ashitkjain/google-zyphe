@@ -663,6 +663,48 @@ async function _enrichHistoricalDisasters(zpid, db, lat, lng) {
             });
         }
 
+        // Fallback: If no earthquakes found or API returned empty, copy from another property in the same ZIP code
+        if (!earthquakes || earthquakes.length === 0) {
+            try {
+                const propSnap = await db.collection('properties').doc(zpid).get();
+                if (propSnap.exists) {
+                    const p = propSnap.data();
+                    const zip = p.zipCode || p.zip || p.address?.zipcode || p.address?.zipCode || '';
+                    if (zip) {
+                        console.log(`[Earthquake Fallback] No earthquake events for ${zpid}. Searching ZIP ${zip}...`);
+                        const otherPropsSnap = await db.collection('properties')
+                            .where('zipCode', '==', String(zip).trim())
+                            .limit(25)
+                            .get();
+
+                        for (const doc of otherPropsSnap.docs) {
+                            if (doc.id === zpid) continue;
+                            const otherEnvSnap = await db.collection('properties')
+                                .doc(doc.id)
+                                .collection('environmental')
+                                .doc('thirdparty_data')
+                                .get();
+
+                            if (otherEnvSnap.exists) {
+                                const otherEnv = otherEnvSnap.data();
+                                const otherQuakes = otherEnv?.historical_disasters?.earthquakes;
+                                if (Array.isArray(otherQuakes) && otherQuakes.length > 0) {
+                                    earthquakes = otherQuakes;
+                                    if (!seismicZone && otherEnv?.historical_disasters?.seismicZone) {
+                                        seismicZone = otherEnv.historical_disasters.seismicZone;
+                                    }
+                                    console.log(`[Earthquake Fallback] Successfully copied ${otherQuakes.length} earthquake events from ZPID ${doc.id} (ZIP: ${zip})`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (fallbackErr) {
+                console.warn(`[Earthquake Fallback] ZIP fallback failed:`, fallbackErr.message);
+            }
+        }
+
         const seismicPayload = { seismicZone, earthquakes, fetchedAt: new Date().toISOString() };
         await db.collection('properties').doc(zpid).collection('environmental').doc('thirdparty_data')
             .set({ historical_disasters: seismicPayload }, { merge: true });
