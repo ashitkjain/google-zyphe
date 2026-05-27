@@ -934,6 +934,13 @@ async function runVisionPipeline(zpid, opts = {}) {
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
     const property = propSnap.data();
 
+    // Guard: reject invalid numeric ZPID addresses
+    const address = property.address || "";
+    const isNumeric = /^\d+$/.test(address.trim());
+    if (isNumeric || address.trim() === zpid) {
+        throw new Error(`Address '${address}' is invalid (raw ZPID number). Please run Property Data ingestion first to resolve the real street address.`);
+    }
+
     // Use property.images if present; otherwise fall back to RealEstateAPI
     let imageUrls = Array.isArray(property.images) ? property.images.filter(u => typeof u === "string") : [];
     if (imageUrls.length === 0) {
