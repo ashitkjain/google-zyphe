@@ -18,6 +18,7 @@ import PdfToCsvTab from '../PdfToCsvTab';
 import SmsRegistrationTab from '../SmsRegistrationTab';
 import BulkPrefetchTab from '../BulkPrefetchTab';
 import CityDataTab from '../CityDataTab';
+import HamiltonIngestTab from '../HamiltonIngestTab';
 import DataHealthTab from '../DataHealthTab';
 import StorageScannerTab from '../StorageScannerTab';
 import IndustryResearchTab from '../IndustryResearchTab';
@@ -202,6 +203,8 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'bulk_prefetch' && <BulkPrefetchTab />}
 
             {activeTab === 'city_data' && <CityDataTab onNavigate={onNavigate} />}
+
+            {activeTab === 'hamilton_ingest' && <HamiltonIngestTab />}
 
             {activeTab === 'sold_listings' && <SoldListingsTab />}
 
