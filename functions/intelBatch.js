@@ -10,7 +10,7 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { _enrichEnvironmentalData, _extractJson, _enrichStreetInsights, _enrichNeighborhoodIdentity, ENV_SCHEMA_VERSION } = require('./shared/propertyUtils');
+const { _extractJson } = require('./shared/propertyUtils');
 const UsageLogger = require('./shared/usageLogger');
 
 const INTEL_CONCURRENCY = 5;
@@ -101,14 +101,14 @@ function _isStale(timestamp) {
 
 function _isVisualComplete(visual) {
     if (!visual) return false;
-    const interior = visual.home_interior || {};
+    // Support both vision_v2 and legacy visual schemas
+    if (visual.status === 'done') return true; // new vision_v2 status
+    const interior = visual.interior_synthesis || visual.home_interior || {};
     const hasDescription = !!(interior.overall_description && interior.overall_description.length > 50);
-    const hasInteriorSummary = !!(interior.interior_summary && interior.interior_summary.length > 20);
-    const hasExterior = !!(visual.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
-    const hasRooms = Array.isArray(visual.room_highlights) && visual.room_highlights.length > 0;
-    // rooms are required unless the interior was well-described (photos likely all exterior — re-running won't help)
-    const roomsOk = hasRooms || (hasDescription && hasInteriorSummary);
-    return hasDescription && hasInteriorSummary && hasExterior && roomsOk;
+    const hasInteriorSummary = !!(interior.overall_description && interior.overall_description.length > 50);
+    const hasExterior = !!(visual.exterior_synthesis?.exterior_and_lot_appeal?.architecture_style || visual.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
+    const hasRooms = (Array.isArray(visual.photos) && visual.photos.length > 0) || (Array.isArray(visual.room_highlights) && visual.room_highlights.length > 0);
+    return hasDescription && hasInteriorSummary && hasExterior && hasRooms;
 }
 
 function _isCompComplete(comp) {
@@ -388,6 +388,27 @@ async function _healContextImage(zpid, label, propData, apiKeys, db) {
 async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, logger = null) {
     const tStart = Date.now();
     const timings = {};
+    
+    // Ensure apiKeys is fully populated (e.g. when called with an empty object from a test script)
+    if (!apiKeys || !apiKeys.gemini_key) {
+        try {
+            const keysSnap = await db.collection('app_config').doc('api_keys').get();
+            const keys = keysSnap.exists ? keysSnap.data() : {};
+            apiKeys = {
+                ...apiKeys,
+                rapidapi_key: apiKeys?.rapidapi_key || keys.rapidapi_key || process.env.RAPIDAPI_KEY,
+                rapidapi_host: apiKeys?.rapidapi_host || keys.rapidapi_host || 'us-housing-market-data1.p.rapidapi.com',
+                radar_key: apiKeys?.radar_key || keys.radar_key || process.env.RADAR_KEY,
+                gemini_key: apiKeys?.gemini_key || keys.gemini_key || process.env.GEMINI_API_KEY,
+                google_maps_key: apiKeys?.google_maps_key || keys.google_maps_key || process.env.MAPS_API_KEY,
+                howloud_key: apiKeys?.howloud_key || keys.howloud_key || process.env.HOWLOUD_KEY,
+                realestateapi_key: apiKeys?.realestateapi_key || keys.realestateapi_key || process.env.VITE_REALESTATEAPI_KEY
+            };
+        } catch (keysErr) {
+            console.warn('[Intel] Failed to auto-populate missing API keys:', keysErr.message);
+        }
+    }
+
     try {
         if (logger) logger.logTask('total_processed');
         const propRef = db.collection('properties').doc(zpid);
@@ -419,82 +440,18 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
 
         // ─── Phase 1: Refresh Analysis Snaps ─────────────────────────────────
         const [visualSnap, investSnap, assetsSnap, insightsSnap, fitSnap] = await Promise.all([
-            analysisRef.doc('visual').get(),
+            analysisRef.doc('vision_v2').get(),
             analysisRef.doc('investment').get(),
             analysisRef.doc('assets').get(),
             analysisRef.doc('lifestyle_insights').get(),
             analysisRef.doc('lifestyle_fit').get(),
         ]);
 
-        // ── Environmental Data Healing (Google APIs only, no RapidAPI) ────────
-        // RapidAPI property data fetching belongs in propertyBatch.js, NOT here.
-        // If property data is missing, the user should run "Get Property Data" first.
-        const needsPollenAiHeal = !!(envData?.pollen && !envData.pollen?.analysis?.breathe_easy_summary);
-        const needsEnvRefresh = !envData || _isStale(envData.lastUpdated)
-            || (envData.__env_version || 0) < ENV_SCHEMA_VERSION
-            || needsPollenAiHeal;
-
-        console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}`);
-
-        const tEnv0 = Date.now();
-        let envResults = null;
-        if (needsEnvRefresh) {
-            if (logger) logger.logAPICall('google_maps', 'environmental_enrichment', zpid);
-            envResults = await _enrichEnvironmentalData(
-                zpid,
-                db,
-                apiKeys,
-                propData.coordinates?.latitude,
-                propData.coordinates?.longitude,
-                logger
-            );
-        }
-        // Always use the freshest env data for downstream prompts — merge enrichment results
-        // over the snapshot so Lifestyle Fit sees the newly-fetched solar/AQ/pollen/noise data.
-        const activeEnvData = envResults ? { ...envData, ...envResults } : envData;
-        timings.environmental = Date.now() - tEnv0;
-
-        // ── Neighborhood Identity Healing ─────────────────────────────────────
-        const tNeigh0 = Date.now();
-        const needsNeighborhoodId = !propData.neighborhood_identity?.resolved_name
-            || propData.neighborhood_identity.resolved_name === 'Unknown';
-        if (needsNeighborhoodId && propData.coordinates?.latitude && apiKeys.gemini_key) {
-            await _enrichNeighborhoodIdentity(
-                zpid, db,
-                propData.address || propData.streetAddress,
-                propData.city, propData.state,
-                propData.coordinates.latitude, propData.coordinates.longitude,
-                propData.description,
-                apiKeys.gemini_key, logger
-            );
-        }
-        timings.neighborhood_identity = Date.now() - tNeigh0;
-
-        // ── Neighborhood Narrative Healing ────────────────────────────────────
-        const tNarr0 = Date.now();
-        const needsNarrative = !propData.neighborhood_narrative || propData.neighborhood_narrative.length < 50;
-        if (needsNarrative && propData.address && apiKeys.gemini_key) {
-            try {
-                console.log(`[Intel] Generating neighborhood narrative for ${zpid}...`);
-                const { getNeighborhoodNarrativePrompt } = await import('./prompts/property/neighborhoodNarrative.js');
-                const narrativeModel = genAI.getGenerativeModel({
-                    model: 'gemini-2.5-flash-lite',
-                    generationConfig: { responseMimeType: 'application/json' }
-                });
-                const places = activeEnvData?.google_places || null;
-                const prompt = getNeighborhoodNarrativePrompt(propData, places);
-                const { result, text } = await _geminiCall(narrativeModel, prompt, `Neighborhood Narrative ${zpid}`);
-                const narrativeData = _extractJson(text);
-                if (narrativeData?.narrative && narrativeData.narrative.length > 20) {
-                    await propRef.set({ neighborhood_narrative: narrativeData.narrative }, { merge: true });
-                    if (logger) logger.logLLMCall('gemini-2.5-flash-lite', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'neighborhoodNarrative.js');
-                    console.log(`[Intel] Neighborhood narrative saved for ${zpid}`);
-                }
-            } catch (e) {
-                console.warn(`[Intel] Neighborhood narrative failed for ${zpid}:`, e.message);
-            }
-        }
-        timings.neighborhood_narrative = Date.now() - tNarr0;
+        // Environmental, Neighborhood Identity, and Neighborhood Narrative passes have been moved exclusively to the Property Data pipeline (propertyBatch.js)
+        const activeEnvData = envData;
+        timings.environmental = 0;
+        timings.neighborhood_identity = 0;
+        timings.neighborhood_narrative = 0;
 
         const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data()?.lastUpdated);
         const needsInsightsRefresh = force || !insightsSnap.exists || _isStale(insightsSnap.data()?.lastUpdated);
@@ -505,143 +462,41 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
 
         let visualData = visualSnap.exists ? visualSnap.data() : null;
 
-        // 2. AI Visual Pass
+        // 2. AI Visual Pass (Dynamic vision_v2 generator)
         const tVisual0 = Date.now();
         if (needsVisualRefresh) {
-            console.log(`[Intel] Running Visual Pass for ${zpid}...`);
-            const assetData = assetsSnap.exists ? assetsSnap.data() : {};
-            const galleryImages = assetData.images || [];
+            console.log(`[Intel] Refreshing Vision AI data for ${zpid}...`);
+            const visionV2Ref = analysisRef.doc('vision_v2');
+            let visionV2Snap = await visionV2Ref.get();
+            let visionV2Data = visionV2Snap.exists ? visionV2Snap.data() : null;
 
-            // Limit gallery images to prevent memory crashes (191 props * 50 images = OOM)
-            const limitedGallery = galleryImages.slice(0, MAX_GALLERY_IMAGES);
-
-            // Build the list of all targets: Maps first for context, then gallery.
-            // Prefer assets doc URLs (Storage); fall back to root prop doc (set by Orientation Batch).
-            const contextImages = [
-                { url: propData.streetView, label: 'Street View' },
-                { url: assetData.mapZoomIn || propData.mapZoomIn, label: 'Close-up Parcel Map' },
-                { url: assetData.mapZoomOut || propData.mapZoomOut, label: 'Neighborhood Context Map' },
-                { url: assetData.satelliteImageUrl || propData.satelliteImageUrl, label: 'Satellite/Radar Imagery' }
-            ].filter(img => !!img.url);
-
-            const galleryTargets = limitedGallery.map(url => ({ url, label: 'Gallery Photo' }));
-            const allTargets = [...contextImages, ...galleryTargets];
-
-            const healBucket = admin.storage().bucket();
-            const imageMetadata = assetData.imageMetadata || {};
-
-            if (allTargets.length > 0) {
-                const imageParts = await Promise.all(allTargets.map(async (target) => {
-                    let base64 = await _fetchImageAsBase64(target.url);
-                    if (!base64 && target.label === 'Gallery Photo') {
-                        // Image missing or corrupt in Storage — attempt one heal from original source
-                        base64 = await _healGalleryImage(target.url, imageMetadata, healBucket);
-                    }
-                    if (!base64 && target.label !== 'Gallery Photo') {
-                        // Context image corrupt or missing — re-fetch from source API and overwrite Storage
-                        base64 = await _healContextImage(zpid, target.label, propData, apiKeys, db);
-                    }
-                    if (!base64) return null;
-                    return [
-                        { text: `--- ${target.label} ---` },
-                        base64
-                    ];
-                }));
-
-                const validParts = imageParts.filter(p => p !== null).flat();
-
-                if (validParts.length > 0) {
-                    const { getPropertyImagesPrompt } = await import('./prompts/property/propertyImages.js');
-                    const model = genAI.getGenerativeModel({
-                        model: MODEL_NAME,
-                        generationConfig: { responseMimeType: "application/json" }
+            // Trigger runVisionPipeline dynamically if vision_v2 is missing or incomplete
+            if (force || !visionV2Data || visionV2Data.status !== 'done') {
+                console.log(`[Intel] vision_v2 is missing, incomplete, or forced for ${zpid}. Running Vision Pipeline on the fly...`);
+                try {
+                    const { runVisionPipeline } = require('./visionPipeline');
+                    await runVisionPipeline(zpid, {
+                        db,
+                        geminiKey: apiKeys.gemini_key,
+                        realEstateApiKey: apiKeys.realestateapi_key
                     });
-                    const prompt = getPropertyImagesPrompt(propData);
-
-                    // Helper: build context-only parts from Storage (lazy — only called on failure)
-                    const buildContextOnlyParts = async () =>
-                        (await Promise.all(contextImages.map(async (target) => {
-                            const base64 = await _fetchImageAsBase64(target.url);
-                            if (!base64) return null;
-                            return [{ text: `--- ${target.label} ---` }, base64];
-                        }))).filter(p => p !== null).flat();
-
-                    let callResult;
-                    try {
-                        // Attempt 1: full set (context + gallery from Storage cache)
-                        callResult = await _geminiCall(model, [{ text: prompt }, ...validParts], `Visual Pass ${zpid}`);
-                    } catch (e) {
-                        if (!(e.message?.includes('400') && e.message?.includes('image'))) throw e;
-
-                        // Attempt 2: re-fetch gallery from original source URLs + context from Storage
-                        console.warn(`[Intel] Visual Pass ${zpid}: bad image detected — re-fetching gallery from original source...`);
-                        const contextParts = await buildContextOnlyParts();
-                        const healedGalleryParts = (await Promise.all(limitedGallery.map(async (url) => {
-                            const base64 = await _healGalleryImage(url, imageMetadata, healBucket);
-                            if (!base64) return null;
-                            return [{ text: '--- Gallery Photo ---' }, base64];
-                        }))).filter(p => p !== null).flat();
-
-                        try {
-                            const healedFullParts = [...contextParts, ...healedGalleryParts];
-                            if (healedFullParts.length === 0) throw e;
-                            callResult = await _geminiCall(model, [{ text: prompt }, ...healedFullParts], `Visual Pass ${zpid} (healed-gallery)`);
-                        } catch (e2) {
-                            if (!(e2.message?.includes('400') && e2.message?.includes('image'))) throw e2;
-
-                            // Attempt 3: context images only (drop all gallery)
-                            if (contextParts.length === 0) throw e2;
-                            console.warn(`[Intel] Visual Pass ${zpid}: gallery heal failed — retrying with context-only images`);
-                            try {
-                                callResult = await _geminiCall(model, [{ text: prompt }, ...contextParts], `Visual Pass ${zpid} (context-only)`);
-                            } catch (e3) {
-                                if (!(e3.message?.includes('400') && e3.message?.includes('image'))) throw e3;
-
-                                // Attempt 4: force-heal context images from source APIs (bypasses cached Storage)
-                                console.warn(`[Intel] Visual Pass ${zpid}: context-only also failed — force-healing context images from source...`);
-                                const healedContextParts = (await Promise.all(contextImages.map(async (target) => {
-                                    const healed = await _healContextImage(zpid, target.label, propData, apiKeys, db);
-                                    if (healed) return [{ text: `--- ${target.label} ---` }, healed];
-                                    return null;
-                                }))).filter(p => p !== null).flat();
-
-                                if (healedContextParts.length === 0) throw e3;
-                                callResult = await _geminiCall(model, [{ text: prompt }, ...healedContextParts], `Visual Pass ${zpid} (healed-context)`);
-                            }
-                        }
-                    }
-                    const { result, text } = callResult;
-
+                    
                     if (logger) {
                         logger.logTask('visual_pass');
-                        logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'propertyImages.js');
                     }
-                    visualData = _normalizeVisualData(_extractJson(text));
-                    await analysisRef.doc('visual').set({
-                        ...visualData,
-                        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                        version: 'batch-v2'
-                    });
+                    console.log(`[Intel] Successfully completed Vision Pipeline for ${zpid}`);
+                    // Re-fetch the newly generated doc so downstream has fresh data
+                    visionV2Snap = await visionV2Ref.get();
+                    visualData = visionV2Snap.exists ? visionV2Snap.data() : null;
+                } catch (err) {
+                    console.error(`[Intel] Failed running vision pipeline on the fly for ${zpid}:`, err);
                 }
             }
         }
         timings.visual_ai = Date.now() - tVisual0;
 
-        // 2b. Street Insights healing: run only when visual pass didn't already handle it.
-        // If visual pass ran AND had street view, insights come from the visual output — no re-download.
-        // Only heal when: (a) visual pass was skipped (cached), OR (b) visual pass ran but prop had no street view URL.
-        const tStreet0 = Date.now();
-        const svUrlForInsights = propData.streetView;
-        const hasStreetInsights = !!(visualData?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
-        const visualPassHandledSv = needsVisualRefresh && !!propData.streetView;
-        if (svUrlForInsights && !hasStreetInsights && !visualPassHandledSv) {
-            try {
-                await _enrichStreetInsights(zpid, db, apiKeys.gemini_key, svUrlForInsights, logger);
-            } catch (e) {
-                console.warn(`[Intel] Street insights healing failed for ${zpid}:`, e.message);
-            }
-        }
-        timings.street_insights = Date.now() - tStreet0;
+        // Street Insights has been moved exclusively to the Orientation pass (where street view is already pre-downloaded)
+        timings.street_insights = 0;
 
         // 3. Parallel Pass (Lifestyle Insights + Lifestyle Fit + Pollen AI)
         // Run these in parallel after Visual Pass is complete, BEFORE the slow Orientation pass.
@@ -783,7 +638,8 @@ exports.runFullIntelBatchOnWrite = functions
             radar_key: keys.radar_key || process.env.RADAR_KEY,
             gemini_key: keys.gemini_key || process.env.GEMINI_API_KEY,
             google_maps_key: keys.google_maps_key || process.env.MAPS_API_KEY,
-            howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY
+            howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY,
+            realestateapi_key: keys.realestateapi_key || keys.realestateapi || process.env.VITE_REALESTATEAPI_KEY
         };
 
         if (!apiKeys.gemini_key) {
@@ -810,7 +666,7 @@ exports.runFullIntelBatchOnWrite = functions
             for (let i = 0; i < zpids.length; i += PRESCAN_CHUNK_SIZE) {
                 const chunk = zpids.slice(i, i + PRESCAN_CHUNK_SIZE);
                 const statusSnaps = await Promise.all(chunk.map(zpid =>
-                    db.collection('properties').doc(zpid).collection('analysis').doc('visual').get()
+                    db.collection('properties').doc(zpid).collection('analysis').doc('vision_v2').get()
                 ));
 
                 statusSnaps.forEach((s, idx) => {
@@ -996,7 +852,7 @@ exports.runNarrativeBatchOnWrite = functions
                     const propRef = db.collection('properties').doc(zpid);
                     const [propSnap, visualSnap] = await Promise.all([
                         propRef.get(),
-                        propRef.collection('analysis').doc('visual').get()
+                        propRef.collection('analysis').doc('vision_v2').get()
                     ]);
 
                     if (!propSnap.exists) return;

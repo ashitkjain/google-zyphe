@@ -39,7 +39,7 @@ const STEP_COLLECTION = {
 };
 
 // Required analysis docs per zpid
-const REQUIRED_ANALYSIS_TYPES = ['visual', 'assets', 'investment'];
+const REQUIRED_ANALYSIS_TYPES = ['vision_v2', 'assets', 'investment'];
 
 // ─── Internal: discover zpids missing analysis ─────────────────────────────
 async function discoverIncompleteZpids(city, state) {
@@ -299,7 +299,7 @@ const pipelineSmokeCheck = functions.https.onRequest(async (req, res) => {
       for (const zpid of chunk) {
         refsToCheck.push(db.collection('properties').doc(zpid));
         refsToCheck.push(
-          db.collection('properties').doc(zpid).collection('analysis').doc('visual')
+          db.collection('properties').doc(zpid).collection('analysis').doc('vision_v2')
         );
         refsToCheck.push(
           db.collection('properties').doc(zpid).collection('analysis').doc('assets')
@@ -320,7 +320,7 @@ const pipelineSmokeCheck = functions.https.onRequest(async (req, res) => {
 
         const missing = [];
         if (!rootSnap.exists) missing.push('properties root doc');
-        if (!visualSnap.exists) missing.push('analysis/visual');
+        if (!visualSnap.exists) missing.push('analysis/vision_v2');
         if (!assetsSnap.exists) missing.push('analysis/assets');
         if (!cgSnap.exists) {
           missing.push('context_graph doc');

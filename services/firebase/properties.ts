@@ -568,6 +568,99 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
 export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAIAnalysisResult | null> => {
     if (!db) return null;
     try {
+        // Try getting vision_v2 first
+        const v2Ref = doc(db, "properties", zpid, "analysis", "vision_v2");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'vision_v2' });
+        const v2Snap = await getDoc(v2Ref);
+        
+        if (v2Snap.exists()) {
+            const v2Data = v2Snap.data();
+            
+            // Map photos to image_by_image_analysis
+            const image_by_image_analysis = (v2Data.photos || [])
+                .filter((p: any) => p.url && p.analysis)
+                .map((p: any) => ({
+                    image_id: p.url,
+                    analysis: p.analysis
+                }));
+
+            // Map interior_synthesis to home_interior
+            const home_interior = {
+                overall_description: v2Data.interior_synthesis?.overall_description || "",
+                design_style: {
+                    style: v2Data.interior_synthesis?.design_style?.style || "",
+                    reasoning: v2Data.interior_synthesis?.design_style?.reasoning || ""
+                },
+                color_and_materials: v2Data.interior_synthesis?.color_and_materials || "",
+                lighting: v2Data.interior_synthesis?.lighting || "",
+                spatial_flow: v2Data.interior_synthesis?.spatial_flow || "",
+                storage_and_cabinetry: v2Data.interior_synthesis?.storage_and_cabinetry || "",
+                condition_and_finish: v2Data.interior_synthesis?.condition_and_finish || "",
+                hero_headline: v2Data.interior_synthesis?.hero_headline || "",
+                atmosphere_scores: {
+                    brightness: v2Data.interior_synthesis?.atmosphere_scores?.brightness ?? 5,
+                    warmth: v2Data.interior_synthesis?.atmosphere_scores?.warmth ?? 5,
+                    openness: v2Data.interior_synthesis?.atmosphere_scores?.openness ?? 5
+                },
+                facet_tags: {
+                    colors_tag: v2Data.interior_synthesis?.facet_tags?.colors_tag || "",
+                    lighting_tag: v2Data.interior_synthesis?.facet_tags?.lighting_tag || "",
+                    storage_tag: v2Data.interior_synthesis?.facet_tags?.storage_tag || ""
+                },
+                material_palette: v2Data.interior_synthesis?.material_palette || []
+            };
+
+            // Map photos to room_highlights
+            const room_highlights = (v2Data.photos || [])
+                .filter((p: any) => p.analysis && !p.mirror_of && !['Front Yard', 'Backyard', 'Aerial View', 'Floor Plan', 'Other'].includes(p.group_label))
+                .map((p: any) => ({
+                    room_name: p.room_label || p.group_label || 'Interior Room',
+                    floor: 'Main Floor',
+                    image_id: p.url || '',
+                    description: p.analysis || '',
+                    potential_improvements: p.potential_improvements || ''
+                }));
+
+            // Map exterior_synthesis to exterior_and_neighborhood
+            const ext = v2Data.exterior_synthesis || {};
+            const exterior_and_lot_appeal = {
+                architecture_style: ext.exterior_and_lot_appeal?.architecture_style || "",
+                curb_appeal: ext.exterior_and_lot_appeal?.curb_appeal || "",
+                backyard_and_patio: ext.exterior_and_lot_appeal?.backyard_and_patio || ""
+            };
+            const views_privacy_orientation = {
+                views: ext.views_privacy_orientation?.views || "",
+                privacy: ext.views_privacy_orientation?.privacy || ""
+            };
+
+            const neighborhood_street_insights = ext.exterior_and_lot_appeal?.neighborhood_street_insights || ext.neighborhood_street_insights || "";
+
+            const outdoor_highlights = (v2Data.photos || [])
+                .filter((p: any) => p.analysis && !p.mirror_of && ['Front Yard', 'Backyard', 'Aerial View'].includes(p.group_label))
+                .map((p: any) => ({
+                    label: p.group_label,
+                    image_id: p.url || '',
+                    description: p.analysis || ''
+                }));
+
+            const exterior_and_neighborhood = {
+                exterior_and_lot_appeal,
+                views_privacy_orientation,
+                neighborhood_street_insights,
+                outdoor_highlights,
+                objective_tags: ext.objective_tags || []
+            };
+
+            return {
+                ...v2Data,
+                report_title: v2Data.report_title || "Vision AI Analysis",
+                image_by_image_analysis,
+                home_interior,
+                room_highlights,
+                exterior_and_neighborhood
+            } as CustomAIAnalysisResult;
+        }
+
         // 1. Use nested path (ONLY)
         const nestedRef = doc(db, "properties", zpid, "analysis", "visual");
         logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'visual' });

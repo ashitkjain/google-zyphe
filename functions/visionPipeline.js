@@ -866,8 +866,20 @@ function makeReapiCacheKey(id) {
 async function getImagesFromRealEstateApi(property, db, apiKey) {
     if (!apiKey) throw new Error("Missing RealEstateAPI key");
 
-    const mlsId = property.resoFacts?.mlsid || property.mlsid || "";
     const address = property.address || "";
+    const normalizedAddress = address.trim().toLowerCase();
+    const isPlaceholder = normalizedAddress.includes("homes available soon") ||
+                          normalizedAddress.includes("coming soon") ||
+                          normalizedAddress.includes("tbd") ||
+                          normalizedAddress.includes("to be determined") ||
+                          normalizedAddress.includes("address pending") ||
+                          normalizedAddress.includes("street pending");
+
+    if (isPlaceholder) {
+        throw new Error(`Address '${address}' is a placeholder/coming-soon label. No real estate listing or photos exist.`);
+    }
+
+    const mlsId = property.resoFacts?.mlsid || property.mlsid || "";
     const lookupId = mlsId || address;
     if (!lookupId) throw new Error("Property has no MLS ID or address for RealEstateAPI lookup");
 

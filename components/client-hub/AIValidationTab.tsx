@@ -120,11 +120,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             const visualSnapshot = await getDocs(collection(db, "property_analyses_visual"));
             visualSnapshot.docs.forEach(d => { visualMap[d.id] = d.data(); });
 
-            // 2b. New nested analysis/visual documents (using collectionGroup)
+            // 2b. New nested analysis/visual and vision_v2 documents (using collectionGroup)
             try {
                 const visualGroupSnapshot = await getDocs(collectionGroup(db, 'analysis'));
                 visualGroupSnapshot.forEach(d => {
-                    if (d.id === 'visual') {
+                    if (d.id === 'visual' || d.id === 'vision_v2') {
                         // For nested docs, the ZPID is the parent's parent ID: properties/{zpid}/analysis/visual
                         const zpid = d.ref.parent.parent?.id;
                         if (zpid) {
@@ -179,7 +179,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                     const visual = visualMap[p.zpid] as any;
 
                     const hasCoreData = !!((p.bedrooms !== undefined) && (p.bathrooms !== undefined) && p.description && (p.listPrice ?? p.price));
-                    const hasInterior = !!visual?.home_interior;
+                    const hasInterior = !!(visual?.home_interior || visual?.interior_synthesis);
 
                     const existing = assessmentMap[p.zpid];
 

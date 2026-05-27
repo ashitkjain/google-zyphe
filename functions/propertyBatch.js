@@ -20,7 +20,69 @@ const { _enrichProperty } = require('./shared/propertyUtils');
  */
 async function _processOneProperty(zpid, db, keys, logger = null) {
     if (logger) logger.logTask('property_enrichment');
-    return await _enrichProperty(zpid, db, keys, logger);
+    const res = await _enrichProperty(zpid, db, keys, logger);
+
+    // Run Neighborhood Narrative generation directly in the property data batch job
+    if (keys.gemini_key && res.address) {
+        try {
+            const propRef = db.collection('properties').doc(zpid);
+            const propSnap = await propRef.get();
+            const propData = propSnap.exists ? propSnap.data() : {};
+            
+            const needsNarrative = !propData.neighborhood_narrative || propData.neighborhood_narrative.length < 50;
+            if (needsNarrative) {
+                console.log(`[PropertyBatch] Generating neighborhood narrative for ${zpid}...`);
+                const { GoogleGenerativeAI } = require('@google/generative-ai');
+                const { getNeighborhoodNarrativePrompt } = await import('./prompts/property/neighborhoodNarrative.js');
+                const { _extractJson } = require('./shared/propertyUtils');
+                
+                const genAI = new GoogleGenerativeAI(keys.gemini_key);
+                const narrativeModel = genAI.getGenerativeModel({
+                    model: 'gemini-2.5-flash-lite',
+                    generationConfig: { responseMimeType: 'application/json' }
+                });
+                
+                // Fetch environmental google_places
+                const envRef = propRef.collection('environmental').doc('thirdparty_data');
+                const envSnap = await envRef.get();
+                const envData = envSnap.exists ? envSnap.data() : null;
+                const places = envData?.google_places || null;
+                
+                const prompt = getNeighborhoodNarrativePrompt(propData, places);
+                
+                // Run generative call with retries
+                let text = '';
+                let result = null;
+                const MAX_ATTEMPTS = 3;
+                for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                    try {
+                        if (attempt > 0) {
+                            const delay = Math.pow(2, attempt) * 2000 + Math.random() * 2000;
+                            await new Promise(r => setTimeout(r, delay));
+                        }
+                        result = await narrativeModel.generateContent(prompt);
+                        text = result.response.text();
+                        if (text?.trim()) break;
+                    } catch (e) {
+                        if (attempt === MAX_ATTEMPTS - 1) throw e;
+                    }
+                }
+                
+                const narrativeData = _extractJson(text);
+                if (narrativeData?.narrative && narrativeData.narrative.length > 20) {
+                    await propRef.set({ neighborhood_narrative: narrativeData.narrative }, { merge: true });
+                    if (logger) {
+                        logger.logLLMCall('gemini-2.5-flash-lite', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'neighborhoodNarrative.js');
+                    }
+                    console.log(`[PropertyBatch] Neighborhood narrative saved for ${zpid}`);
+                }
+            }
+        } catch (narrativeErr) {
+            console.warn(`[PropertyBatch] Neighborhood narrative failed for ${zpid}:`, narrativeErr.message);
+        }
+    }
+
+    return res;
 }
 
 // ─── Exported Function ───────────────────────────────────────────────────────

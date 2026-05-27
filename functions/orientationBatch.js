@@ -238,12 +238,15 @@ function _scorePhotoForFront(analysis = '') {
 function _findBestExteriorPhotos(imageByImageAnalysis, maxCount = 3) {
     if (!Array.isArray(imageByImageAnalysis) || imageByImageAnalysis.length === 0) return [];
     return imageByImageAnalysis
-        .map((item, idx) => ({
-            url: item.image_id || '',
-            index: idx,
-            score: _scorePhotoForFront(item.analysis || ''),
-            analysisSnippet: (item.analysis || '').slice(0, 150),
-        }))
+        .map((item, idx) => {
+            const url = item.url || item.image_id || '';
+            return {
+                url,
+                index: idx,
+                score: _scorePhotoForFront(item.analysis || ''),
+                analysisSnippet: (item.analysis || '').slice(0, 150),
+            };
+        })
         .filter(item => item.url && item.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, maxCount);
@@ -538,10 +541,13 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     let listingPhotosUsed = [];  // [{index, url, score, analysisSnippet}]
     if (!isMultiUnit) {
         try {
-            const visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
+            let visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('vision_v2').get();
+            if (!visualSnap.exists) {
+                visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
+            }
             if (visualSnap.exists) {
                 const visualData = visualSnap.data();
-                const bestItems = _findBestExteriorPhotos(visualData.image_by_image_analysis, 3);
+                const bestItems = _findBestExteriorPhotos(visualData.photos || visualData.image_by_image_analysis, 3);
                 if (bestItems.length > 0) {
                     const results = await Promise.allSettled(bestItems.map(item => _downloadImageBase64(item.url)));
                     listingPhotoImgs = results
@@ -1019,8 +1025,13 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     // 9a. Street Insights: run targeted Gemini on the street view while it's already downloaded
     if (svUrl && svImg && geminiKey) {
         try {
-            const visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
-            const hasInsights = !!(visualSnap.data()?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
+            let visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('vision_v2').get();
+            if (!visualSnap.exists) {
+                visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
+            }
+            const vData = visualSnap.data();
+            const hasInsights = !!(vData?.exterior_synthesis?.exterior_and_lot_appeal?.neighborhood_street_insights?.length > 20 ||
+                                  vData?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
             if (!hasInsights) {
                 await _enrichStreetInsights(zpid, db, geminiKey, svUrl, logger, { inlineData: { data: svImg.data, mimeType: svImg.mimeType } });
             }

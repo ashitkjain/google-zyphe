@@ -1656,8 +1656,14 @@ In 2-3 sentences, describe the street environment visible in this image: the con
         const insights = result.response.text().trim();
         if (!insights || insights.length < 20) return null;
 
-        await db.collection('properties').doc(zpid).collection('analysis').doc('visual').set(
-            { exterior_and_neighborhood: { neighborhood_street_insights: insights } },
+        await db.collection('properties').doc(zpid).collection('analysis').doc('vision_v2').set(
+            {
+                exterior_synthesis: {
+                    exterior_and_lot_appeal: {
+                        neighborhood_street_insights: insights
+                    }
+                }
+            },
             { merge: true }
         );
         console.log(`[StreetInsights] Saved for ${zpid}`);

@@ -26,7 +26,11 @@ const CACHE_TTL_DAYS = 14;
 
 // ─── Context builder ──────────────────────────────────────────────────────────
 
-function buildContextForGemini(prop, visual, investment) {
+function buildContextForGemini(prop, investment, visionExtension) {
+    const ext = visionExtension?.exterior_synthesis || {};
+    const appeal = ext.exterior_and_lot_appeal || {};
+    const int = visionExtension?.interior_synthesis || {};
+
     return {
         address: prop.address,
         city: prop.city,
@@ -43,10 +47,10 @@ function buildContextForGemini(prop, visual, investment) {
         resoFacts: prop.resoFacts,
         neighborhood: prop.neighborhood_identity,
         coordinates: prop.coordinates,
-        // From visual analysis
-        exteriorCondition: visual?.exterior_and_neighborhood?.condition_assessment,
-        streetCharacter: visual?.exterior_and_neighborhood?.street_character,
-        interiorHighlights: visual?.interior_analysis?.highlights,
+        // From visual analysis (mapped from vision_v2)
+        exteriorCondition: ext.exterior_atmosphere_scores ? `Curb appeal score: ${ext.exterior_atmosphere_scores.curb_appeal_score}/10` : null,
+        streetCharacter: appeal.curb_appeal || null,
+        interiorHighlights: int.overall_description || null,
         visionExtensionHighlights: visionExtension && visionExtension.photos ? visionExtension.photos.filter(p => p.analysis && p.group_label).map(p => ({ space: p.group_label, analysis: p.analysis })) : null,
         // From investment
         investmentSummary: investment?.executive_summary || investment?.summary,
@@ -58,9 +62,8 @@ function buildContextForGemini(prop, visual, investment) {
 async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
     // 1. Read property data and analysis subcollections in parallel
     const propRef = db.collection('properties').doc(zpid);
-    const [propSnap, visualSnap, investmentSnap, visionExtSnap] = await Promise.all([
+    const [propSnap, investmentSnap, visionExtSnap] = await Promise.all([
         propRef.get(),
-        propRef.collection('analysis').doc('visual').get(),
         propRef.collection('analysis').doc('investment').get(),
         propRef.collection('analysis').doc('vision_v2').get(),
     ]);
@@ -70,7 +73,6 @@ async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
     }
 
     const prop = propSnap.data();
-    const visual = visualSnap.exists ? visualSnap.data() : null;
     const investment = investmentSnap.exists ? investmentSnap.data() : null;
     const visionExtension = visionExtSnap.exists ? visionExtSnap.data() : null;
 
@@ -92,7 +94,7 @@ async function _processOneContextGraph(zpid, db, geminiKey, logger = null) {
     }
 
     // 3. Build prompt context
-    const context = buildContextForGemini(prop, visual, investment, visionExtension);
+    const context = buildContextForGemini(prop, investment, visionExtension);
 
     // 4. Call Gemini 2.5 Flash
     const genAI = new GoogleGenerativeAI(geminiKey);

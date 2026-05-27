@@ -2,8 +2,23 @@ function buildVisualContext(visual, streetView) {
     if (!visual && !streetView) return 'No visual analysis available.';
     const parts = [];
 
-    if (visual?.home_interior) {
-        const int = visual.home_interior;
+    const int = visual?.interior_synthesis || visual?.home_interior;
+    const ext = visual?.exterior_synthesis || visual?.exterior_and_neighborhood;
+
+    let roomHighlights = [];
+    if (visual?.photos && Array.isArray(visual.photos)) {
+        roomHighlights = visual.photos
+            .filter(p => p.analysis && !p.mirror_of && !['Front Yard', 'Backyard', 'Aerial View', 'Floor Plan', 'Other'].includes(p.group_label))
+            .map(p => ({
+                room_name: p.room_label || p.group_label || 'Interior Room',
+                floor: 'Main Floor',
+                description: p.analysis
+            }));
+    } else if (visual?.room_highlights) {
+        roomHighlights = visual.room_highlights;
+    }
+
+    if (int) {
         parts.push(`INTERIOR ANALYSIS:
 - Overall: ${int.overall_description || 'N/A'}
 - Design style: ${int.design_style?.style || 'N/A'} — ${int.design_style?.reasoning || ''}
@@ -13,21 +28,22 @@ function buildVisualContext(visual, streetView) {
 - Condition & finish: ${int.condition_and_finish || 'N/A'}`);
     }
 
-    if (visual?.room_highlights?.length) {
-        const rooms = visual.room_highlights.slice(0, 10).map(r =>
-            `  • ${r.room_name} (${r.floor}): ${r.description}${r.potential_improvements ? ` | Improvements: ${r.potential_improvements}` : ''}`
+    if (roomHighlights?.length) {
+        const rooms = roomHighlights.slice(0, 10).map(r =>
+            `  • ${r.room_name} (${r.floor || 'Main Floor'}): ${r.description}${r.potential_improvements ? ` | Improvements: ${r.potential_improvements}` : ''}`
         ).join('\n');
         parts.push(`ROOMS BREAKDOWN:\n${rooms}`);
     }
 
-    if (visual?.exterior_and_neighborhood) {
-        const ext = visual.exterior_and_neighborhood;
+    if (ext) {
+        const appeal = ext.exterior_and_lot_appeal || ext;
+        const views = ext.views_privacy_orientation || ext;
         parts.push(`EXTERIOR ANALYSIS:
-- Architecture: ${ext.exterior_and_lot_appeal?.architecture_style || 'N/A'}
-- Curb appeal: ${ext.exterior_and_lot_appeal?.curb_appeal || 'N/A'}
-- Backyard/patio: ${ext.exterior_and_lot_appeal?.backyard_and_patio || 'N/A'}
-- Views: ${ext.views_privacy_orientation?.views || 'N/A'}
-- Privacy: ${ext.views_privacy_orientation?.privacy || 'N/A'}`);
+- Architecture: ${appeal.architecture_style || 'N/A'}
+- Curb appeal: ${appeal.curb_appeal || 'N/A'}
+- Backyard/patio: ${appeal.backyard_and_patio || 'N/A'}
+- Views: ${views.views || 'N/A'}
+- Privacy: ${views.privacy || 'N/A'}`);
     }
 
     if (streetView) {

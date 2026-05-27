@@ -931,30 +931,58 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const zpids: string[] = Array.from(targetIds);
         setVisionBatchRunning(true);
         setVisionBatchProgress({ done: 0, failed: 0, total: zpids.length, current: '' });
-        addLog(`[Vision Analysis] Starting for ${zpids.length} properties via Cloud Function…`);
+        addLog(`[Vision Analysis] Starting parallel processing for ${zpids.length} properties via Cloud Function…`);
 
         const { getFunctions, httpsCallable } = await import('firebase/functions');
         const fn = httpsCallable(getFunctions(), 'runVisionAnalysisForProperty', { timeout: 540000 });
 
-        for (const zpid of zpids) {
-            try {
-                const property = await getPropertyFromCloud(zpid);
-                if (!property?.address) throw new Error('No address in Firestore');
+        const CONCURRENCY = 4;
+        const queue = [...zpids];
+        const activeAddresses: string[] = [];
 
-                setVisionBatchProgress(prev => prev && { ...prev, current: property.address! });
-                addLog(`[Vision Analysis] Running vision pipeline for ${property.address}…`);
+        const worker = async () => {
+            while (queue.length > 0) {
+                const zpid = queue.shift();
+                if (!zpid) continue;
 
-                await fn({ zpid });
-                addLog(`[Vision Analysis] ✓ Done for ${property.address}`);
-            } catch (e: any) {
-                addLog(`[Vision Analysis] ✗ ${zpid}: ${e.message}`);
-                setVisionBatchProgress(prev => prev && { ...prev, failed: prev.failed + 1 });
+                let currentAddress = zpid;
+                let currentId = zpid;
+                try {
+                    const property = await getPropertyFromCloud(zpid);
+                    if (!property?.address) throw new Error('No address in Firestore');
+                    currentAddress = property.address;
+                    currentId = property.mlsId || property.mlsid || zpid;
+
+                    activeAddresses.push(currentAddress);
+                    setVisionBatchProgress(prev => prev && { ...prev, current: activeAddresses.join(' | ') });
+                    addLog(`[Vision Analysis] Running vision pipeline for ${currentAddress}…`);
+
+                    await fn({ zpid });
+                    addLog(`[Vision Analysis] ✓ Done for ${currentAddress}`);
+                } catch (e: any) {
+                    addLog(`[Vision Analysis] ✗ ${currentId}: ${e.message}`);
+                    setVisionBatchProgress(prev => prev && { ...prev, failed: prev.failed + 1 });
+                } finally {
+                    const idx = activeAddresses.indexOf(currentAddress);
+                    if (idx !== -1) activeAddresses.splice(idx, 1);
+                    setVisionBatchProgress(prev => prev && { 
+                        ...prev, 
+                        done: prev.done + 1, 
+                        current: activeAddresses.join(' | ') 
+                    });
+                }
             }
-            setVisionBatchProgress(prev => prev && { ...prev, done: prev.done + 1, current: '' });
-        }
+        };
+
+        // Spawn concurrent worker threads
+        const workers = Array(Math.min(CONCURRENCY, zpids.length))
+            .fill(null)
+            .map(() => worker());
+
+        await Promise.all(workers);
 
         setVisionBatchRunning(false);
-        addLog(`[Vision Analysis] Complete — ${zpids.length - (visionBatchProgress?.failed ?? 0)} succeeded`);
+        addLog(`[Vision Analysis] Complete`);
     };
 
     const handleRetryFailed = async () => {
